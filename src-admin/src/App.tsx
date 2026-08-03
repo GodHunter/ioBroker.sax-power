@@ -1,10 +1,49 @@
-import React from "react";
+import React, {
+useEffect,
+} from "react";
 
 import {
+Alert,
 Box,
+Button,
+Card,
+CardContent,
+Chip,
 CircularProgress,
+Divider,
+Grid,
+IconButton,
+InputAdornment,
+Link,
+Stack,
+Tab,
+Tabs,
+TextField,
+ThemeProvider,
+Tooltip,
 Typography,
 } from "@mui/material";
+
+import {
+CloudDone,
+CloudOff,
+Code,
+DarkMode,
+Description,
+EnergySavingsLeaf,
+GitHub,
+InfoOutlined,
+LightMode,
+Lock,
+OpenInNew,
+Refresh,
+Savings,
+Storage,
+SupportAgent,
+Timeline,
+Visibility,
+VisibilityOff,
+} from "@mui/icons-material";
 
 import {
 GenericApp,
@@ -13,13 +52,55 @@ type GenericAppState,
 } from "@iobroker/adapter-react-v5";
 
 import type {
+AdapterRuntimeStatus,
+AdminTab,
 SaxPowerNativeConfig,
 } from "./types";
 
 interface SaxPowerAdminState
 extends GenericAppState {
-selectedTab: "cloud" | "support";
+selectedTab: AdminTab;
+runtimeStatus: AdapterRuntimeStatus;
+statusLoading: boolean;
+statusLoaded: boolean;
+statusError: string;
+showPassword: boolean;
 }
+
+interface RuntimeLoaderProps {
+enabled: boolean;
+onLoad: () => void;
+}
+
+function RuntimeLoader(
+props: RuntimeLoaderProps,
+): null {
+useEffect(
+() => {
+if (props.enabled) {
+props.onLoad();
+}
+},
+[
+props.enabled,
+props.onLoad,
+],
+);
+
+return null;
+}
+
+const EMPTY_RUNTIME_STATUS:
+AdapterRuntimeStatus = {
+connection: null,
+lastError: "",
+lastUpdate: "",
+deviceCount: null,
+statisticsSource:
+"pending-history-discovery",
+firstMeasurement: "",
+statisticsLastUpdate: "",
+};
 
 export default class App
 extends GenericApp<
@@ -29,7 +110,8 @@ SaxPowerAdminState
 public constructor(
 props: GenericAppProps,
 ) {
-const extendedProps: GenericAppProps = {
+const extendedProps:
+GenericAppProps = {
 ...props,
 adapterName: "sax-power",
 encryptedFields: [
@@ -42,22 +124,1341 @@ super(extendedProps);
 this.state = {
 ...this.state,
 selectedTab: "cloud",
+runtimeStatus: {
+...EMPTY_RUNTIME_STATUS,
+},
+statusLoading: false,
+statusLoaded: false,
+statusError: "",
+showPassword: false,
 };
 }
 
+private getNamespace(): string {
+const query =
+new URLSearchParams(
+window.location.search,
+);
+
+const instance =
+query.get("instance") ??
+"0";
+
+return `sax-power.${instance}`;
+}
+
+	private readStateValue(
+		state:
+			| {
+				val?: unknown;
+			}
+			| null
+			| undefined,
+	): string | number | boolean | null {
+		const value =
+			state?.val;
+
+		if (
+			typeof value === "string" ||
+			typeof value === "number" ||
+			typeof value === "boolean"
+		) {
+			return value;
+		}
+
+		return null;
+	}
+
+private readonly loadRuntimeStatus =
+async (): Promise<void> => {
+if (this.state.statusLoading) {
+return;
+}
+
+this.setState({
+statusLoading: true,
+statusError: "",
+});
+
+try {
+const namespace =
+this.getNamespace();
+
+const [
+connectionState,
+lastErrorState,
+lastUpdateState,
+deviceCountState,
+statisticsSourceState,
+firstMeasurementState,
+statisticsLastUpdateState,
+] = await Promise.all([
+this.socket.getState(
+`${namespace}.info.connection`,
+),
+this.socket.getState(
+`${namespace}.info.lastError`,
+),
+this.socket.getState(
+`${namespace}.info.lastUpdate`,
+),
+this.socket.getState(
+`${namespace}.statistics.info.deviceCount`,
+),
+this.socket.getState(
+`${namespace}.statistics.info.source`,
+),
+this.socket.getState(
+`${namespace}.statistics.info.firstMeasurement`,
+),
+this.socket.getState(
+`${namespace}.statistics.info.lastUpdate`,
+),
+]);
+
+const connectionValue =
+this.readStateValue(
+connectionState,
+);
+
+const deviceCountValue =
+this.readStateValue(
+deviceCountState,
+);
+
+this.setState({
+runtimeStatus: {
+connection:
+typeof connectionValue ===
+"boolean"
+? connectionValue
+: null,
+
+lastError:
+String(
+this.readStateValue(
+lastErrorState,
+) ?? "",
+),
+
+lastUpdate:
+String(
+this.readStateValue(
+lastUpdateState,
+) ?? "",
+),
+
+deviceCount:
+typeof deviceCountValue ===
+"number"
+? deviceCountValue
+: null,
+
+statisticsSource:
+String(
+this.readStateValue(
+statisticsSourceState,
+) ??
+"pending-history-discovery",
+),
+
+firstMeasurement:
+String(
+this.readStateValue(
+firstMeasurementState,
+) ?? "",
+),
+
+statisticsLastUpdate:
+String(
+this.readStateValue(
+statisticsLastUpdateState,
+) ?? "",
+),
+},
+
+statusLoading: false,
+statusLoaded: true,
+statusError: "",
+});
+} catch (error) {
+this.setState({
+statusLoading: false,
+statusLoaded: true,
+statusError:
+error instanceof Error
+? error.message
+: String(error),
+});
+}
+};
+
+private updateNativeField<
+Key extends keyof SaxPowerNativeConfig,
+>(
+key: Key,
+value: SaxPowerNativeConfig[Key],
+): void {
+const currentNative =
+this.state.native as
+unknown as SaxPowerNativeConfig;
+
+const nextNative:
+SaxPowerNativeConfig = {
+...currentNative,
+[key]: value,
+};
+
+this.setState({
+native:
+nextNative as unknown as
+Record<string, unknown>,
+
+changed:
+this.getIsChanged(
+nextNative as unknown as
+Record<string, unknown>,
+),
+} as unknown as Pick<
+SaxPowerAdminState,
+"native" | "changed"
+>);
+}
+
+private formatDate(
+value: string,
+): string {
+if (!value) {
+return "Noch nicht verfügbar";
+}
+
+const numeric =
+Number(value);
+
+const parsed =
+Number.isFinite(numeric) &&
+numeric > 0
+? new Date(numeric)
+: new Date(value);
+
+if (
+Number.isNaN(
+parsed.getTime(),
+)
+) {
+return value;
+}
+
+return parsed.toLocaleString();
+}
+
+private renderHeader(
+darkMode: boolean,
+): JSX.Element {
+const status =
+this.state.runtimeStatus;
+
+const connected =
+status.connection === true;
+
+return (
+<Card
+elevation={0}
+sx={{
+borderRadius: 3,
+overflow: "hidden",
+border: 1,
+borderColor: "divider",
+background:
+darkMode
+? "linear-gradient(135deg, rgba(20,31,46,0.98), rgba(14,20,30,0.98))"
+: "linear-gradient(135deg, #ffffff, #eef5fb)",
+}}
+>
+<CardContent
+sx={{
+padding: {
+xs: 2,
+md: 3,
+},
+"&:last-child": {
+paddingBottom: {
+xs: 2,
+md: 3,
+},
+},
+}}
+>
+<Stack
+direction={{
+xs: "column",
+sm: "row",
+}}
+alignItems={{
+xs: "flex-start",
+sm: "center",
+}}
+justifyContent="space-between"
+spacing={2}
+>
+<Stack
+direction="row"
+alignItems="center"
+spacing={2}
+>
+<Box
+component="img"
+src="sax-power.png"
+alt="SAX Power"
+sx={{
+width: 68,
+height: 68,
+objectFit:
+"contain",
+backgroundColor:
+"#ffffff",
+borderRadius: 2,
+padding: 0.75,
+boxShadow: 1,
+}}
+/>
+
+<Box>
+<Typography
+variant="h4"
+component="h1"
+sx={{
+fontWeight: 700,
+lineHeight: 1.1,
+}}
+>
+SAX Power
+</Typography>
+
+<Typography
+variant="body2"
+color="text.secondary"
+sx={{
+marginTop: 0.5,
+}}
+>
+ioBroker Cloud Adapter
+</Typography>
+</Box>
+</Stack>
+
+<Stack
+direction="row"
+spacing={1}
+alignItems="center"
+flexWrap="wrap"
+useFlexGap
+>
+<Chip
+icon={
+connected
+? <CloudDone />
+: <CloudOff />
+}
+label={
+connected
+? "Verbunden"
+: status.connection ===
+null
+? "Status unbekannt"
+: "Nicht verbunden"
+}
+color={
+connected
+? "success"
+: status.connection ===
+null
+? "default"
+: "error"
+}
+variant={
+darkMode
+? "outlined"
+: "filled"
+}
+/>
+
+<Tooltip
+title={
+darkMode
+? "Dark Mode aktiv"
+: "Light Mode aktiv"
+}
+>
+<Chip
+icon={
+darkMode
+? <DarkMode />
+: <LightMode />
+}
+label={
+darkMode
+? "Dark"
+: "Light"
+}
+variant="outlined"
+/>
+</Tooltip>
+
+<Tooltip title="Status aktualisieren">
+<span>
+<IconButton
+onClick={
+this.loadRuntimeStatus
+}
+disabled={
+this.state
+.statusLoading
+}
+color="primary"
+>
+{
+this.state
+.statusLoading
+? (
+<CircularProgress
+size={22}
+/>
+)
+: <Refresh />
+}
+</IconButton>
+</span>
+</Tooltip>
+</Stack>
+</Stack>
+</CardContent>
+</Card>
+);
+}
+
+private renderCloudTab(
+native: SaxPowerNativeConfig,
+): JSX.Element {
+return (
+<Grid
+container
+spacing={2}
+>
+<Grid
+item
+xs={12}
+lg={8}
+>
+<Card
+elevation={0}
+sx={{
+height: "100%",
+border: 1,
+borderColor: "divider",
+borderRadius: 3,
+}}
+>
+<CardContent>
+<Stack
+direction="row"
+alignItems="center"
+spacing={1}
+sx={{
+marginBottom: 2.5,
+}}
+>
+<CloudDone
+color="primary"
+/>
+
+<Typography
+variant="h6"
+fontWeight={700}
+>
+Cloud-Anbindung
+</Typography>
+</Stack>
+
+<Stack spacing={2.5}>
+<TextField
+fullWidth
+label="API-URL"
+value={
+native.apiUrl ??
+""
+}
+onChange={
+(event) =>
+this.updateNativeField(
+"apiUrl",
+event.target
+.value,
+)
+}
+helperText="SAX-Power-Cloud-Endpunkt"
+InputProps={{
+startAdornment: (
+<InputAdornment
+position="start"
+>
+<Storage />
+</InputAdornment>
+),
+}}
+/>
+
+<TextField
+fullWidth
+label="Benutzername / E-Mail"
+value={
+native.username ??
+""
+}
+onChange={
+(event) =>
+this.updateNativeField(
+"username",
+event.target
+.value,
+)
+}
+/>
+
+<TextField
+fullWidth
+label="Passwort"
+type={
+this.state
+.showPassword
+? "text"
+: "password"
+}
+value={
+native.password ??
+""
+}
+onChange={
+(event) =>
+this.updateNativeField(
+"password",
+event.target
+.value,
+)
+}
+InputProps={{
+startAdornment: (
+<InputAdornment
+position="start"
+>
+<Lock />
+</InputAdornment>
+),
+
+endAdornment: (
+<InputAdornment
+position="end"
+>
+<IconButton
+edge="end"
+onClick={
+() =>
+this.setState({
+showPassword:
+!this
+.state
+.showPassword,
+})
+}
+aria-label="Passwort anzeigen"
+>
+{
+this.state
+.showPassword
+? <VisibilityOff />
+: <Visibility />
+}
+</IconButton>
+</InputAdornment>
+),
+}}
+/>
+
+<TextField
+fullWidth
+label="Aktualisierungsintervall"
+type="number"
+value={
+native.pollInterval ??
+60
+}
+onChange={
+(event) =>
+this.updateNativeField(
+"pollInterval",
+Math.max(
+10,
+Number(
+event
+.target
+.value,
+) ||
+60,
+),
+)
+}
+helperText="Mindestens 10 Sekunden; empfohlen: 60 Sekunden"
+InputProps={{
+endAdornment: (
+<InputAdornment
+position="end"
+>
+Sekunden
+</InputAdornment>
+),
+}}
+inputProps={{
+min: 10,
+step: 10,
+}}
+/>
+</Stack>
+</CardContent>
+</Card>
+</Grid>
+
+<Grid
+item
+xs={12}
+lg={4}
+>
+<Stack spacing={2}>
+<Card
+elevation={0}
+sx={{
+border: 1,
+borderColor:
+"divider",
+borderRadius: 3,
+}}
+>
+<CardContent>
+<Typography
+variant="overline"
+color="text.secondary"
+>
+Verbindung
+</Typography>
+
+<Typography
+variant="h5"
+fontWeight={700}
+sx={{
+marginTop: 0.5,
+}}
+>
+{
+this.state
+.runtimeStatus
+.connection ===
+true
+? "Online"
+: this.state
+.runtimeStatus
+.connection ===
+null
+? "Unbekannt"
+: "Offline"
+}
+</Typography>
+
+<Typography
+variant="body2"
+color="text.secondary"
+sx={{
+marginTop: 1,
+}}
+>
+Letzte Aktualisierung:
+</Typography>
+
+<Typography
+variant="body2"
+>
+{
+this.formatDate(
+this.state
+.runtimeStatus
+.lastUpdate,
+)
+}
+</Typography>
+</CardContent>
+</Card>
+
+<Card
+elevation={0}
+sx={{
+border: 1,
+borderColor:
+"divider",
+borderRadius: 3,
+}}
+>
+<CardContent>
+<Stack
+direction="row"
+spacing={1}
+alignItems="center"
+>
+<Storage
+color="primary"
+/>
+
+<Typography
+variant="h6"
+fontWeight={700}
+>
+Erkannte Speicher
+</Typography>
+</Stack>
+
+<Typography
+variant="h3"
+fontWeight={700}
+color="primary"
+sx={{
+marginTop: 1,
+}}
+>
+{
+this.state
+.runtimeStatus
+.deviceCount ??
+"–"
+}
+</Typography>
+</CardContent>
+</Card>
+</Stack>
+</Grid>
+</Grid>
+);
+}
+
+private renderStatusTab(): JSX.Element {
+const status =
+this.state.runtimeStatus;
+
+const pending =
+status.statisticsSource ===
+"pending-history-discovery";
+
+return (
+<Stack spacing={2}>
+{
+this.state.statusError
+? (
+<Alert severity="error">
+{
+this.state
+.statusError
+}
+</Alert>
+)
+: null
+}
+
+<Grid
+container
+spacing={2}
+>
+{
+[
+{
+title:
+"Cloud-Verbindung",
+value:
+status.connection ===
+true
+? "Verbunden"
+: status.connection ===
+null
+? "Unbekannt"
+: "Getrennt",
+icon:
+status.connection ===
+true
+? <CloudDone />
+: <CloudOff />,
+color:
+status.connection ===
+true
+? "success.main"
+: status.connection ===
+null
+? "text.secondary"
+: "error.main",
+},
+{
+title:
+"Speicher",
+value:
+status.deviceCount ??
+"–",
+icon: <Storage />,
+color:
+"primary.main",
+},
+{
+title:
+"Statistikquelle",
+value:
+pending
+? "Noch nicht aktiv"
+: status.statisticsSource,
+icon: <Timeline />,
+color:
+pending
+? "warning.main"
+: "success.main",
+},
+{
+title:
+"Letzter Abruf",
+value:
+this.formatDate(
+status.lastUpdate,
+),
+icon:
+<EnergySavingsLeaf />,
+color:
+"primary.main",
+},
+].map(
+(card) => (
+<Grid
+item
+xs={12}
+sm={6}
+lg={3}
+key={
+card.title
+}
+>
+<Card
+elevation={0}
+sx={{
+height:
+"100%",
+border: 1,
+borderColor:
+"divider",
+borderRadius: 3,
+}}
+>
+<CardContent>
+<Box
+sx={{
+color:
+card.color,
+marginBottom: 1,
+}}
+>
+{
+card.icon
+}
+</Box>
+
+<Typography
+variant="body2"
+color="text.secondary"
+>
+{
+card.title
+}
+</Typography>
+
+<Typography
+variant="h6"
+fontWeight={700}
+sx={{
+marginTop: 0.5,
+wordBreak:
+"break-word",
+}}
+>
+{
+card.value
+}
+</Typography>
+</CardContent>
+</Card>
+</Grid>
+),
+)
+}
+</Grid>
+
+<Card
+elevation={0}
+sx={{
+border: 1,
+borderColor: "divider",
+borderRadius: 3,
+}}
+>
+<CardContent>
+<Stack
+direction="row"
+spacing={1}
+alignItems="center"
+>
+<Timeline
+color="primary"
+/>
+
+<Typography
+variant="h6"
+fontWeight={700}
+>
+Historische Statistik
+</Typography>
+</Stack>
+
+<Divider
+sx={{
+marginY: 2,
+}}
+/>
+
+{
+pending
+? (
+<Alert
+severity="info"
+icon={
+<InfoOutlined />
+}
+>
+<Typography
+fontWeight={700}
+>
+Historischer Abruf noch nicht implementiert
+</Typography>
+
+<Typography
+variant="body2"
+sx={{
+marginTop: 0.5,
+}}
+>
+Die Statistikobjekte sind bereits vorbereitet. Der Wert
+{" "}
+<strong>
+pending-history-discovery
+</strong>
+{" "}
+bedeutet nicht, dass ein automatischer Prozess wartet.
+Die Dashboard- beziehungsweise CSV-History wird in der
+nächsten Entwicklungsphase implementiert.
+</Typography>
+</Alert>
+)
+: (
+<Alert severity="success">
+Die historische Statistik ist aktiv.
+</Alert>
+)
+}
+
+<Grid
+container
+spacing={2}
+sx={{
+marginTop: 0.5,
+}}
+>
+<Grid
+item
+xs={12}
+md={6}
+>
+<Typography
+variant="caption"
+color="text.secondary"
+>
+Erste Messung
+</Typography>
+
+<Typography>
+{
+this.formatDate(
+status.firstMeasurement,
+)
+}
+</Typography>
+</Grid>
+
+<Grid
+item
+xs={12}
+md={6}
+>
+<Typography
+variant="caption"
+color="text.secondary"
+>
+Letzte Statistikaktualisierung
+</Typography>
+
+<Typography>
+{
+this.formatDate(
+status.statisticsLastUpdate,
+)
+}
+</Typography>
+</Grid>
+</Grid>
+</CardContent>
+</Card>
+
+{
+status.lastError
+? (
+<Alert severity="warning">
+<strong>
+Letzter Adapterfehler:
+</strong>
+{" "}
+{status.lastError}
+</Alert>
+)
+: null
+}
+</Stack>
+);
+}
+
+private renderSupportTab(): JSX.Element {
+const links = [
+{
+title:
+"GitHub Repository",
+description:
+"Quellcode und Projektentwicklung",
+url:
+"https://github.com/GodHunter/ioBroker.sax-power",
+icon: <GitHub />,
+},
+{
+title:
+"Dokumentation",
+description:
+"Objekte, API, Architektur und Statistik",
+url:
+"https://github.com/GodHunter/ioBroker.sax-power/tree/main/docs",
+icon:
+<Description />,
+},
+{
+title:
+"Issue melden",
+description:
+"Fehler melden oder Funktion vorschlagen",
+url:
+"https://github.com/GodHunter/ioBroker.sax-power/issues",
+icon:
+<SupportAgent />,
+},
+{
+title:
+"MIT-Lizenz",
+description:
+"Lizenzbedingungen des Projekts",
+url:
+"https://github.com/GodHunter/ioBroker.sax-power/blob/main/LICENSE",
+icon: <Code />,
+},
+];
+
+return (
+<Grid
+container
+spacing={2}
+>
+<Grid
+item
+xs={12}
+lg={8}
+>
+<Card
+elevation={0}
+sx={{
+border: 1,
+borderColor: "divider",
+borderRadius: 3,
+}}
+>
+<CardContent>
+<Typography
+variant="h6"
+fontWeight={700}
+>
+Projekt & Hilfe
+</Typography>
+
+<Typography
+variant="body2"
+color="text.secondary"
+sx={{
+marginTop: 0.5,
+marginBottom: 2,
+}}
+>
+Der SAX-Power-Adapter ist ein unabhängiges
+Open-Source-Community-Projekt.
+</Typography>
+
+<Grid
+container
+spacing={2}
+>
+{
+links.map(
+(link) => (
+<Grid
+item
+xs={12}
+sm={6}
+key={
+link.title
+}
+>
+<Button
+fullWidth
+variant="outlined"
+startIcon={
+link.icon
+}
+endIcon={
+<OpenInNew />
+}
+component="a"
+href={
+link.url
+}
+target="_blank"
+rel="noreferrer"
+sx={{
+justifyContent:
+"flex-start",
+textAlign:
+"left",
+padding: 1.5,
+minHeight: 72,
+textTransform:
+"none",
+}}
+>
+<Box>
+<Typography
+fontWeight={700}
+>
+{
+link.title
+}
+</Typography>
+
+<Typography
+variant="caption"
+color="text.secondary"
+>
+{
+link.description
+}
+</Typography>
+</Box>
+</Button>
+</Grid>
+),
+)
+}
+</Grid>
+
+<Alert
+severity="info"
+sx={{
+marginTop: 2,
+}}
+>
+SAX Power und das SAX-Power-Logo sind geschützte
+Marken beziehungsweise Markenbestandteile der
+SAX Power GmbH. Dieses Projekt ist nicht offiziell
+mit der SAX Power GmbH verbunden.
+</Alert>
+</CardContent>
+</Card>
+</Grid>
+
+<Grid
+item
+xs={12}
+lg={4}
+>
+<Stack spacing={2}>
+<Card
+elevation={0}
+sx={{
+border: 1,
+borderColor:
+"divider",
+borderRadius: 3,
+}}
+>
+<CardContent>
+<Stack
+direction="row"
+spacing={1}
+alignItems="center"
+>
+<Savings
+color="primary"
+/>
+
+<Typography
+variant="h6"
+fontWeight={700}
+>
+Entwicklung unterstützen
+</Typography>
+</Stack>
+
+<Typography
+variant="body2"
+color="text.secondary"
+sx={{
+marginTop: 1,
+marginBottom: 2,
+}}
+>
+Die Entwicklung erfolgt ehrenamtlich.
+Eine Spende ist freiwillig und hilft bei
+Test, Dokumentation und Weiterentwicklung.
+</Typography>
+
+<Button
+fullWidth
+variant="contained"
+component="a"
+href="https://www.paypal.com/donate/?business=tobias.pruegner%40posteo.de&no_recurring=0&currency_code=EUR&item_name=ioBroker%20SAX%20Power%20Adapter"
+target="_blank"
+rel="noreferrer"
+startIcon={
+<Savings />
+}
+sx={{
+textTransform:
+"none",
+fontWeight: 700,
+paddingY: 1.2,
+}}
+>
+Mit PayPal spenden
+</Button>
+</CardContent>
+</Card>
+
+<Card
+elevation={0}
+sx={{
+border: 1,
+borderColor:
+"divider",
+borderRadius: 3,
+}}
+>
+<CardContent>
+<Typography
+variant="h6"
+fontWeight={700}
+>
+Nach V1.0
+</Typography>
+
+<Stack
+spacing={1}
+sx={{
+marginTop: 1.5,
+}}
+>
+{
+[
+"Modbus-Steuerung",
+"Intelligente Ladealgorithmen",
+"Benutzerdefinierte Zeiträume",
+"Batterieanalyse",
+].map(
+(item) => (
+<Stack
+key={
+item
+}
+direction="row"
+spacing={1}
+alignItems="center"
+>
+<EnergySavingsLeaf
+fontSize="small"
+color="primary"
+/>
+
+<Typography
+variant="body2"
+>
+{
+item
+}
+</Typography>
+</Stack>
+),
+)
+}
+</Stack>
+</CardContent>
+</Card>
+</Stack>
+</Grid>
+</Grid>
+);
+}
+
 public render(): JSX.Element {
+const theme =
+			this.state.theme;
+
+const darkMode =
+			this.state.themeType ===
+			"dark";
+
 if (!this.state.loaded) {
 return (
+<ThemeProvider theme={theme}>
 <Box
 sx={{
 display: "flex",
 alignItems: "center",
-justifyContent: "center",
+justifyContent:
+"center",
 minHeight: "100vh",
+backgroundColor:
+"background.default",
 }}
 >
 <CircularProgress />
 </Box>
+</ThemeProvider>
 );
 }
 
@@ -66,36 +1467,167 @@ this.state.native as
 unknown as SaxPowerNativeConfig;
 
 return (
+<ThemeProvider theme={theme}>
+<RuntimeLoader
+enabled={
+this.state.loaded &&
+!this.state.statusLoaded &&
+!this.state.statusLoading
+}
+onLoad={
+this.loadRuntimeStatus
+}
+/>
+
 <Box
 sx={{
 minHeight: "100vh",
 backgroundColor:
 "background.default",
 color: "text.primary",
-padding: 3,
+padding: {
+xs: 1.5,
+sm: 2,
+md: 3,
+},
 }}
 >
-<Typography
-variant="h4"
-component="h1"
-gutterBottom
+<Box
+sx={{
+maxWidth: 1440,
+margin: "0 auto",
+}}
 >
-SAX Power
-</Typography>
+{this.renderHeader(darkMode)}
 
-<Typography>
-React Admin foundation loaded.
-</Typography>
-
-<Typography
-variant="body2"
+<Card
+elevation={0}
 sx={{
 marginTop: 2,
+marginBottom: 2,
+border: 1,
+borderColor:
+"divider",
+borderRadius: 3,
 }}
 >
-API URL: {native.apiUrl}
-</Typography>
+<Tabs
+value={
+this.state
+.selectedTab
+}
+onChange={
+(
+_event,
+value:
+AdminTab,
+) =>
+this.setState({
+selectedTab:
+value,
+})
+}
+variant="scrollable"
+scrollButtons="auto"
+allowScrollButtonsMobile
+sx={{
+paddingX: 1,
+}}
+>
+<Tab
+value="cloud"
+icon={
+<CloudDone />
+}
+iconPosition="start"
+label="Cloud"
+/>
+
+<Tab
+value="status"
+icon={
+<Timeline />
+}
+iconPosition="start"
+label="Status & Statistik"
+/>
+
+<Tab
+value="support"
+icon={
+<SupportAgent />
+}
+iconPosition="start"
+label="Support & Info"
+/>
+</Tabs>
+</Card>
+
+{
+this.state
+.selectedTab ===
+"cloud"
+? this.renderCloudTab(
+native,
+)
+: null
+}
+
+{
+this.state
+.selectedTab ===
+"status"
+? this.renderStatusTab()
+: null
+}
+
+{
+this.state
+.selectedTab ===
+"support"
+? this.renderSupportTab()
+: null
+}
+
+<Box
+sx={{
+marginTop: 3,
+paddingBottom: 2,
+}}
+>
+{
+this.renderSaveCloseButtons()
+}
 </Box>
+
+<Stack
+direction={{
+xs: "column",
+sm: "row",
+}}
+justifyContent="space-between"
+spacing={1}
+sx={{
+paddingY: 1,
+}}
+>
+<Typography
+variant="caption"
+color="text.secondary"
+>
+ioBroker SAX Power Adapter
+</Typography>
+
+<Typography
+variant="caption"
+color="text.secondary"
+>
+V1.0-Entwicklungsstand
+</Typography>
+</Stack>
+</Box>
+</Box>
+</ThemeProvider>
 );
 }
 }

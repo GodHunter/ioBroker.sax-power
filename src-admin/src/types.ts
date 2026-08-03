@@ -5,8 +5,8 @@ password: string;
 pollInterval: number;
 
 /*
- * Retained for backwards compatibility with pre-1.0
- * development instances. They are not shown in V1.0.
+ * Retained only for compatibility with development instances.
+ * Modbus control is intentionally not exposed in V1.0.
  */
 modbusControlEnabled?: boolean;
 modbusInstance?: string;
@@ -19,8 +19,12 @@ connection: boolean | null;
 lastError: string;
 lastUpdate: string;
 deviceCount: number | null;
+statisticsSource: string;
+firstMeasurement: string;
+statisticsLastUpdate: string;
 }
 
 export type AdminTab =
 | "cloud"
+| "status"
 | "support";
