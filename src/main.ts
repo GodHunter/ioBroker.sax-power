@@ -19,6 +19,11 @@ apiUrl: string;
 username: string;
 password: string;
 pollInterval: number;
+
+modbusControlEnabled: boolean;
+modbusInstance: string;
+modbusChargePowerStateId: string;
+modbusDischargePowerStateId: string;
 }
 
 class SaxPower extends utils.Adapter {
@@ -119,6 +124,12 @@ this.saxConfig.pollInterval < 30
 		) {
 			return "The polling interval must be at least 30 seconds.";
 		}
+
+		/*
+ * Modbus control is an optional feature. The SAX Power cloud
+ * connection and all read-only device states work independently
+ * when Modbus control is disabled.
+ */
 
 		return undefined;
 	}

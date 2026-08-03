@@ -92,7 +92,11 @@
     "apiUrl": "https://webserver.sax-power.net",
     "username": "",
     "password": "",
-    "pollInterval": 60
+    "pollInterval": 60,
+    "modbusControlEnabled": false,
+    "modbusInstance": "",
+    "modbusChargePowerStateId": "",
+    "modbusDischargePowerStateId": ""
   },
   "objects": [],
   "instanceObjects": [
