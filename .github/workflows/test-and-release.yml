@@ -23,7 +23,7 @@ jobs:
     steps:
       - uses: ioBroker/testing-action-check@v1
         with:
-          node-version: "20.x"
+          node-version: '22.x'
           type-checking: true
           lint: true
 
