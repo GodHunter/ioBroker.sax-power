@@ -20,7 +20,7 @@
     "url": "git+https://github.com/GodHunter/ioBroker.sax-power.git"
   },
   "engines": {
-    "node": ">= 20"
+    "node": ">= 22"
   },
   "dependencies": {
     "@iobroker/adapter-core": "^3.4.3"
