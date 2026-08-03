@@ -17,7 +17,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/GodHunter/ioBroker.sax-power.git"
+    "url": "git+https://github.com/GodHunter/ioBroker.sax-power.git"
   },
   "engines": {
     "node": ">= 20"
