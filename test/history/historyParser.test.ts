@@ -18,7 +18,9 @@ import {
 } from "mocha";
 
 import {
+	aggregateHistoryMetadata,
 	aggregateStatistics,
+	createDeviceHistoryMetadata,
 	parseDeviceStatistics,
 } from "../../src/lib/saxPowerHistoryParser";
 
@@ -172,6 +174,98 @@ statistics,
 						.today
 						.dischargedKwh,
 					6.692,
+				);
+			},
+		);
+	},
+);
+
+describe(
+	"SAX Power history metadata",
+	() => {
+		it(
+			"creates metadata for all periods",
+			async () => {
+				const week =
+loadFixture(
+	"energy-chart-week_2026-08-03.json",
+);
+
+				const month =
+loadFixture(
+	"energy-chart-month_2026-08-03.json",
+);
+
+				const year =
+loadFixture(
+	"energy-chart-year_2026-08-03.json",
+);
+
+				const total =
+loadFixture(
+	"energy-chart-total_2026-08-03.json",
+);
+
+				const metadata =
+createDeviceHistoryMetadata({
+	serialNumber:
+SERIAL_NUMBER,
+	todayIso:
+"2026-08-03",
+	week,
+	month,
+	year,
+	total,
+});
+
+				equal(
+					metadata.today.samples,
+					1,
+				);
+
+				equal(
+					metadata.week.samples,
+					8,
+				);
+
+				equal(
+					metadata.month.samples,
+					3,
+				);
+
+				equal(
+					metadata.year.samples,
+					8,
+				);
+
+				equal(
+					metadata.total.samples,
+					2,
+				);
+
+				equal(
+					metadata.today
+						.firstTimestamp,
+					"2026-08-03",
+				);
+
+				const aggregate =
+aggregateHistoryMetadata({
+	[SERIAL_NUMBER]:
+metadata,
+});
+
+				equal(
+					aggregate.total
+						.week.samples,
+					8,
+				);
+
+				equal(
+					aggregate.total
+						.total
+						.firstTimestamp,
+					"2025",
 				);
 			},
 		);

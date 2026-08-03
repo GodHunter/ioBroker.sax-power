@@ -58,3 +58,28 @@ year: SaxPowerEnergyValues;
 total: SaxPowerEnergyValues;
 };
 }
+
+export interface SaxPowerHistoryPeriodMetadata {
+samples: number;
+firstTimestamp: string;
+lastTimestamp: string;
+completeness: number;
+source: "sax-power-energy-chart";
+}
+
+export interface SaxPowerDeviceHistoryMetadata {
+today: SaxPowerHistoryPeriodMetadata;
+week: SaxPowerHistoryPeriodMetadata;
+month: SaxPowerHistoryPeriodMetadata;
+year: SaxPowerHistoryPeriodMetadata;
+total: SaxPowerHistoryPeriodMetadata;
+}
+
+export interface SaxPowerStatisticsMetadata {
+devices: Record<
+string,
+SaxPowerDeviceHistoryMetadata
+>;
+
+total: SaxPowerDeviceHistoryMetadata;
+}

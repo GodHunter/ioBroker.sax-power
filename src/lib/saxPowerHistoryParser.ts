@@ -344,3 +344,222 @@ addValues(
 		total,
 	};
 }
+
+import type {
+	SaxPowerDeviceHistoryMetadata,
+	SaxPowerHistoryPeriodMetadata,
+	SaxPowerStatisticsMetadata,
+} from "./saxPowerHistory";
+
+function timestampOfRecord(
+	record: SaxPowerEnergyRecord,
+): string {
+	if (typeof record.de_time === "string") {
+		return record.de_time;
+	}
+
+	if (typeof record.me_time === "string") {
+		return record.me_time;
+	}
+
+	if (
+		typeof record.year === "number" &&
+Number.isFinite(record.year)
+	) {
+		return String(record.year);
+	}
+
+	return "";
+}
+
+function createPeriodMetadata(
+	records: SaxPowerEnergyRecord[],
+): SaxPowerHistoryPeriodMetadata {
+	const timestamps =
+records
+	.map(timestampOfRecord)
+	.filter(Boolean)
+	.sort();
+
+	return {
+		samples: records.length,
+
+		firstTimestamp:
+timestamps[0] ?? "",
+
+		lastTimestamp:
+timestamps[
+	timestamps.length - 1
+] ?? "",
+
+		/*
+ * The SAX endpoint returns server-side period aggregates.
+ * A defensible percentage cannot be inferred solely from
+ * the number of returned records, especially for an active
+ * day, week, month or year.
+ */
+		completeness: 0,
+
+		source:
+"sax-power-energy-chart",
+	};
+}
+
+export function createDeviceHistoryMetadata(
+	options: {
+serialNumber: string;
+todayIso: string;
+
+week:
+SaxPowerEnergyChartResponse;
+
+month:
+SaxPowerEnergyChartResponse;
+
+year:
+SaxPowerEnergyChartResponse;
+
+total:
+SaxPowerEnergyChartResponse;
+},
+): SaxPowerDeviceHistoryMetadata {
+	const monthRecords =
+getRecords(
+	options.month,
+	options.serialNumber,
+);
+
+	return {
+		today:
+createPeriodMetadata(
+	selectTodayRecord(
+		monthRecords,
+		options.todayIso,
+	),
+),
+
+		week:
+createPeriodMetadata(
+	getRecords(
+		options.week,
+		options.serialNumber,
+	),
+),
+
+		month:
+createPeriodMetadata(
+	monthRecords,
+),
+
+		year:
+createPeriodMetadata(
+	getRecords(
+		options.year,
+		options.serialNumber,
+	),
+),
+
+		total:
+createPeriodMetadata(
+	getRecords(
+		options.total,
+		options.serialNumber,
+	),
+),
+	};
+}
+
+function aggregatePeriodMetadata(
+	values:
+readonly SaxPowerHistoryPeriodMetadata[],
+): SaxPowerHistoryPeriodMetadata {
+	const timestamps =
+values
+	.flatMap(
+		(value) => [
+			value.firstTimestamp,
+			value.lastTimestamp,
+		],
+	)
+	.filter(Boolean)
+	.sort();
+
+	return {
+		samples:
+values.reduce(
+	(sum, value) =>
+		sum + value.samples,
+	0,
+),
+
+		firstTimestamp:
+timestamps[0] ?? "",
+
+		lastTimestamp:
+timestamps[
+	timestamps.length - 1
+] ?? "",
+
+		completeness: 0,
+
+		source:
+"sax-power-energy-chart",
+	};
+}
+
+export function aggregateHistoryMetadata(
+	devices:
+Record<
+string,
+SaxPowerDeviceHistoryMetadata
+>,
+): SaxPowerStatisticsMetadata {
+	const values =
+Object.values(devices);
+
+	return {
+		devices,
+
+		total: {
+			today:
+aggregatePeriodMetadata(
+	values.map(
+		(value) =>
+			value.today,
+	),
+),
+
+			week:
+aggregatePeriodMetadata(
+	values.map(
+		(value) =>
+			value.week,
+	),
+),
+
+			month:
+aggregatePeriodMetadata(
+	values.map(
+		(value) =>
+			value.month,
+	),
+),
+
+			year:
+aggregatePeriodMetadata(
+	values.map(
+		(value) =>
+			value.year,
+	),
+),
+
+			total:
+aggregatePeriodMetadata(
+	values.map(
+		(value) =>
+			value.total,
+	),
+),
+		},
+	};
+}

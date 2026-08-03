@@ -15,6 +15,12 @@ import {
 	SaxPowerStatisticsStateEngine,
 } from "./statisticsStateEngine";
 
+import type {
+	SaxPowerStatisticsMetadata,
+	SaxPowerStatisticsResult,
+} from "./saxPowerHistory";
+
+
 const DEVICE_ROOT = "devices";
 
 const CATEGORY_NAMES:
@@ -292,6 +298,28 @@ definition.value(
 			},
 		);
 	}
+
+	public async writeStatistics(
+		result: SaxPowerStatisticsResult,
+		metadata: SaxPowerStatisticsMetadata,
+		updatedAt: string,
+	): Promise<void> {
+		await this.statistics.writeStatistics(
+			result,
+			metadata,
+			updatedAt,
+		);
+	}
+
+	public async writeStatisticsError(
+		message: string,
+	): Promise<void> {
+		await this.statistics.writeError(
+			message,
+		);
+	}
+
+
 
 	private sanitizeObjectId(
 		value: string,

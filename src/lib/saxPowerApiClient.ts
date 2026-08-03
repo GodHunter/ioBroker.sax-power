@@ -19,6 +19,27 @@ data?: unknown;
 [key: string]: unknown;
 }
 
+export interface SaxPowerEnergyRecord {
+de_time?: string;
+me_time?: string;
+year?: number;
+
+m2?: number | null;
+m2N?: number | null;
+m4?: number | null;
+m5?: number | null;
+m5N?: number | null;
+
+total_m2?: number | null;
+total_m2N?: number | null;
+total_m4?: number | null;
+total_m5?: number | null;
+total_m5N?: number | null;
+}
+
+export type SaxPowerEnergyChartResponse =
+Record<string, SaxPowerEnergyRecord[]>;
+
 export class SaxPowerApiError extends Error {
 	public readonly statusCode?: number;
 	public readonly responseBody?: string;
@@ -148,6 +169,61 @@ error.statusCode === 401
 			throw error;
 		}
 	}
+
+
+	public async getEnergyChart(
+		serialNumber: string,
+		days: string,
+	): Promise<SaxPowerEnergyChartResponse> {
+		if (!this.accessToken) {
+			await this.login();
+		}
+
+		const query =
+new globalThis.URLSearchParams({
+	sn: serialNumber,
+	m2: "true",
+	m4: "true",
+	m5: "true",
+	days,
+});
+
+		const path =
+`/api/auth/energy_chart/?${query.toString()}`;
+
+		try {
+			return await this.request<
+SaxPowerEnergyChartResponse
+>(
+	path,
+	{
+		method: "GET",
+	},
+	true,
+);
+		} catch (error) {
+			if (
+				error instanceof SaxPowerApiError &&
+error.statusCode === 401
+			) {
+				this.clearTokens();
+				await this.login();
+
+				return this.request<
+SaxPowerEnergyChartResponse
+>(
+	path,
+	{
+		method: "GET",
+	},
+	true,
+);
+			}
+
+			throw error;
+		}
+	}
+
 
 	private async request<T>(
 		path: string,

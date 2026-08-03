@@ -6,6 +6,15 @@ import type {
 	SaxPowerDevice,
 } from "./saxPowerDevice";
 
+import type {
+	SaxPowerDeviceHistoryMetadata,
+	SaxPowerDeviceStatistics,
+	SaxPowerEnergyValues,
+	SaxPowerHistoryPeriodMetadata,
+	SaxPowerStatisticsMetadata,
+	SaxPowerStatisticsResult,
+} from "./saxPowerHistory";
+
 const STATISTICS_PERIODS = [
 	"day",
 	"week",
@@ -16,6 +25,22 @@ const STATISTICS_PERIODS = [
 
 type StatisticsPeriod =
 (typeof STATISTICS_PERIODS)[number];
+
+type ModelPeriod =
+| "today"
+| "week"
+| "month"
+| "year"
+| "total";
+
+const PERIOD_MODEL_MAP:
+Record<StatisticsPeriod, ModelPeriod> = {
+	day: "today",
+	week: "week",
+	month: "month",
+	year: "year",
+	total: "total",
+};
 
 const PLACEHOLDER_SOURCE =
 "pending-history-discovery";
@@ -37,6 +62,12 @@ SaxPowerObjectAdapter;
 
 	private readonly initializedDevices =
 		new Set<string>();
+
+	private readonly stateCache =
+		new Map<
+string,
+string | number
+>();
 
 	public constructor(
 		adapter: SaxPowerObjectAdapter,
@@ -81,12 +112,207 @@ this.initializedDevices.has(
 			);
 		}
 
-		await this.adapter.setStateAsync(
+		await this.writeCachedState(
 			"statistics.info.deviceCount",
+			devices.length,
+		);
+	}
+
+	public async writeStatistics(
+		result: SaxPowerStatisticsResult,
+		metadata: SaxPowerStatisticsMetadata,
+		updatedAt: string,
+	): Promise<void> {
+		for (
+			const [
+				serialNumber,
+				deviceStatistics,
+			]
+			of Object.entries(
+				result.devices,
+			)
+		) {
+			const safeSerial =
+this.sanitizeObjectId(
+	serialNumber,
+);
+
+			if (!safeSerial) {
+				continue;
+			}
+
+			const deviceMetadata =
+metadata.devices[
+	serialNumber
+];
+
+			if (!deviceMetadata) {
+				continue;
+			}
+
+			await this.writeStatisticsTree(
+				`devices.${safeSerial}.statistics`,
+				deviceStatistics,
+				deviceMetadata,
+				updatedAt,
+			);
+		}
+
+		await this.writeStatisticsTree(
+			"statistics",
 			{
-				val: devices.length,
+				serialNumber:
+"aggregate",
+
+				...result.total,
+			},
+			metadata.total,
+			updatedAt,
+		);
+
+		await this.writeCachedState(
+			"statistics.info.deviceCount",
+			Object.keys(
+				result.devices,
+			).length,
+		);
+	}
+
+	public async writeError(
+		message: string,
+	): Promise<void> {
+		await this.writeCachedState(
+			"statistics.info.lastError",
+			message,
+		);
+	}
+
+	private async writeStatisticsTree(
+		rootId: string,
+		statistics: SaxPowerDeviceStatistics,
+		metadata: SaxPowerDeviceHistoryMetadata,
+		updatedAt: string,
+	): Promise<void> {
+		for (
+			const statePeriod
+			of STATISTICS_PERIODS
+		) {
+			const modelPeriod =
+PERIOD_MODEL_MAP[
+	statePeriod
+];
+
+			await this.writePeriod(
+				`${rootId}.${statePeriod}`,
+				statistics[
+					modelPeriod
+				],
+				metadata[
+					modelPeriod
+				],
+			);
+		}
+
+		const firstMeasurement =
+[
+	metadata.total
+		.firstTimestamp,
+	metadata.year
+		.firstTimestamp,
+	metadata.month
+		.firstTimestamp,
+	metadata.week
+		.firstTimestamp,
+	metadata.today
+		.firstTimestamp,
+]
+	.filter(Boolean)
+	.sort()[0] ?? "";
+
+		await this.writeCachedState(
+			`${rootId}.info.firstMeasurement`,
+			firstMeasurement,
+		);
+
+		await this.writeCachedState(
+			`${rootId}.info.lastUpdate`,
+			updatedAt,
+		);
+
+		await this.writeCachedState(
+			`${rootId}.info.source`,
+			"sax-power-energy-chart",
+		);
+
+		await this.writeCachedState(
+			`${rootId}.info.lastError`,
+			"",
+		);
+	}
+
+	private async writePeriod(
+		periodId: string,
+		values: SaxPowerEnergyValues,
+		metadata: SaxPowerHistoryPeriodMetadata,
+	): Promise<void> {
+		await this.writeCachedState(
+			`${periodId}.chargedEnergy`,
+			values.chargedKwh,
+		);
+
+		await this.writeCachedState(
+			`${periodId}.dischargedEnergy`,
+			values.dischargedKwh,
+		);
+
+		await this.writeCachedState(
+			`${periodId}.samples`,
+			metadata.samples,
+		);
+
+		await this.writeCachedState(
+			`${periodId}.firstTimestamp`,
+			metadata.firstTimestamp,
+		);
+
+		await this.writeCachedState(
+			`${periodId}.lastTimestamp`,
+			metadata.lastTimestamp,
+		);
+
+		await this.writeCachedState(
+			`${periodId}.completeness`,
+			metadata.completeness,
+		);
+
+		await this.writeCachedState(
+			`${periodId}.source`,
+			metadata.source,
+		);
+	}
+
+	private async writeCachedState(
+		id: string,
+		value: string | number,
+	): Promise<void> {
+		if (
+			this.stateCache.get(id) ===
+value
+		) {
+			return;
+		}
+
+		await this.adapter.setStateAsync(
+			id,
+			{
+				val: value,
 				ack: true,
 			},
+		);
+
+		this.stateCache.set(
+			id,
+			value,
 		);
 	}
 
@@ -209,7 +435,7 @@ this.initializedDevices.has(
 			{
 				name: "Completeness",
 				desc:
-"Estimated completeness of this period.",
+"Estimated completeness of this period. Zero means not calculated.",
 				type: "number",
 				role: "value",
 				unit: "%",
@@ -242,7 +468,8 @@ this.initializedDevices.has(
 			{
 				type: "channel",
 				common: {
-					name: "Statistics information",
+					name:
+"Statistics information",
 				},
 				native: {},
 			},
@@ -281,6 +508,18 @@ this.initializedDevices.has(
 				type: "string",
 				role: "text",
 				def: PLACEHOLDER_SOURCE,
+			},
+		);
+
+		await this.ensureState(
+			`${infoId}.lastError`,
+			{
+				name: "Last error",
+				desc:
+"Last history or statistics error.",
+				type: "string",
+				role: "text",
+				def: "",
 			},
 		);
 

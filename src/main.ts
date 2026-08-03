@@ -10,6 +10,23 @@ import {
 	parseLiveDataResponse,
 } from "./lib/saxPowerParser";
 
+import type {
+	SaxPowerDevice,
+} from "./lib/saxPowerDevice";
+
+import {
+	aggregateHistoryMetadata,
+	aggregateStatistics,
+	createDeviceHistoryMetadata,
+	parseDeviceStatistics,
+} from "./lib/saxPowerHistoryParser";
+
+import type {
+	SaxPowerDeviceHistoryMetadata,
+	SaxPowerDeviceStatistics,
+} from "./lib/saxPowerHistory";
+
+
 import {
 	SaxPowerStateEngine,
 } from "./lib/stateEngine";
@@ -34,8 +51,17 @@ class SaxPower extends utils.Adapter {
 	private apiClient: SaxPowerApiClient | undefined;
 	private stateEngine: SaxPowerStateEngine | undefined;
 	private pollTimer: ioBroker.Timeout | undefined;
-	private pollRunning = false;
+	private historyTimer: ioBroker.Timeout | undefined;
 
+	private pollRunning = false;
+	private historyPollRunning = false;
+	private historyInitialized = false;
+
+	private latestDevices:
+readonly SaxPowerDevice[] = [];
+
+	private static readonly HISTORY_INTERVAL_MS =
+		300_000;
 	public constructor(
 		options: Partial<utils.AdapterOptions> = {},
 	) {
@@ -255,12 +281,176 @@ parseLiveDataResponse(
 			devices,
 		);
 
+		this.latestDevices = devices;
+
+		if (!this.historyInitialized) {
+			this.historyInitialized = true;
+
+			await this.pollHistory();
+			this.scheduleNextHistoryPoll();
+		}
+
 		await this.setStateAsync(
 			"diagnostics.rawLiveData",
 			JSON.stringify(response),
 			true,
 		);
 	}
+
+	private scheduleNextHistoryPoll(): void {
+		if (this.historyTimer) {
+			this.clearTimeout(
+				this.historyTimer,
+			);
+		}
+
+		this.historyTimer =
+this.setTimeout(
+	async () => {
+		await this.pollHistory();
+		this.scheduleNextHistoryPoll();
+	},
+	SaxPower.HISTORY_INTERVAL_MS,
+);
+	}
+
+	private async pollHistory(): Promise<void> {
+		if (this.historyPollRunning) {
+			this.log.debug(
+				"Skipping SAX Power history poll because a previous history request is still running.",
+			);
+
+			return;
+		}
+
+		if (
+			!this.apiClient ||
+!this.stateEngine ||
+this.latestDevices.length === 0
+		) {
+			return;
+		}
+
+		this.historyPollRunning = true;
+
+		try {
+			const today =
+new Date()
+	.toISOString()
+	.slice(0, 10);
+
+			const deviceStatistics:
+Record<
+string,
+SaxPowerDeviceStatistics
+> = {};
+
+			const deviceMetadata:
+Record<
+string,
+SaxPowerDeviceHistoryMetadata
+> = {};
+
+			for (
+				const device
+				of this.latestDevices
+			) {
+				const serialNumber =
+device.info.serialNumber;
+
+				const [
+					week,
+					month,
+					year,
+					total,
+				] = await Promise.all([
+					this.apiClient.getEnergyChart(
+						serialNumber,
+						`week_${today}`,
+					),
+
+					this.apiClient.getEnergyChart(
+						serialNumber,
+						`month_${today}`,
+					),
+
+					this.apiClient.getEnergyChart(
+						serialNumber,
+						`year_${today}`,
+					),
+
+					this.apiClient.getEnergyChart(
+						serialNumber,
+						`total_${today}`,
+					),
+				]);
+
+				deviceStatistics[
+					serialNumber
+				] =
+parseDeviceStatistics({
+	serialNumber,
+	todayIso: today,
+	week,
+	month,
+	year,
+	total,
+});
+
+				deviceMetadata[
+					serialNumber
+				] =
+createDeviceHistoryMetadata({
+	serialNumber,
+	todayIso: today,
+	week,
+	month,
+	year,
+	total,
+});
+			}
+
+			const statistics =
+aggregateStatistics(
+	deviceStatistics,
+);
+
+			const metadata =
+aggregateHistoryMetadata(
+	deviceMetadata,
+);
+
+			const updatedAt =
+new Date().toISOString();
+
+			await this.stateEngine
+				.writeStatistics(
+					statistics,
+					metadata,
+					updatedAt,
+				);
+
+			this.log.debug(
+				`SAX Power statistics updated successfully for ${Object.keys(deviceStatistics).length} device(s).`,
+			);
+		} catch (error) {
+			const message =
+this.formatError(error);
+
+			this.log.warn(
+				`Unable to update SAX Power statistics: ${message}`,
+			);
+
+			await this.stateEngine
+				.writeStatisticsError(
+					message,
+				);
+		} finally {
+			this.historyPollRunning = false;
+		}
+	}
+
+
 
 	private formatError(error: unknown): string {
 		if (error instanceof SaxPowerApiError) {
@@ -369,6 +559,14 @@ Record<string, unknown>;
 			if (this.pollTimer) {
 				this.clearTimeout(this.pollTimer);
 				this.pollTimer = undefined;
+			}
+
+			if (this.historyTimer) {
+				this.clearTimeout(
+					this.historyTimer,
+				);
+
+				this.historyTimer = undefined;
 			}
 
 			this.apiClient?.clearTokens();
