@@ -154,9 +154,9 @@ url.protocol !== "http:"
 
 		if (
 			!Number.isFinite(this.saxConfig.pollInterval) ||
-this.saxConfig.pollInterval < 30
+this.saxConfig.pollInterval < 60
 		) {
-			return "The polling interval must be at least 30 seconds.";
+			return "The polling interval must be at least 60 seconds.";
 		}
 
 		/*
@@ -280,6 +280,11 @@ parseLiveDataResponse(
 		await this.stateEngine.writeDevices(
 			devices,
 		);
+
+		await this.stateEngine
+			.writeAggregateLiveData(
+				devices,
+			);
 
 		this.latestDevices = devices;
 

@@ -30,6 +30,11 @@ CloudOff,
 Code,
 Description,
 EnergySavingsLeaf,
+SolarPower,
+Home,
+ElectricalServices,
+BatteryChargingFull,
+BatteryFull,
 GitHub,
 InfoOutlined,
 Lock,
@@ -68,6 +73,7 @@ showPassword: boolean;
 interface RuntimeLoaderProps {
 enabled: boolean;
 onLoad: () => void;
+intervalMs?: number;
 }
 
 function RuntimeLoader(
@@ -75,12 +81,28 @@ props: RuntimeLoaderProps,
 ): null {
 useEffect(
 () => {
-if (props.enabled) {
-props.onLoad();
+if (!props.enabled) {
+return undefined;
 }
+
+props.onLoad();
+
+const interval =
+window.setInterval(
+props.onLoad,
+props.intervalMs ??
+10_000,
+);
+
+return () => {
+window.clearInterval(
+interval,
+);
+};
 },
 [
 props.enabled,
+props.intervalMs,
 props.onLoad,
 ],
 );
@@ -98,6 +120,14 @@ statisticsSource:
 "pending-history-discovery",
 firstMeasurement: "",
 statisticsLastUpdate: "",
+pvPower: null,
+houseConsumptionPower: null,
+gridPower: null,
+gridDirection: "idle",
+batteryPower: null,
+batteryDirection: "idle",
+soc: null,
+liveLastUpdate: "",
 };
 
 export default class App
@@ -167,6 +197,24 @@ return `sax-power.${instance}`;
 		return null;
 	}
 
+private readNumberState(
+state:
+| {
+val?: unknown;
+}
+| null
+| undefined,
+): number | null {
+const value =
+this.readStateValue(state);
+
+return typeof value === "number"
+? value
+: null;
+}
+
+
+
 private readonly loadRuntimeStatus =
 async (): Promise<void> => {
 if (this.state.statusLoading) {
@@ -190,6 +238,14 @@ deviceCountState,
 statisticsSourceState,
 firstMeasurementState,
 statisticsLastUpdateState,
+pvPowerState,
+houseConsumptionPowerState,
+gridPowerState,
+gridDirectionState,
+batteryPowerState,
+batteryDirectionState,
+socState,
+liveLastUpdateState,
 ] = await Promise.all([
 this.socket.getState(
 `${namespace}.info.connection`,
@@ -211,6 +267,30 @@ this.socket.getState(
 ),
 this.socket.getState(
 `${namespace}.statistics.info.lastUpdate`,
+),
+this.socket.getState(
+`${namespace}.live.pvPower`,
+),
+this.socket.getState(
+`${namespace}.live.houseConsumptionPower`,
+),
+this.socket.getState(
+`${namespace}.live.gridPower`,
+),
+this.socket.getState(
+`${namespace}.live.gridDirection`,
+),
+this.socket.getState(
+`${namespace}.live.batteryPower`,
+),
+this.socket.getState(
+`${namespace}.live.batteryDirection`,
+),
+this.socket.getState(
+`${namespace}.live.soc`,
+),
+this.socket.getState(
+`${namespace}.live.lastUpdate`,
 ),
 ]);
 
@@ -271,6 +351,52 @@ statisticsLastUpdate:
 String(
 this.readStateValue(
 statisticsLastUpdateState,
+) ?? "",
+),
+
+pvPower:
+this.readNumberState(
+pvPowerState,
+),
+
+houseConsumptionPower:
+this.readNumberState(
+houseConsumptionPowerState,
+),
+
+gridPower:
+this.readNumberState(
+gridPowerState,
+),
+
+gridDirection:
+String(
+this.readStateValue(
+gridDirectionState,
+) ?? "idle",
+),
+
+batteryPower:
+this.readNumberState(
+batteryPowerState,
+),
+
+batteryDirection:
+String(
+this.readStateValue(
+batteryDirectionState,
+) ?? "idle",
+),
+
+soc:
+this.readNumberState(
+socState,
+),
+
+liveLastUpdate:
+String(
+this.readStateValue(
+liveLastUpdateState,
 ) ?? "",
 ),
 },
@@ -349,6 +475,347 @@ return value;
 
 return parsed.toLocaleString();
 }
+
+private formatPower(
+value: number | null,
+): string {
+if (value === null) {
+return "Nicht verfügbar";
+}
+
+const absolute =
+Math.abs(value);
+
+if (absolute >= 1_000) {
+return `${(
+absolute / 1_000
+).toLocaleString(
+undefined,
+{
+minimumFractionDigits: 2,
+maximumFractionDigits: 2,
+},
+)} kW`;
+}
+
+return `${Math.round(
+absolute,
+).toLocaleString()} W`;
+}
+
+private formatSoc(
+value: number | null,
+): string {
+if (value === null) {
+return "Nicht verfügbar";
+}
+
+return `${value.toLocaleString(
+undefined,
+{
+minimumFractionDigits: 0,
+maximumFractionDigits: 1,
+},
+)} %`;
+}
+
+private getGridLabel(
+direction: string,
+): string {
+if (direction === "import") {
+return "Netzbezug";
+}
+
+if (direction === "export") {
+return "Einspeisung";
+}
+
+return "Kein Austausch";
+}
+
+private getBatteryLabel(
+direction: string,
+): string {
+if (direction === "charging") {
+return "Wird geladen";
+}
+
+if (direction === "discharging") {
+return "Wird entladen";
+}
+
+return "Bereit";
+}
+
+private renderLiveDashboard():
+JSX.Element {
+const status =
+this.state.runtimeStatus;
+
+const cards = [
+{
+title: "PV-Leistung",
+value:
+this.formatPower(
+status.pvPower,
+),
+subtitle:
+status.pvPower === null
+? "Kein PV-Wert gemeldet"
+: "Aktuelle Erzeugung",
+icon: <SolarPower />,
+color: "warning.main",
+},
+{
+title: "Hausverbrauch",
+value:
+this.formatPower(
+status.houseConsumptionPower,
+),
+subtitle:
+status.houseConsumptionPower ===
+null
+? "Nicht berechenbar"
+: "Aktueller Verbrauch",
+icon: <Home />,
+color: "primary.main",
+},
+{
+title: "Netz",
+value:
+this.formatPower(
+status.gridPower,
+),
+subtitle:
+status.gridPower === null
+? "Nicht verfügbar"
+: this.getGridLabel(
+status.gridDirection,
+),
+icon: <ElectricalServices />,
+color:
+status.gridDirection ===
+"export"
+? "success.main"
+: status.gridDirection ===
+"import"
+? "warning.main"
+: "text.secondary",
+},
+{
+title: "Batterie",
+value:
+this.formatPower(
+status.batteryPower,
+),
+subtitle:
+status.batteryPower === null
+? "Nicht verfügbar"
+: this.getBatteryLabel(
+status.batteryDirection,
+),
+icon:
+status.batteryDirection ===
+"charging"
+? <BatteryChargingFull />
+: <BatteryFull />,
+color:
+status.batteryDirection ===
+"charging"
+? "success.main"
+: status.batteryDirection ===
+"discharging"
+? "primary.main"
+: "text.secondary",
+},
+{
+title: "Ladezustand",
+value:
+this.formatSoc(
+status.soc,
+),
+subtitle:
+status.soc === null
+? "Nicht verfügbar"
+: status.deviceCount &&
+status.deviceCount > 1
+? `Durchschnitt aus ${status.deviceCount} Speichern`
+: "Aktueller Speicherstand",
+icon: <BatteryFull />,
+color:
+status.soc !== null &&
+status.soc <= 20
+? "error.main"
+: status.soc !== null &&
+status.soc <= 40
+? "warning.main"
+: "success.main",
+},
+];
+
+return (
+<Card
+elevation={0}
+sx={{
+border: 1,
+borderColor: "divider",
+borderRadius: 3,
+overflow: "hidden",
+}}
+>
+<CardContent>
+<Stack
+direction={{
+xs: "column",
+sm: "row",
+}}
+alignItems={{
+xs: "flex-start",
+sm: "center",
+}}
+justifyContent="space-between"
+spacing={1}
+sx={{
+marginBottom: 2,
+}}
+>
+<Box>
+<Typography
+variant="h6"
+fontWeight={700}
+>
+Live-Energie
+</Typography>
+
+<Typography
+variant="body2"
+color="text.secondary"
+>
+Aktuelle Leistungswerte aus den
+ioBroker-Objekten
+</Typography>
+</Box>
+
+<Typography
+variant="caption"
+color="text.secondary"
+>
+Stand:{" "}
+{
+this.formatDate(
+status.liveLastUpdate,
+)
+}
+</Typography>
+</Stack>
+
+<Grid
+container
+spacing={2}
+>
+{
+cards.map(
+(card) => (
+<Grid
+item
+xs={12}
+sm={6}
+md={4}
+lg={
+card.title ===
+"PV-Leistung"
+? 12
+: 3
+}
+key={card.title}
+>
+<Card
+elevation={0}
+sx={{
+height: "100%",
+border: 1,
+borderColor:
+"divider",
+borderRadius: 2.5,
+backgroundColor:
+"background.paper",
+}}
+>
+<CardContent>
+<Stack
+direction="row"
+alignItems="flex-start"
+justifyContent="space-between"
+spacing={2}
+>
+<Box>
+<Typography
+variant="body2"
+color="text.secondary"
+>
+{card.title}
+</Typography>
+
+<Typography
+variant={
+card.title ===
+"PV-Leistung"
+? "h3"
+: "h4"
+}
+fontWeight={800}
+sx={{
+marginTop: 0.5,
+}}
+>
+{card.value}
+</Typography>
+
+<Typography
+variant="body2"
+color="text.secondary"
+sx={{
+marginTop: 0.5,
+}}
+>
+{card.subtitle}
+</Typography>
+</Box>
+
+<Box
+sx={{
+color:
+card.color,
+display: "flex",
+alignItems:
+"center",
+justifyContent:
+"center",
+width: 46,
+height: 46,
+borderRadius:
+"50%",
+backgroundColor:
+"action.hover",
+flexShrink: 0,
+}}
+>
+{card.icon}
+</Box>
+</Stack>
+</CardContent>
+</Card>
+</Grid>
+),
+)
+}
+</Grid>
+</CardContent>
+</Card>
+);
+}
+
+
 
 private renderHeader(
 darkMode: boolean,
@@ -674,7 +1141,7 @@ onChange={
 this.updateNativeField(
 "pollInterval",
 Math.max(
-10,
+60,
 Number(
 event
 .target
@@ -684,7 +1151,7 @@ event
 ),
 )
 }
-helperText="Mindestens 10 Sekunden; empfohlen: 60 Sekunden"
+helperText="Mindestens 60 Sekunden"
 InputProps={{
 endAdornment: (
 <InputAdornment
@@ -695,7 +1162,7 @@ Sekunden
 ),
 }}
 inputProps={{
-min: 10,
+min: 60,
 step: 10,
 }}
 />
@@ -833,6 +1300,7 @@ status.statisticsSource ===
 
 return (
 <Stack spacing={2}>
+{this.renderLiveDashboard()}
 {
 this.state.statusError
 ? (
@@ -1320,9 +1788,7 @@ marginTop: 1,
 marginBottom: 2,
 }}
 >
-Die Entwicklung erfolgt ehrenamtlich.
-Eine Spende ist freiwillig und hilft bei
-Test, Dokumentation und Weiterentwicklung.
+Der SAX Power Adapter entsteht vollständig in meiner Freizeit. Wenn er dir gefällt und dir im Alltag hilft, kannst du seine Weiterentwicklung mit einer freiwilligen Spende unterstützen. Vielen Dank!
 </Typography>
 
 <Button
@@ -1428,7 +1894,11 @@ display: "flex",
 alignItems: "center",
 justifyContent:
 "center",
-minHeight: "100vh",
+minHeight: "100%",
+height: "100%",
+overflowY: "auto",
+overflowX: "hidden",
+boxSizing: "border-box",
 backgroundColor:
 "background.default",
 }}
@@ -1446,14 +1916,9 @@ unknown as SaxPowerNativeConfig;
 return (
 <ThemeProvider theme={theme}>
 <RuntimeLoader
-enabled={
-this.state.loaded &&
-!this.state.statusLoaded &&
-!this.state.statusLoading
-}
-onLoad={
-this.loadRuntimeStatus
-}
+enabled={this.state.loaded}
+onLoad={this.loadRuntimeStatus}
+intervalMs={10_000}
 />
 
 <Box

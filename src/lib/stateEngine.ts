@@ -41,6 +41,11 @@ SaxPowerStatisticsStateEngine;
 	private readonly initializedDevices =
 		new Set<string>();
 
+	private aggregateLiveInitialized = false;
+
+	private readonly aggregateLiveCache =
+		new Map<string, string | number | null>();
+
 	public constructor(
 		adapter: SaxPowerObjectAdapter,
 	) {
@@ -298,6 +303,284 @@ definition.value(
 			},
 		);
 	}
+
+	public async writeAggregateLiveData(
+		devices: readonly SaxPowerDevice[],
+	): Promise<void> {
+		if (!this.aggregateLiveInitialized) {
+			await this.ensureAggregateLiveObjects();
+
+			this.aggregateLiveInitialized = true;
+		}
+
+		const batteryValues =
+devices
+	.map(
+		(device) =>
+			device.live.batteryPower,
+	)
+	.filter(
+		(value):
+value is number =>
+			typeof value === "number",
+	);
+
+		const socValues =
+devices
+	.map(
+		(device) =>
+			device.live.soc,
+	)
+	.filter(
+		(value):
+value is number =>
+			typeof value === "number",
+	);
+
+		/*
+ * PV and grid measurements describe the installation,
+ * not an individual battery. The first available value
+ * is therefore used instead of summing duplicated values.
+ */
+		const pvPower =
+devices.find(
+	(device) =>
+		typeof device.live.pvPower ===
+"number",
+)?.live.pvPower ?? null;
+
+		const gridPower =
+devices.find(
+	(device) =>
+		typeof device.live.gridPower ===
+"number",
+)?.live.gridPower ?? null;
+
+		const batteryPower =
+batteryValues.length > 0
+	? batteryValues.reduce(
+		(sum, value) =>
+			sum + value,
+		0,
+	)
+	: null;
+
+		const soc =
+socValues.length > 0
+	? socValues.reduce(
+		(sum, value) =>
+			sum + value,
+		0,
+	) /
+socValues.length
+	: null;
+
+		const houseConsumptionPower =
+pvPower !== null &&
+gridPower !== null &&
+batteryPower !== null
+	? Math.max(
+		0,
+		pvPower +
+gridPower +
+batteryPower,
+	)
+	: null;
+
+		const gridDirection =
+gridPower === null ||
+gridPower === 0
+	? "idle"
+	: gridPower > 0
+		? "import"
+		: "export";
+
+		const batteryDirection =
+batteryPower === null ||
+batteryPower === 0
+	? "idle"
+	: batteryPower > 0
+		? "discharging"
+		: "charging";
+
+		const values:
+Record<
+string,
+string | number | null
+> = {
+	"live.pvPower":
+pvPower,
+
+	"live.houseConsumptionPower":
+houseConsumptionPower,
+
+	"live.gridPower":
+gridPower,
+
+	"live.gridDirection":
+gridDirection,
+
+	"live.batteryPower":
+batteryPower,
+
+	"live.batteryDirection":
+batteryDirection,
+
+	"live.soc":
+soc,
+
+	"live.deviceCount":
+devices.length,
+
+	"live.lastUpdate":
+new Date().toISOString(),
+};
+
+		for (
+			const [id, value]
+			of Object.entries(values)
+		) {
+			if (
+				this.aggregateLiveCache.get(id) ===
+value
+			) {
+				continue;
+			}
+
+			await this.adapter.setStateAsync(
+				id,
+				{
+					val: value,
+					ack: true,
+				},
+			);
+
+			this.aggregateLiveCache.set(
+				id,
+				value,
+			);
+		}
+	}
+
+	private async ensureAggregateLiveObjects():
+Promise<void> {
+		await this.adapter.extendObjectAsync(
+			"live",
+			{
+				type: "channel",
+				common: {
+					name:
+"Combined live measurements",
+				},
+				native: {},
+			},
+		);
+
+		const definitions = {
+			pvPower: {
+				name: "PV power",
+				desc:
+"Current photovoltaic production power.",
+				type: "number",
+				role:
+"value.power.production",
+				unit: "W",
+			},
+
+			houseConsumptionPower: {
+				name:
+"House consumption power",
+				desc:
+"Calculated current house consumption.",
+				type: "number",
+				role:
+"value.power.consumption",
+				unit: "W",
+			},
+
+			gridPower: {
+				name: "Grid power",
+				desc:
+"Positive values indicate import; negative values indicate export.",
+				type: "number",
+				role: "value.power",
+				unit: "W",
+			},
+
+			gridDirection: {
+				name: "Grid direction",
+				desc:
+"Current grid energy direction.",
+				type: "string",
+				role: "text",
+			},
+
+			batteryPower: {
+				name: "Battery power",
+				desc:
+"Positive values indicate discharge; negative values indicate charging.",
+				type: "number",
+				role: "value.power",
+				unit: "W",
+			},
+
+			batteryDirection: {
+				name: "Battery direction",
+				desc:
+"Current combined battery energy direction.",
+				type: "string",
+				role: "text",
+			},
+
+			soc: {
+				name:
+"Average state of charge",
+				desc:
+"Average state of charge across all available storage devices.",
+				type: "number",
+				role: "value.battery",
+				unit: "%",
+			},
+
+			deviceCount: {
+				name: "Device count",
+				desc:
+"Number of storage devices included in the live aggregation.",
+				type: "number",
+				role: "value",
+			},
+
+			lastUpdate: {
+				name: "Last update",
+				desc:
+"Timestamp of the last successful live aggregation.",
+				type: "string",
+				role: "date",
+			},
+		} as const;
+
+		for (
+			const [id, common]
+			of Object.entries(definitions)
+		) {
+			await this.adapter.extendObjectAsync(
+				`live.${id}`,
+				{
+					type: "state",
+					common: {
+						...common,
+						read: true,
+						write: false,
+					},
+					native: {
+						aggregate: true,
+					},
+				},
+			);
+		}
+	}
+
+
 
 	public async writeStatistics(
 		result: SaxPowerStatisticsResult,

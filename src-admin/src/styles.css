@@ -19,3 +19,26 @@ box-sizing: border-box;
 a {
 color: inherit;
 }
+
+/*
+ * SAX Power Admin layout:
+ * Keep the configuration usable on notebooks, tablets and
+ * browser windows with reduced height.
+ */
+html,
+body,
+#root {
+min-height: 100%;
+height: 100%;
+}
+
+body {
+overflow-x: hidden;
+overflow-y: auto !important;
+}
+
+#root {
+overflow-x: hidden;
+overflow-y: auto;
+-webkit-overflow-scrolling: touch;
+}

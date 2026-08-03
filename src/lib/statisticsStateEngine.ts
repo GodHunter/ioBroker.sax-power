@@ -276,10 +276,6 @@ PERIOD_MODEL_MAP[
 			metadata.lastTimestamp,
 		);
 
-		await this.writeCachedState(
-			`${periodId}.completeness`,
-			metadata.completeness,
-		);
 
 	}
 
@@ -415,18 +411,6 @@ value
 			},
 		);
 
-		await this.ensureState(
-			`${periodId}.completeness`,
-			{
-				name: "Completeness",
-				desc:
-"Coverage of the historical data points expected for the elapsed part of this period.",
-				type: "number",
-				role: "value",
-				unit: "%",
-				def: 0,
-			},
-		);
 
 	}
 
@@ -521,6 +505,7 @@ value
 			of [
 				"samples",
 				"source",
+				"completeness",
 			]
 		) {
 			try {

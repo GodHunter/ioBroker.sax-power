@@ -22,6 +22,16 @@ deviceCount: number | null;
 statisticsSource: string;
 firstMeasurement: string;
 statisticsLastUpdate: string;
+
+pvPower: number | null;
+houseConsumptionPower: number | null;
+gridPower: number | null;
+gridDirection: string;
+batteryPower: number | null;
+batteryDirection: string;
+soc: number | null;
+liveLastUpdate: string;
+
 }
 
 export type AdminTab =
