@@ -1,6 +1,9 @@
 # ioBroker SAX Power Adapter
 
+[![Test and Release](https://github.com/GodHunter/ioBroker.sax-power/actions/workflows/test-and-release.yml/badge.svg)](https://github.com/GodHunter/ioBroker.sax-power/actions/workflows/test-and-release.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Node.js](https://img.shields.io/badge/Node.js-%3E%3D20-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
+[![ioBroker](https://img.shields.io/badge/ioBroker-adapter-3399CC)](https://www.iobroker.net/)
 
 The SAX Power adapter connects ioBroker to the SAX Power cloud and provides device information, live measurements, historical battery-energy statistics, and an aggregated live-energy view.
 
@@ -117,6 +120,12 @@ The following features are intentionally outside the version 1.0 scope:
 ## Support development
 
 The SAX Power adapter is developed entirely in my free time. If you like it and it helps you in everyday use, you can support its continued development with a voluntary donation. Thank you!
+
+## Contributing
+
+Please read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request.
+
+Security issues should be reported according to [SECURITY.md](SECURITY.md).
 
 ## License
 
