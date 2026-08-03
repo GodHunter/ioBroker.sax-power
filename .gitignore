@@ -1,0 +1,39 @@
+# No dot-directories except github/vscode
+.*/
+!.vscode/
+!.github/
+
+*.code-workspace
+node_modules
+nbproject
+
+# npm package files
+iobroker.*.tgz
+
+Thumbs.db
+.commitinfo
+
+# i18n intermediate files
+admin/i18n/flat.txt
+admin/i18n/*/flat.txt# Dependencies and build output
+node_modules/
+build/
+coverage/
+.nyc_output/
+*.tsbuildinfo
+# Local packages and logs
+*.tgz
+*.log
+npm-debug.log*
+# Secrets and captured web sessions
+.env
+.env.*
+*.har
+*.har.tmp
+*credentials*
+*secrets*
+*token*
+# Editor and operating-system files
+.DS_Store
+.idea/
+.vscode/

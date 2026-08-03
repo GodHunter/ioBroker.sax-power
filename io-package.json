@@ -1,0 +1,91 @@
+{
+	"common": {
+		"name": "sax-power",
+		"version": "0.0.1",
+		"news": {
+			"0.0.1": {
+				"en": "initial release",
+				"de": "Erstveröffentlichung",
+				"ru": "Начальная версия",
+				"pt": "lançamento inicial",
+				"nl": "Eerste uitgave",
+				"fr": "Première version",
+				"it": "Versione iniziale",
+				"es": "Versión inicial",
+				"pl": "Pierwsze wydanie",
+				"uk": "Початкова версія",
+				"zh-cn": "首次出版"
+			}
+		},
+		"titleLang": {
+			"en": "SAX Power",
+			"de": "SAX-Power",
+			"ru": "САКС Пауэр",
+			"pt": "Potência SAX",
+			"nl": "SAX-kracht",
+			"fr": "Puissance SAX",
+			"it": "Potenza del SAX",
+			"es": "Potencia del saxofón",
+			"pl": "Moc SAX-a",
+			"uk": "Потужність SAX",
+			"zh-cn": "萨克斯电源"
+		},
+		"desc": {
+			"en": "Connects ioBroker to SAX Power battery storage systems using the SAX Power dashboard API.",
+			"de": "Verbindet ioBroker über die SAX Power-Dashboard-API mit SAX Power-Batteriespeichersystemen.",
+			"ru": "Подключает ioBroker к аккумуляторным системам хранения SAX Power с помощью API панели управления SAX Power.",
+			"pt": "Conecta o ioBroker aos sistemas de armazenamento de bateria SAX Power usando a API do painel SAX Power.",
+			"nl": "Verbindt ioBroker met SAX Power batterijopslagsystemen met behulp van de SAX Power dashboard API.",
+			"fr": "Connecte ioBroker aux systèmes de stockage sur batterie SAX Power à l'aide de l'API du tableau de bord SAX Power.",
+			"it": "Connette ioBroker ai sistemi di accumulo di batterie SAX Power utilizzando l'API dashboard SAX Power.",
+			"es": "Conecta ioBroker a los sistemas de almacenamiento de batería SAX Power mediante la API del panel de control SAX Power.",
+			"pl": "Łączy ioBroker z systemami magazynowania baterii SAX Power za pomocą interfejsu API panelu SAX Power.",
+			"uk": "Підключає ioBroker до систем зберігання акумуляторів SAX Power за допомогою API інформаційної панелі SAX Power.",
+			"zh-cn": "使用 SAX Power 仪表板 API 将 ioBroker 连接到 SAX Power 电池存储系统。"
+		},
+		"authors": [
+			"GodHunter <tobias.pruegner@posteo.de>"
+		],
+		"keywords": [
+			"energy",
+			"solar",
+			"battery",
+			"sax"
+		],
+		"licenseInformation": {
+			"type": "free",
+			"license": "MIT"
+		},
+		"platform": "Javascript/Node.js",
+		"icon": "sax-power.png",
+		"enabled": true,
+		"extIcon": "https://raw.githubusercontent.com/GodHunter/ioBroker.sax-power/main/admin/sax-power.png",
+		"readme": "https://github.com/GodHunter/ioBroker.sax-power/blob/main/README.md",
+		"loglevel": "info",
+		"tier": 3,
+		"mode": "daemon",
+		"type": "energy",
+		"compact": true,
+		"connectionType": "cloud",
+		"dataSource": "poll",
+		"adminUI": {
+			"config": "json"
+		},
+		"dependencies": [
+			{
+				"js-controller": ">=6.0.11"
+			}
+		],
+		"globalDependencies": [
+			{
+				"admin": ">=7.0.23"
+			}
+		]
+	},
+	"native": {
+		"option1": true,
+		"option2": "42"
+	},
+	"objects": [],
+	"instanceObjects": []
+}
