@@ -1,26 +1,31 @@
 {
-	"i18n": true,
-	"type": "panel",
-	"items": {
-		"option1": {
-			"type": "checkbox",
-			"label": "option1",
-			"newLine": true,
-			"xs": 12,
-			"sm": 12,
-			"md": 6,
-			"lg": 4,
-			"xl": 4
-		},
-		"option2": {
-			"type": "text",
-			"label": "option2",
-			"newLine": true,
-			"xs": 12,
-			"sm": 12,
-			"md": 6,
-			"lg": 4,
-			"xl": 4
-		}
-	}
+"type": "panel",
+"label": "SAX Power",
+"items": {
+"apiUrl": {
+"type": "text",
+"label": "SAX Power API URL",
+"help": "Base URL of the SAX Power dashboard API.",
+"default": "https://webserver.sax-power.net"
+},
+"username": {
+"type": "text",
+"label": "Username",
+"help": "Username used for the SAX Power dashboard."
+},
+"password": {
+"type": "password",
+"label": "Password",
+"help": "Password used for the SAX Power dashboard."
+},
+"pollInterval": {
+"type": "number",
+"label": "Polling interval",
+"help": "Interval for retrieving live data from SAX Power.",
+"unit": "seconds",
+"min": 30,
+"max": 3600,
+"default": 60
+}
+}
 }
