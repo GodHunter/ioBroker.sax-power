@@ -10,6 +10,7 @@
   "homepage": "https://github.com/GodHunter/ioBroker.sax-power",
   "license": "MIT",
   "keywords": [
+    "ioBroker",
     "energy",
     "solar",
     "battery",
