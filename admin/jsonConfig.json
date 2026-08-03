@@ -116,27 +116,6 @@
 				}
 			}
 		},
-		"statisticsTab": {
-			"type": "panel",
-			"label": "Statistics",
-			"items": {
-				"statisticsHeader": {
-					"type": "header",
-					"text": "Energy statistics",
-					"size": 2
-				},
-				"statisticsDescription": {
-					"type": "staticText",
-					"text": "Planned statistics: charged and discharged energy for today, current month, current year and total. Values will be provided per storage device and as combined totals for all storage devices.",
-					"newLine": true
-				},
-				"statisticsScope": {
-					"type": "staticText",
-					"text": "This tab currently documents the planned V1.0 statistics scope. No additional configuration is required yet.",
-					"newLine": true
-				}
-			}
-		},
 		"supportTab": {
 			"type": "panel",
 			"label": "Support",
