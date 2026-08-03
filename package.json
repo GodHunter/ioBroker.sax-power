@@ -56,7 +56,7 @@
   ],
   "scripts": {
     "prebuild": "rimraf build",
-    "build": "build-adapter ts",
+    "build": "npm run build:backend && npm run build:admin",
     "watch": "build-adapter ts --watch",
     "prebuild:ts": "rimraf build",
     "build:ts": "build-adapter ts",
@@ -65,11 +65,18 @@
     "test:package": "mocha test/package --exit",
     "test:integration": "mocha test/integration --exit",
     "test": "npm run test:ts && npm run test:package",
-    "check": "tsc --noEmit",
-    "lint": "eslint -c eslint.config.mjs .",
+    "check": "npm run lint:backend && npm run check:admin && npm run build",
+    "lint": "eslint -c eslint.config.mjs \"src/**/*.ts\" \"test/**/*.{ts,js,mjs,cjs}\" eslint.config.mjs --no-error-on-unmatched-pattern",
     "translate": "translate-adapter",
     "release": "release-script",
-    "dev-server": "dev-server"
+    "dev-server": "dev-server",
+    "build:backend": "build-adapter ts",
+    "build:admin": "npm --prefix src-admin run build",
+    "watch:backend": "build-adapter ts --watch",
+    "watch:admin": "npm --prefix src-admin start",
+    "test:admin": "npm --prefix src-admin run typecheck",
+    "lint:backend": "eslint -c eslint.config.mjs \"src/**/*.ts\" \"test/**/*.{ts,js,mjs,cjs}\" eslint.config.mjs --no-error-on-unmatched-pattern",
+    "check:admin": "npm --prefix src-admin run typecheck"
   },
   "bugs": {
     "url": "https://github.com/GodHunter/ioBroker.sax-power/issues"

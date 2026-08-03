@@ -1,0 +1,48 @@
+{
+  "name": "sax-power-admin",
+  "version": "0.0.1",
+  "private": true,
+  "homepage": ".",
+  "dependencies": {
+    "@emotion/react": "11.14.0",
+    "@emotion/styled": "11.14.1",
+    "@iobroker/adapter-react-v5": "8.3.2",
+    "@mui/icons-material": "6.5.0",
+    "@mui/material": "6.5.0",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "react-scripts": "5.0.1",
+    "web-vitals": "4.2.4"
+  },
+  "devDependencies": {
+    "@types/react": "18.3.28",
+    "@types/react-dom": "18.3.7",
+    "typescript": "4.9.5",
+    "@types/node": "18.19.70"
+  },
+  "scripts": {
+    "start": "react-scripts start",
+    "clean": "node -e \"require('fs').rmSync('build', {recursive:true,force:true})\"",
+    "build:react": "react-scripts build",
+    "copy": "node copy-admin-build.mjs",
+    "build": "npm run clean && npm run build:react && npm run copy",
+    "typecheck": "tsc --noEmit"
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  },
+  "overrides": {
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "@types/node": "18.19.70"
+  }
+}
