@@ -13,7 +13,7 @@ The project follows semantic versioning.
 - Additional diagnostics and notifications
 - Further community-requested integrations
 
-## [1.0.0] - Unreleased
+## [1.0.0] - 2026-08-03
 
 ### Added
 

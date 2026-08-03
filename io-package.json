@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "sax-power",
-    "version": "0.0.1",
+    "version": "1.0.0",
     "news": {
+      "1.0.0": {
+        "en": "Initial release with SAX Power cloud connectivity, live values, historical energy statistics, an aggregated live dashboard, and a responsive administration interface.",
+        "de": "Erste Veröffentlichung mit SAX-Power-Cloudanbindung, Live-Werten, historischen Energiestatistiken, aggregiertem Live-Dashboard und responsiver Administrationsoberfläche.",
+        "ru": "Первый выпуск с подключением к облаку SAX Power, текущими значениями, исторической статистикой энергии, сводной панелью и адаптивным интерфейсом администрирования.",
+        "pt": "Primeira versão com ligação à cloud SAX Power, valores em tempo real, estatísticas históricas de energia, painel agregado e interface de administração responsiva.",
+        "nl": "Eerste release met SAX Power-cloudverbinding, livewaarden, historische energiestatistieken, een geaggregeerd dashboard en een responsieve beheerinterface.",
+        "fr": "Première version avec connexion au cloud SAX Power, valeurs en direct, statistiques énergétiques historiques, tableau de bord agrégé et interface d’administration responsive.",
+        "it": "Prima versione con connessione al cloud SAX Power, valori in tempo reale, statistiche energetiche storiche, dashboard aggregata e interfaccia di amministrazione responsiva.",
+        "es": "Primera versión con conexión a la nube SAX Power, valores en tiempo real, estadísticas históricas de energía, panel agregado e interfaz de administración adaptable.",
+        "pl": "Pierwsze wydanie z połączeniem z chmurą SAX Power, wartościami bieżącymi, historycznymi statystykami energii, zbiorczym panelem i responsywnym interfejsem administracyjnym.",
+        "uk": "Перший випуск із підключенням до хмари SAX Power, поточними значеннями, історичною статистикою енергії, зведеною панеллю та адаптивним інтерфейсом адміністрування.",
+        "zh-cn": "首次发布，支持 SAX Power 云连接、实时数据、历史能源统计、聚合实时仪表板和响应式管理界面。"
+      },
       "0.0.1": {
         "en": "initial release",
         "de": "Erstveröffentlichung",

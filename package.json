@@ -1,6 +1,6 @@
 {
   "name": "iobroker.sax-power",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "description": "Connects ioBroker to SAX Power battery storage systems using the SAX Power dashboard API.",
   "author": {
     "name": "GodHunter",
