@@ -132,3 +132,5 @@ Security issues should be reported according to [SECURITY.md](SECURITY.md).
 MIT License. See [LICENSE](LICENSE).
 
 SAX Power and the SAX Power logo are protected trademarks or trademark assets of SAX Power GmbH. See [docs/BRANDING.md](docs/BRANDING.md).
+
+[Older changelogs can be found there](CHANGELOG_OLD.md)
