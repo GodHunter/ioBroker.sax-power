@@ -28,12 +28,10 @@ import {
 CloudDone,
 CloudOff,
 Code,
-DarkMode,
 Description,
 EnergySavingsLeaf,
 GitHub,
 InfoOutlined,
-LightMode,
 Lock,
 OpenInNew,
 Refresh,
@@ -483,27 +481,6 @@ darkMode
 }
 />
 
-<Tooltip
-title={
-darkMode
-? "Dark Mode aktiv"
-: "Light Mode aktiv"
-}
->
-<Chip
-icon={
-darkMode
-? <DarkMode />
-: <LightMode />
-}
-label={
-darkMode
-? "Dark"
-: "Light"
-}
-variant="outlined"
-/>
-</Tooltip>
 
 <Tooltip title="Status aktualisieren">
 <span>
@@ -1384,7 +1361,7 @@ borderRadius: 3,
 variant="h6"
 fontWeight={700}
 >
-Nach V1.0
+Geplante Features
 </Typography>
 
 <Stack

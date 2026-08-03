@@ -248,6 +248,43 @@ SERIAL_NUMBER,
 						.firstTimestamp,
 					"2026-08-03",
 				);
+				equal(
+					metadata.today
+						.completeness,
+					100,
+				);
+
+				equal(
+					metadata.week
+						.completeness,
+					100,
+				);
+
+				equal(
+					metadata.month
+						.completeness,
+					100,
+				);
+
+				equal(
+					metadata.year
+						.completeness,
+					100,
+				);
+
+				equal(
+					metadata.total
+						.completeness,
+					100,
+				);
+
+				equal(
+					metadata.total
+						.firstTimestamp,
+					"2025-01-01",
+				);
+
+
 
 				const aggregate =
 aggregateHistoryMetadata({
@@ -265,7 +302,7 @@ metadata,
 					aggregate.total
 						.total
 						.firstTimestamp,
-					"2025",
+					"2025-01-01",
 				);
 			},
 		);

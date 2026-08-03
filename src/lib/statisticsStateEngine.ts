@@ -265,10 +265,6 @@ PERIOD_MODEL_MAP[
 			values.dischargedKwh,
 		);
 
-		await this.writeCachedState(
-			`${periodId}.samples`,
-			metadata.samples,
-		);
 
 		await this.writeCachedState(
 			`${periodId}.firstTimestamp`,
@@ -285,10 +281,6 @@ PERIOD_MODEL_MAP[
 			metadata.completeness,
 		);
 
-		await this.writeCachedState(
-			`${periodId}.source`,
-			metadata.source,
-		);
 	}
 
 	private async writeCachedState(
@@ -356,6 +348,10 @@ value
 		const periodId =
 `${rootId}.${period}`;
 
+		await this.removeLegacyPeriodStates(
+			periodId,
+		);
+
 		await this.adapter.extendObjectAsync(
 			periodId,
 			{
@@ -394,17 +390,6 @@ value
 			},
 		);
 
-		await this.ensureState(
-			`${periodId}.samples`,
-			{
-				name: "Samples",
-				desc:
-"Number of historical samples used.",
-				type: "number",
-				role: "value",
-				def: 0,
-			},
-		);
 
 		await this.ensureState(
 			`${periodId}.firstTimestamp`,
@@ -435,7 +420,7 @@ value
 			{
 				name: "Completeness",
 				desc:
-"Estimated completeness of this period. Zero means not calculated.",
+"Coverage of the historical data points expected for the elapsed part of this period.",
 				type: "number",
 				role: "value",
 				unit: "%",
@@ -443,17 +428,6 @@ value
 			},
 		);
 
-		await this.ensureState(
-			`${periodId}.source`,
-			{
-				name: "Source",
-				desc:
-"Historical source used for this statistic.",
-				type: "string",
-				role: "text",
-				def: PLACEHOLDER_SOURCE,
-			},
-		);
 	}
 
 	private async ensureInfoChannel(
@@ -537,6 +511,35 @@ value
 			);
 		}
 	}
+
+
+	private async removeLegacyPeriodStates(
+		periodId: string,
+	): Promise<void> {
+		for (
+			const stateName
+			of [
+				"samples",
+				"source",
+			]
+		) {
+			try {
+				await this.adapter.delObjectAsync(
+					`${periodId}.${stateName}`,
+				);
+			} catch {
+				/*
+ * Auf Neuinstallationen existieren
+ * diese Altobjekte erwartungsgemäß nicht.
+ */
+			}
+
+			this.stateCache.delete(
+				`${periodId}.${stateName}`,
+			);
+		}
+	}
+
 
 	private async ensureState(
 		id: string,

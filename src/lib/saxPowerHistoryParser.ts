@@ -366,7 +366,7 @@ function timestampOfRecord(
 		typeof record.year === "number" &&
 Number.isFinite(record.year)
 	) {
-		return String(record.year);
+		return `${record.year}-01-01`;
 	}
 
 	return "";
@@ -374,12 +374,25 @@ Number.isFinite(record.year)
 
 function createPeriodMetadata(
 	records: SaxPowerEnergyRecord[],
+	expectedSamples: number,
 ): SaxPowerHistoryPeriodMetadata {
 	const timestamps =
 records
 	.map(timestampOfRecord)
 	.filter(Boolean)
 	.sort();
+
+	const completeness =
+expectedSamples > 0
+	? Math.min(
+		100,
+		Math.round(
+			(records.length /
+expectedSamples) *
+100,
+		),
+	)
+	: 0;
 
 	return {
 		samples: records.length,
@@ -392,17 +405,62 @@ timestamps[
 	timestamps.length - 1
 ] ?? "",
 
-		/*
- * The SAX endpoint returns server-side period aggregates.
- * A defensible percentage cannot be inferred solely from
- * the number of returned records, especially for an active
- * day, week, month or year.
- */
-		completeness: 0,
+		completeness,
 
 		source:
 "sax-power-energy-chart",
 	};
+}
+
+function parseIsoDate(
+	value: string,
+): Date {
+	const parsed =
+new Date(`${value}T12:00:00Z`);
+
+	if (
+		Number.isNaN(
+			parsed.getTime(),
+		)
+	) {
+		throw new Error(
+			`Invalid SAX Power history date: ${value}`,
+		);
+	}
+
+	return parsed;
+}
+
+function expectedElapsedWeekDays(
+	todayIso: string,
+): number {
+	const date =
+parseIsoDate(todayIso);
+
+	const weekday =
+date.getUTCDay();
+
+	return weekday === 0
+		? 7
+		: weekday;
+}
+
+function expectedElapsedMonthDays(
+	todayIso: string,
+): number {
+	return parseIsoDate(
+		todayIso,
+	).getUTCDate();
+}
+
+function expectedElapsedYearMonths(
+	todayIso: string,
+): number {
+	return (
+		parseIsoDate(
+			todayIso,
+		).getUTCMonth() + 1
+	);
 }
 
 export function createDeviceHistoryMetadata(
@@ -436,6 +494,7 @@ createPeriodMetadata(
 		monthRecords,
 		options.todayIso,
 	),
+	1,
 ),
 
 		week:
@@ -444,11 +503,17 @@ createPeriodMetadata(
 		options.week,
 		options.serialNumber,
 	),
+	expectedElapsedWeekDays(
+		options.todayIso,
+	),
 ),
 
 		month:
 createPeriodMetadata(
 	monthRecords,
+	expectedElapsedMonthDays(
+		options.todayIso,
+	),
 ),
 
 		year:
@@ -456,6 +521,9 @@ createPeriodMetadata(
 	getRecords(
 		options.year,
 		options.serialNumber,
+	),
+	expectedElapsedYearMonths(
+		options.todayIso,
 	),
 ),
 
@@ -465,6 +533,10 @@ createPeriodMetadata(
 		options.total,
 		options.serialNumber,
 	),
+	getRecords(
+		options.total,
+		options.serialNumber,
+	).length || 1,
 ),
 	};
 }
@@ -500,7 +572,18 @@ timestamps[
 	timestamps.length - 1
 ] ?? "",
 
-		completeness: 0,
+		completeness:
+values.length > 0
+	? Math.round(
+		values.reduce(
+			(sum, value) =>
+				sum +
+value.completeness,
+			0,
+		) /
+values.length,
+	)
+	: 0,
 
 		source:
 "sax-power-energy-chart",
