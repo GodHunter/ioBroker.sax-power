@@ -2,16 +2,78 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+
 <meta
 name="viewport"
 content="width=device-width, initial-scale=1"
 >
+
 <meta
 name="theme-color"
 content="#ffffff"
 >
+
 <title>SAX Power</title>
+
+<script>
+const script = document.createElement("script");
+
+window.registerSocketOnLoad = function registerSocketOnLoad(
+callback
+) {
+window.socketLoadedHandler = callback;
+};
+
+const parts = (
+window.location.search || ""
+)
+.replace(/^\?/, "")
+.split("&");
+
+const query = {};
+
+parts.forEach(item => {
+const [
+name,
+value,
+] = item.split("=");
+
+query[
+decodeURIComponent(name)
+] = value !== undefined
+? decodeURIComponent(value)
+: true;
+});
+
+script.onload = function socketLoaded() {
+if (
+typeof window.socketLoadedHandler ===
+"function"
+) {
+window.socketLoadedHandler();
+}
+};
+
+script.src =
+window.location.port === "3000"
+? window.location.protocol +
+"//" +
+(
+query.host ||
+window.location.hostname
+) +
+":" +
+(
+query.port ||
+8081
+) +
+"/lib/js/socket.io.js"
+: "%PUBLIC_URL%/../../lib/js/socket.io.js";
+
+document.head.appendChild(script);
+</script>
 </head>
+
 <body>
 <noscript>
 JavaScript is required to configure this adapter.
