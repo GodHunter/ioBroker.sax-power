@@ -76,7 +76,8 @@
     "watch:admin": "npm --prefix src-admin start",
     "test:admin": "npm --prefix src-admin run typecheck",
     "lint:backend": "eslint -c eslint.config.mjs \"src/**/*.ts\" \"test/**/*.{ts,js,mjs,cjs}\" eslint.config.mjs --no-error-on-unmatched-pattern",
-    "check:admin": "npm --prefix src-admin run typecheck"
+    "check:admin": "npm --prefix src-admin run typecheck",
+    "test:history": "mocha --require ts-node/register \"test/history/**/*.test.ts\""
   },
   "bugs": {
     "url": "https://github.com/GodHunter/ioBroker.sax-power/issues"
