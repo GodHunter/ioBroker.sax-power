@@ -1,4 +1,8 @@
 import type {
+	SaxPowerObjectAdapter,
+} from "./adapterContract";
+
+import type {
 	SaxPowerDevice,
 } from "./saxPowerDevice";
 
@@ -7,46 +11,49 @@ import {
 	type SaxPowerStateDefinition,
 } from "./stateDefinitions";
 
-interface SaxPowerStateEngineAdapter {
-extendObjectAsync(
-id: string,
-object: ioBroker.PartialObject,
-): Promise<unknown>;
-
-setStateAsync(
-id: string,
-state: ioBroker.SettableState,
-): Promise<unknown>;
-}
+import {
+	SaxPowerStatisticsStateEngine,
+} from "./statisticsStateEngine";
 
 const DEVICE_ROOT = "devices";
 
-const CATEGORY_NAMES: Readonly<
-Record<
-SaxPowerStateDefinition["category"],
-string
->
-> = {
+const CATEGORY_NAMES:
+Readonly<Record<string, string>> = {
 	info: "Device information",
 	live: "Live measurements",
-	control: "Control values",
 	status: "Device status",
 	diagnostics: "Diagnostics",
 };
 
 export class SaxPowerStateEngine {
-	private readonly adapter: SaxPowerStateEngineAdapter;
+	private readonly adapter:
+SaxPowerObjectAdapter;
+
+	private readonly statistics:
+SaxPowerStatisticsStateEngine;
+
 	private readonly initializedDevices =
 		new Set<string>();
 
-	public constructor(adapter: SaxPowerStateEngineAdapter) {
+	public constructor(
+		adapter: SaxPowerObjectAdapter,
+	) {
 		this.adapter = adapter;
+
+		this.statistics =
+new SaxPowerStatisticsStateEngine(
+	adapter,
+);
 	}
 
 	public async writeDevices(
 		devices: readonly SaxPowerDevice[],
 	): Promise<void> {
 		await this.ensureRootObject();
+
+		await this.statistics.ensureObjects(
+			devices,
+		);
 
 		for (const device of devices) {
 			await this.writeDevice(device);
@@ -134,14 +141,35 @@ displaySerialNumber,
 			},
 		);
 
-		for (
-			const [
-				category,
-				name,
-			] of Object.entries(
-				CATEGORY_NAMES,
-			)
-		) {
+		/*
+ * Pre-1.0 development builds exposed dashboard control
+ * values publicly. V1.0 deliberately removes that channel.
+ */
+		await this.adapter.delObjectAsync(
+			`${deviceRoot}.control`,
+			{
+				recursive: true,
+			},
+		);
+
+		const categories =
+new Set(
+	saxPowerStateDefinitions.map(
+		(definition) =>
+			definition.category,
+	),
+);
+
+		categories.add("diagnostics");
+
+		for (const category of categories) {
+			const name =
+CATEGORY_NAMES[category];
+
+			if (!name) {
+				continue;
+			}
+
 			await this.adapter.extendObjectAsync(
 				`${deviceRoot}.${category}`,
 				{
@@ -188,22 +216,27 @@ displaySerialNumber,
 
 	private async ensureStateObject(
 		serialNumber: string,
-		definition: SaxPowerStateDefinition,
+		definition:
+SaxPowerStateDefinition,
 	): Promise<void> {
 		const stateId =
 `${DEVICE_ROOT}.${serialNumber}.${definition.id}`;
 
-		const common: ioBroker.StateCommon = {
-			name: definition.name,
-			desc: definition.description,
-			type: definition.type,
-			role: definition.role,
-			read: definition.read,
-			write: definition.write,
-		};
+		const common:
+ioBroker.StateCommon = {
+	name: definition.name,
+	desc: definition.description,
+	type: definition.type,
+	role: definition.role,
+	read: definition.read,
+	write: definition.write,
+};
 
-		if (definition.unit !== undefined) {
-			common.unit = definition.unit;
+		if (
+			definition.unit !== undefined
+		) {
+			common.unit =
+definition.unit;
 		}
 
 		await this.adapter.extendObjectAsync(
@@ -226,19 +259,20 @@ definition.category,
 
 	private async writeState(
 		serialNumber: string,
-		definition: SaxPowerStateDefinition,
+		definition:
+SaxPowerStateDefinition,
 		device: SaxPowerDevice,
 	): Promise<void> {
 		const stateId =
 `${DEVICE_ROOT}.${serialNumber}.${definition.id}`;
 
-		const value =
-definition.value(device);
-
 		await this.adapter.setStateAsync(
 			stateId,
 			{
-				val: value,
+				val:
+definition.value(
+	device,
+),
 				ack: true,
 			},
 		);

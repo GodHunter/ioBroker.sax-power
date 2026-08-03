@@ -44,120 +44,108 @@
 				}
 			}
 		},
-		"modbusTab": {
-			"type": "panel",
-			"label": "Modbus control",
-			"items": {
-				"modbusHeader": {
-					"type": "header",
-					"text": "Optional Modbus control",
-					"size": 2
-				},
-				"modbusDescription": {
-					"type": "staticText",
-					"text": "Modbus control is optional. The adapter continues to provide all SAX Power cloud data while this feature is disabled.",
-					"newLine": true
-				},
-				"modbusControlEnabled": {
-					"type": "checkbox",
-					"label": "Enable Modbus control",
-					"help": "Enable forwarding of SAX Power control commands to selected writable Modbus states.",
-					"default": false,
-					"newLine": true
-				},
-				"modbusInstance": {
-					"type": "instance",
-					"adapter": "modbus",
-					"label": "Modbus instance",
-					"help": "Select the Modbus adapter instance containing the SAX Power registers.",
-					"onlyEnabled": false,
-					"long": false,
-					"allowDeactivate": false,
-					"hidden": "data.modbusControlEnabled !== true",
-					"newLine": true
-				},
-				"modbusChargePowerStateId": {
-					"type": "selectSendTo",
-					"command": "getModbusStates",
-					"jsonData": "{\"instance\":\"${data.modbusInstance}\",\"purpose\":\"charge\"}",
-					"alsoDependsOn": [
-						"modbusInstance"
-					],
-					"manual": false,
-					"multiple": false,
-					"noTranslation": true,
-					"label": "Charge power state",
-					"help": "Select the writable numeric Modbus state for SAX register 44, charging power limit.",
-					"placeholder": "Select a writable state",
-					"hidden": "data.modbusControlEnabled !== true || !data.modbusInstance",
-					"newLine": true
-				},
-				"modbusDischargePowerStateId": {
-					"type": "selectSendTo",
-					"command": "getModbusStates",
-					"jsonData": "{\"instance\":\"${data.modbusInstance}\",\"purpose\":\"discharge\"}",
-					"alsoDependsOn": [
-						"modbusInstance"
-					],
-					"manual": false,
-					"multiple": false,
-					"noTranslation": true,
-					"label": "Discharge power state",
-					"help": "Optional writable numeric Modbus state for SAX register 43, discharging power limit.",
-					"placeholder": "Not configured",
-					"hidden": "data.modbusControlEnabled !== true || !data.modbusInstance",
-					"newLine": true
-				},
-				"modbusNote": {
-					"type": "staticText",
-					"text": "Register 44 is used for the charging power limit. Register 43 is intended for the discharging power limit and may not yet exist in every Modbus adapter configuration.",
-					"hidden": "data.modbusControlEnabled !== true",
-					"newLine": true
-				}
-			}
-		},
 		"supportTab": {
 			"type": "panel",
-			"label": "Support",
+			"label": "Support & information",
 			"items": {
-				"supportHeader": {
+				"aboutHeader": {
 					"type": "header",
-					"text": "Support development",
+					"text": "About this adapter",
 					"size": 2
 				},
-				"supportDescription": {
+				"aboutText": {
 					"type": "staticText",
-					"text": "If this adapter is useful to you, you can support its continued development with a voluntary PayPal contribution.",
+					"text": "This independent community adapter connects ioBroker to the SAX Power cloud and provides live measurements, device information and energy statistics.",
+					"newLine": true
+				},
+				"releaseHeader": {
+					"type": "header",
+					"text": "Version 1.0 scope",
+					"size": 3
+				},
+				"releaseText": {
+					"type": "staticText",
+					"text": "Cloud connection, automatic device discovery, live values, documented object structure and battery energy statistics. Modbus control and intelligent charging logic are planned for a later release.",
+					"newLine": true
+				},
+				"linksHeader": {
+					"type": "header",
+					"text": "Project links",
+					"size": 3
+				},
+				"githubLink": {
+					"type": "staticLink",
+					"href": "https://github.com/GodHunter/ioBroker.sax-power",
+					"text": "GitHub repository",
+					"button": true,
+					"variant": "outlined",
+					"newLine": true
+				},
+				"documentationLink": {
+					"type": "staticLink",
+					"href": "https://github.com/GodHunter/ioBroker.sax-power/tree/main/docs",
+					"text": "Project documentation",
+					"button": true,
+					"variant": "outlined",
+					"newLine": true
+				},
+				"issuesLink": {
+					"type": "staticLink",
+					"href": "https://github.com/GodHunter/ioBroker.sax-power/issues",
+					"text": "Report an issue or suggest a feature",
+					"button": true,
+					"variant": "outlined",
+					"newLine": true
+				},
+				"licenseLink": {
+					"type": "staticLink",
+					"href": "https://github.com/GodHunter/ioBroker.sax-power/blob/main/LICENSE",
+					"text": "MIT license",
+					"button": true,
+					"variant": "outlined",
+					"newLine": true
+				},
+				"independenceNotice": {
+					"type": "staticText",
+					"text": "SAX Power and the SAX Power logo are protected brand assets of SAX Power GmbH. This adapter is an independent open-source community project and is not affiliated with, endorsed by or maintained by SAX Power GmbH.",
+					"newLine": true
+				},
+				"donationDivider": {
+					"type": "divider"
+				},
+				"donationHeader": {
+					"type": "header",
+					"text": "Support development",
+					"size": 3
+				},
+				"donationText": {
+					"type": "staticText",
+					"text": "Development and maintenance are provided voluntarily. A donation is entirely optional and helps cover the time spent on testing, documentation and future improvements.",
 					"newLine": true
 				},
 				"donationButton": {
 					"type": "staticLink",
 					"href": "https://www.paypal.com/donate/?business=tobias.pruegner%40posteo.de&no_recurring=0&currency_code=EUR&item_name=ioBroker%20SAX%20Power%20Adapter",
-					"text": "💙  DONATE WITH PAYPAL",
+					"text": "Donate with PayPal",
 					"button": true,
 					"variant": "contained",
 					"color": "#0070ba",
 					"controlStyle": {
-						"minWidth": 280,
-						"minHeight": 58,
-						"fontSize": 16,
-						"fontWeight": 700,
-						"letterSpacing": 0.6,
-						"borderRadius": 8,
-						"textTransform": "none",
-						"boxShadow": "0 3px 8px rgba(0, 0, 0, 0.28)"
+						"minWidth": 220,
+						"minHeight": 44,
+						"fontWeight": 600,
+						"borderRadius": 6,
+						"textTransform": "none"
 					},
 					"style": {
-						"display": "flex",
-						"justifyContent": "center",
-						"marginTop": 18,
-						"marginBottom": 18
+						"marginTop": 10,
+						"marginBottom": 10
 					},
 					"newLine": true
 				},
-				"supportPrivacy": {
+				"privacyNotice": {
 					"type": "staticText",
-					"text": "The PayPal page opens only after clicking the button. The adapter itself does not transmit payment or account data.",
+					"text": "The PayPal page opens only after clicking the button. The adapter itself does not transmit payment data.",
 					"newLine": true
 				}
 			}

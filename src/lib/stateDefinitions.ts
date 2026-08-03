@@ -277,44 +277,6 @@ readonly SaxPowerStateDefinition[] = [
 	device.live.pvPower,
 	},
 	{
-		id: "control.targetChargePower",
-		modelPath:
-"control.targetChargePower",
-		apiField: "charge_energy",
-		type: "number",
-		role: "value.power",
-		unit: "W",
-		name: "Target charge power",
-		description:
-"Currently requested battery charging power. The SAX API field is named charge_energy despite representing power.",
-		category: "control",
-		read: true,
-		write: false,
-		value:
-(device) =>
-	device.control
-		.targetChargePower,
-	},
-	{
-		id: "control.targetDischargePower",
-		modelPath:
-"control.targetDischargePower",
-		apiField: "discharge_energy",
-		type: "number",
-		role: "value.power",
-		unit: "W",
-		name: "Target discharge power",
-		description:
-"Currently requested battery discharging power. The SAX API field is named discharge_energy despite representing power.",
-		category: "control",
-		read: true,
-		write: false,
-		value:
-(device) =>
-	device.control
-		.targetDischargePower,
-	},
-	{
 		id: "status.connected",
 		modelPath: "status.connected",
 		apiField: "data_connected",
