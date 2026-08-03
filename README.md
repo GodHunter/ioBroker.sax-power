@@ -1,87 +1,125 @@
 # ioBroker SAX Power Adapter
 
-> Community adapter for integrating SAX Power battery storage systems
-> into ioBroker.
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-> **Status:** Early development (pre-1.0)
+The SAX Power adapter connects ioBroker to the SAX Power cloud and provides device information, live measurements, historical battery-energy statistics, and an aggregated live-energy view.
+
+> This is an independent open-source community project. It is not affiliated with, endorsed by, or maintained by SAX Power GmbH.
 
 ## Features
 
-### Version 1.0
+- SAX Power cloud authentication
+- Automatic discovery of all storage devices assigned to the account
+- Live values for every detected storage device
+- Aggregated live values under the adapter root
+- Historical charged and discharged energy for:
+  - today
+  - current week
+  - current month
+  - current year
+  - total history
+- Aggregated statistics across all detected storage devices
+- Responsive React-based administration interface
+- Automatic light and dark theme support through ioBroker
+- Minimum cloud polling interval of 60 seconds
+- No additional SAX Power cloud requests from the live dashboard
 
--   Cloud connection to the SAX Power dashboard
--   Automatic discovery of one or more battery systems
--   Live values (PV, Grid, Battery, SOC, Messages)
--   Dynamic ioBroker object creation
--   Optional Modbus integration for charge/discharge control
--   Statistics for:
-    -   Today
-    -   Week
-    -   Month
-    -   Year
-    -   Total
--   Aggregated statistics across all detected storage systems
+## Installation
 
-## Planned Versions
+Install the adapter from the ioBroker repository or directly from GitHub during development.
 
-### Version 1.1
+After installation, open the instance configuration and enter:
 
--   Improved Admin UI
--   Diagnostics page
--   API connectivity test
--   Additional dashboard information
+- SAX Power cloud API URL
+- SAX Power username or email address
+- SAX Power password
+- Polling interval
 
-### Version 2.0
+The minimum supported polling interval is **60 seconds**. Shorter intervals are rejected to avoid unnecessary load on the SAX Power cloud service.
 
--   Intelligent charging/discharging engine
--   Configurable control strategies
--   Advanced automation
+## Object structure
 
-## Documentation
+```text
+sax-power.0
+├── info
+├── live
+├── devices
+│   └── <serialNumber>
+│       ├── info
+│       ├── live
+│       └── statistics
+└── statistics
+```
 
-Detailed documentation is provided in:
+The root `live` and `statistics` trees contain values aggregated across all detected storage devices. Device-specific values remain available below `devices.<serialNumber>`.
 
--   docs/OBJECTS.md
--   docs/FIELD_REFERENCE.md
--   docs/API.md
--   docs/STATISTICS.md
--   docs/MODBUS.md
--   docs/ARCHITECTURE.md
+See [docs/OBJECTS.md](docs/OBJECTS.md) for the complete structure.
 
-## Optional Modbus Support
+## Live dashboard
 
-The adapter works without Modbus.
+The administration interface displays:
 
-If enabled, writable Modbus states are detected automatically and can be
-assigned from the Admin UI.
+- PV power
+- House consumption
+- Grid power and direction
+- Battery power and direction
+- State of charge
+
+The dashboard reads only ioBroker states. It does not trigger additional SAX Power cloud requests.
+
+Some installations do not expose a PV value through the SAX Power cloud API. In that case, PV power and calculated house consumption are displayed as **Not available**.
 
 ## Statistics
 
-The adapter calculates:
+Historical battery-energy values are provided for every storage device and as a combined total.
 
--   Per storage system
--   Overall totals
+Each period contains:
 
-for:
+- `chargedEnergy`
+- `dischargedEnergy`
+- `firstTimestamp`
+- `lastTimestamp`
 
--   Day
--   Week
--   Month
--   Year
--   Total
+Technical metadata such as sample count, internal source identifiers, and calculated completeness is intentionally not exposed as public period states.
 
-Energy values are provided in **kWh**.
+See [docs/STATISTICS.md](docs/STATISTICS.md).
 
-No electricity price or profitability calculations are included.
+## Security and privacy
 
-## Support
+- Credentials are stored in the ioBroker instance configuration.
+- Authentication tokens are held only in memory.
+- Passwords and tokens are not written to adapter logs.
+- Cloud communication uses HTTPS.
+- The adapter performs read-only SAX Power cloud requests.
+- Modbus control is not enabled in version 1.0.
 
-A voluntary PayPal donation button is available in the Admin UI.
+## Documentation
 
-## Trademark Notice
+- [Architecture](docs/ARCHITECTURE.md)
+- [Cloud API](docs/API.md)
+- [Object structure](docs/OBJECTS.md)
+- [Field reference](docs/FIELD_REFERENCE.md)
+- [Statistics](docs/STATISTICS.md)
+- [Modbus roadmap](docs/MODBUS.md)
+- [Branding and trademarks](docs/BRANDING.md)
 
-SAX Power and the SAX Power logo are trademarks or protected brand
-assets of SAX Power GmbH.
+## Planned features
 
-This adapter is an independent community project and is not affiliated
-with, endorsed by, or maintained by SAX Power GmbH.
+The following features are intentionally outside the version 1.0 scope:
+
+- Optional Modbus control
+- Intelligent charging algorithms
+- User-defined statistical periods
+- Battery analysis and diagnostics
+- Notifications and alarms
+- Additional integrations
+
+## Support development
+
+The SAX Power adapter is developed entirely in my free time. If you like it and it helps you in everyday use, you can support its continued development with a voluntary donation. Thank you!
+
+## License
+
+MIT License. See [LICENSE](LICENSE).
+
+SAX Power and the SAX Power logo are protected trademarks or trademark assets of SAX Power GmbH. See [docs/BRANDING.md](docs/BRANDING.md).

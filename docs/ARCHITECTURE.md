@@ -1,216 +1,159 @@
-# Adapter Architecture
+# Architecture
 
-The adapter uses a layered architecture to keep cloud access, parsing, ioBroker state management, statistics, and optional control independent.
+## Overview
 
-## Data flow
+The adapter is divided into a cloud client, parsers, state engines, runtime scheduling, and a React-based administration interface.
 
 ```text
-SAX Power dashboard
-        │
-        ▼
+SAX Power Cloud
+      │
+      ▼
 SaxPowerApiClient
-        │
-        ▼
-SaxPowerParser
-        │
-        ▼
-SaxPowerDevice model
-        │
-        ├──────────────► SaxPowerStateEngine
-        │                       │
-        │                       ▼
-        │                 ioBroker objects
-        │
-        ├──────────────► StatisticsEngine
-        │                       │
-        │                       ▼
-        │                 energy statistics
-        │
-        └──────────────► Optional ModbusControl
-                                │
-                                ▼
-                         foreign Modbus states
+      │
+      ├── live data
+      └── energy chart history
+      │
+      ▼
+Parsers
+      │
+      ├── SaxPowerParser
+      └── SaxPowerHistoryParser
+      │
+      ▼
+State engines
+      │
+      ├── StateEngine
+      └── StatisticsStateEngine
+      │
+      ▼
+ioBroker object database
+      │
+      ▼
+React administration interface
 ```
 
-## API client
+## Runtime flow
 
-File:
+1. The adapter validates its configuration.
+2. It authenticates against the SAX Power cloud.
+3. It discovers all storage devices assigned to the account.
+4. It requests current live data at the configured polling interval.
+5. It normalizes cloud values into a stable internal device model.
+6. It writes device-specific states.
+7. It writes aggregated root live states.
+8. It updates historical statistics on the dedicated history schedule.
+9. The administration interface reads ioBroker states through the existing ioBroker admin socket.
+
+## Cloud polling
+
+The minimum supported interval is 60 seconds.
+
+The administration dashboard refreshes its displayed ioBroker states more frequently, but this does **not** cause additional cloud requests. The cloud polling schedule and the UI refresh schedule are independent.
+
+## Device-specific state model
+
+Each detected storage device is represented below:
 
 ```text
-src/lib/saxPowerApiClient.ts
+devices.<serialNumber>
 ```
 
-Responsibilities:
+The device tree contains:
 
-- HTTP requests
-- login
-- token handling
-- timeout handling
-- retry after HTTP 401
-- response parsing
-- API-specific errors
+- static and slowly changing information
+- current live measurements
+- historical statistics
 
-The API client does not create ioBroker objects.
+## Aggregated live model
 
-## Parser
-
-File:
+The adapter writes combined live values below:
 
 ```text
-src/lib/saxPowerParser.ts
-```
-
-Responsibilities:
-
-- validate the API envelope
-- detect devices by serial number
-- normalize field names
-- preserve null values
-- preserve original signed power values
-- derive import/export and charge/discharge directions
-- create the internal device model
-
-The parser does not access ioBroker.
-
-## Device model
-
-File:
-
-```text
-src/lib/saxPowerDevice.ts
-```
-
-The internal model groups values into:
-
-```text
-info
 live
-control
-status
-diagnostics
 ```
 
-The rest of the adapter does not need to know the original dashboard field layout.
+Aggregation rules:
 
-## State definitions
+- Battery power: sum of all available battery power values
+- State of charge: arithmetic mean of all available storage SOC values
+- PV power: first available installation-level value
+- Grid power: first available installation-level value
+- House consumption: calculated only when PV, grid, and battery power are all available
 
-File:
+PV and grid values are treated as installation-level measurements because the SAX Power cloud may return the same value for multiple storage devices. They are therefore not summed.
+
+## Power sign convention
+
+The normalized model uses:
+
+### Grid power
+
+- positive: grid import
+- negative: grid export
+- zero: idle
+
+### Battery power
+
+- positive: battery discharge
+- negative: battery charge
+- zero: idle
+
+House consumption is calculated as:
 
 ```text
-src/lib/stateDefinitions.ts
+houseConsumptionPower =
+    pvPower + gridPower + batteryPower
 ```
 
-This file is the central metadata source for public ioBroker states.
+The result is limited to a minimum of zero. If one required input is unavailable, the calculated value is stored as `null`.
 
-Each definition contains:
+## Historical statistics
 
-- state ID
-- model path
-- original API field
-- type
-- role
-- unit
-- name
-- description
-- category
-- read/write access
-- value accessor
+The statistics parser normalizes energy-chart responses into five periods:
 
-The same metadata is intended to support:
+- day
+- week
+- month
+- year
+- total
 
-- object creation,
-- runtime value updates,
-- documentation,
-- and tests.
+Statistics are written:
 
-## State engine
+- below every device
+- below the adapter root as an aggregate across all devices
 
-File:
+## Administration interface
 
-```text
-src/lib/stateEngine.ts
-```
+The adapter uses a custom React administration interface based on the ioBroker React adapter framework and Material UI.
 
-Responsibilities:
+The interface:
 
-- create dynamic device objects
-- create category channels
-- create states from state definitions
-- write acknowledged values
-- preserve per-device raw diagnostics
-- support more than one storage device
+- follows the ioBroker light or dark theme
+- has no separate theme switch
+- is responsive
+- supports scrolling on smaller screens
+- reads runtime values from ioBroker states
+- never communicates directly with the SAX Power cloud
 
-The state engine depends only on a minimal adapter contract:
+## Error handling
 
-- `extendObjectAsync`
-- `setStateAsync`
+The adapter separates:
 
-It does not depend on a specific adapter-core class return type.
+- configuration errors
+- authentication errors
+- live polling errors
+- history polling errors
+- parsing errors
 
-## Modbus discovery
+Sensitive information such as passwords and bearer tokens must never be written to logs.
 
-File:
+## Version 1.0 boundaries
 
-```text
-src/lib/modbusDiscovery.ts
-```
+Version 1.0 is read-only with respect to SAX Power and Modbus.
 
-Responsibilities:
+The following are not part of the runtime architecture yet:
 
-- normalize selected Modbus instance IDs
-- read states below the selected instance
-- filter exact instance prefixes
-- filter numeric writable states
-- prefer registers 43 and 44
-- return Admin dropdown options
-
-## Statistics engine
-
-Planned file:
-
-```text
-src/lib/statisticsEngine.ts
-```
-
-Responsibilities:
-
-- retrieve or receive historical measurements
-- calculate day, week, month, year, and total values
-- calculate per-device statistics
-- aggregate all detected devices
-- persist results and metadata
-- avoid duplicate processing
-
-## Future control engine
-
-Planned after version 1.0:
-
-```text
-src/lib/controlEngine.ts
-```
-
-The control engine will remain optional and separate from cloud retrieval and statistics.
-
-Possible dependencies include:
-
-- battery SOC
-- current load
-- PV production
-- grid import/export
-- time windows
-- power limits
-- safety conditions
-- data freshness
-- Modbus availability
-- communication errors
-
-## Design rules
-
-1. Cloud retrieval must work without Modbus.
-2. Statistics must work without control features.
-3. Public states must be documented.
-4. Unknown API fields must not be assigned guessed meanings.
-5. Null must not silently become zero.
-6. Signed original values must remain available.
-7. New API fields should require changes in as few layers as possible.
-8. Sensitive data must never be written to logs or diagnostics.
+- writable control states
+- charging control logic
+- Modbus write operations
+- configurable automation dependencies

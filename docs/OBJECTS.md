@@ -1,78 +1,166 @@
-# Object Reference
+# ioBroker object structure
 
-This document describes the public ioBroker objects created by the SAX Power adapter.
-
-## Instance root
+## Root structure
 
 ```text
 sax-power.0
 ├── info
-├── diagnostics
-├── devices
-└── statistics
-```
-
-## Devices
-
-Each detected storage device creates:
-
-```text
-devices.<serial>
-├── info
 ├── live
-├── status
-├── diagnostics
+├── devices
+│   └── <serialNumber>
+│       ├── info
+│       ├── live
+│       └── statistics
+│           ├── day
+│           ├── week
+│           ├── month
+│           ├── year
+│           └── total
 └── statistics
+    ├── info
+    ├── day
+    ├── week
+    ├── month
+    ├── year
+    └── total
 ```
 
-## Statistics per storage device
+## `info`
+
+Adapter runtime information is stored below:
 
 ```text
-devices.<serial>.statistics
-├── day
-├── week
-├── month
-├── year
-├── total
-└── info
+info.*
 ```
 
-Every period contains:
+The standard ioBroker connection state remains the primary indication of whether the adapter is connected.
 
-| Object | Type | Unit | Description |
-|---|---|---|---|
-| `chargedEnergy` | number/null | `kWh` | Charged battery energy in the period |
-| `dischargedEnergy` | number/null | `kWh` | Discharged battery energy in the period |
-| `samples` | number | — | Historical samples used |
-| `firstTimestamp` | string/date | — | First included measurement |
-| `lastTimestamp` | string/date | — | Last included measurement |
-| `completeness` | number | `%` | Estimated period completeness |
-| `source` | string | — | Statistics data source |
+Additional runtime information may include:
 
-The `info` channel contains:
+- last update
+- last error
+- diagnostic status
 
-| Object | Type | Description |
-|---|---|---|
-| `firstMeasurement` | string/date | Earliest available device measurement |
-| `lastUpdate` | string/date | Last statistics update |
-| `source` | string | Statistics source |
+## Root `live`
+
+The root live channel contains aggregated installation values:
+
+```text
+live
+├── pvPower
+├── houseConsumptionPower
+├── gridPower
+├── gridDirection
+├── batteryPower
+├── batteryDirection
+├── soc
+├── deviceCount
+└── lastUpdate
+```
+
+These values are intended for:
+
+- the adapter administration dashboard
+- VIS
+- scripts
+- Grafana or other history/visualization adapters
+
+## `devices`
+
+Every discovered SAX Power storage device is represented by its serial number:
+
+```text
+devices.<serialNumber>
+```
+
+### Device information
+
+```text
+devices.<serialNumber>.info
+```
+
+Typical states include:
+
+- `name`
+- `type`
+- `serialNumber`
+- `firmware`
+- `dataCycle`
+- `lastUpdate`
+
+### Device live values
+
+```text
+devices.<serialNumber>.live
+```
+
+States:
+
+- `batteryChargePower`
+- `batteryDischargePower`
+- `batteryPower`
+- `batteryDirection`
+- `gridImportPower`
+- `gridExportPower`
+- `gridPower`
+- `gridDirection`
+- `gridVoltage`
+- `pvPower`
+- `soc`
+
+Optional cloud fields remain `null` when unavailable.
+
+## Device statistics
+
+```text
+devices.<serialNumber>.statistics.<period>
+```
+
+Periods:
+
+- `day`
+- `week`
+- `month`
+- `year`
+- `total`
+
+Each period contains:
+
+```text
+chargedEnergy
+dischargedEnergy
+firstTimestamp
+lastTimestamp
+```
 
 ## Aggregated statistics
 
 ```text
-statistics
-├── day
-├── week
-├── month
-├── year
-├── total
-└── info
+statistics.<period>
 ```
 
-The same period states are provided across all detected storage devices. Root `statistics.info` additionally contains `deviceCount`.
+The root statistics tree uses the same period and state structure as each device. Energy values are summed across all detected storage devices.
 
-Before historical import is implemented, energy values remain `null`; missing history is never represented as zero.
+## Statistics runtime information
 
-## Control states
+```text
+statistics.info
+```
 
-Public control and Modbus states are intentionally not part of version 1.0. Control-related dashboard fields remain preserved in raw diagnostics for future releases.
+This channel contains operational metadata for the history subsystem, such as the current source, last update, and last error.
+
+## Removed technical states
+
+The following technical states are not exposed in the version 1.0 public period structure:
+
+```text
+samples
+source
+completeness
+```
+
+Existing objects from older development builds are removed automatically when the adapter initializes the period objects.
+
+## Writable states
+
+Version 1.0 does not create public writable SAX Power or Modbus control states.

@@ -1,123 +1,126 @@
-# SAX Power Dashboard API
+# SAX Power Cloud API
 
-This document records the dashboard API behavior verified during adapter development.
+## Scope
 
-The API is not documented as a public developer API by SAX Power. Endpoints and payloads may therefore change without notice.
+This document describes the cloud calls used by the adapter. The API is not documented here as a public or stable third-party contract. Endpoint behavior may change without notice.
 
-## Base URL
+The adapter uses the API only for read-only data retrieval.
 
-Default:
+## Default API base URL
 
 ```text
 https://webserver.sax-power.net
 ```
 
+The base URL is configurable in the adapter instance.
+
 ## Authentication
 
-### Token endpoint
+### Token request
 
-```text
+```http
 POST /api/auth/token/
 ```
 
-### Content type
+The request authenticates with the configured SAX Power username or email address and password.
 
-```text
-application/x-www-form-urlencoded
-```
-
-### Form fields
-
-| Field | Value |
-|---|---|
-| `email` | SAX Power dashboard email address |
-| `password` | SAX Power dashboard password |
-| `stayLoggedIn` | `false` |
-
-The endpoint does not accept the original JSON body used by the generated adapter baseline.
+The returned bearer token is held in memory and is not stored in ioBroker states or written to logs.
 
 ## Live data
 
-### Endpoint
-
-```text
+```http
 GET /api/auth/data/
 ```
 
-The request uses the token obtained during login.
+This endpoint returns the storage devices assigned to the account and their current values.
 
-On HTTP 401, the API client performs one new login and retries the request.
+The adapter uses the response for:
 
-## Example response envelope
+- device discovery
+- device information
+- battery live values
+- grid live values
+- optional PV values
+- state of charge
 
-```json
-{
-  "data": [
-    {
-      "1012401057": {
-        "sn": "1012401057",
-        "data_time": "2026-08-03 11:11:36.002006",
-        "grid_voltage": 237.1,
-        "grid_power": -3204,
-        "battery_power": -456,
-        "SOC": 50,
-        "charge_energy": -450,
-        "discharge_energy": 0
-      }
-    }
-  ],
-  "message3": {
-    "1012401057": null
-  },
-  "message5": {
-    "1012401057": null
-  },
-  "message6": {
-    "1012401057": null
-  }
-}
+Not every installation returns every possible field. Missing values are represented as unavailable rather than being replaced with zero.
+
+## Historical energy chart
+
+```http
+GET /api/auth/energy_chart/
 ```
 
-## Device structure
+The adapter requests supported periods for a selected storage serial number.
 
-Each object in the `data` array can contain one or more serial-number keys.
-
-The parser therefore supports multiple storage systems:
+Validated period formats include:
 
 ```text
-data[]
-└── <serial>
-    └── device payload
+week_YYYY-MM-DD
+month_YYYY-MM-DD
+year_YYYY-MM-DD
+total_YYYY-MM-DD
 ```
 
-Invalid entries are ignored without aborting the complete response.
+The SAX Power service may use a different parameter format for daily chart data. For version 1.0, today's values are derived from the current monthly response.
 
-## Null handling
+## Historical fields
 
-A `null` value means unavailable and is not converted to zero.
+Observed history responses can include:
 
-This is particularly relevant for:
+- `m2`
+- `m2N`
+- `m4`
+- `m5`
+- `m5N`
+- `total_m2`
+- `total_m2N`
+- `total_m4`
+- `total_m5`
+- `total_m5N`
+- `de_time`
+- `me_time`
+- `year`
 
-```text
-PV_power
-```
+The adapter parser maps the relevant battery-energy values into:
+
+- charged energy
+- discharged energy
+
+The raw cloud field names are intentionally not exposed as the public ioBroker object contract.
+
+## Request policy
+
+Version 1.0 performs only:
+
+- authentication requests
+- live data reads
+- historical energy-chart reads
+
+It does not perform:
+
+- `PUT`
+- `PATCH`
+- `DELETE`
+- cloud configuration changes
+- control commands
+- Modbus writes
+
+## Polling policy
+
+The minimum cloud polling interval is 60 seconds.
+
+The live dashboard refreshes ioBroker states independently and does not increase the SAX Power cloud request rate.
 
 ## Error handling
 
-The client distinguishes:
+The adapter treats the following as distinct failures:
 
-- authentication errors,
-- HTTP errors,
-- timeouts,
-- invalid responses,
-- and adapter configuration errors.
+- DNS or network error
+- HTTP error
+- authentication failure
+- invalid response shape
+- missing device data
+- unavailable optional field
 
-Passwords and tokens must never be written to logs or diagnostic states.
-
-## History and CSV export
-
-The dashboard provides a historical view and CSV export.
-
-The exact history endpoint, request parameters, response format, and pagination behavior still need to be verified before implementing the statistics engine.
-
-The implementation goal is to automate the same data retrieval that is available manually through the dashboard.
+Passwords and tokens are excluded from diagnostic output.

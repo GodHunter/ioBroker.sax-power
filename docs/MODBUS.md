@@ -1,115 +1,64 @@
-# Optional Modbus Integration
+# Modbus integration roadmap
 
-Modbus support is an optional adapter feature.
+## Version 1.0 status
 
-The SAX Power cloud connection, device discovery, live values, and statistics continue to work when Modbus control is disabled or no Modbus adapter is installed.
+Modbus control is intentionally not exposed in version 1.0.
 
-## Purpose
+Version 1.0 provides:
 
-The integration links SAX Power control states to writable ioBroker states exposed by an ioBroker Modbus adapter instance.
+- SAX Power cloud connection
+- device discovery
+- live measurements
+- historical statistics
+- aggregated live values
 
-The adapter stores full ioBroker object IDs and does not depend on:
+It does not provide writable charging or discharging control.
 
-- a fixed Modbus instance number,
-- a fixed state name,
-- or a particular language used in state names.
+## Planned design
 
-## Instance selection
+A later release may optionally forward control commands to writable states of an installed ioBroker Modbus adapter.
 
-Supported examples:
+The design should remain independent of a fixed Modbus instance number. Users will select the required Modbus instance, and the adapter will discover writable numeric states below that instance.
 
-```text
-modbus.0
-modbus.1
-modbus.2
-system.adapter.modbus.1
-```
+## Known SAX Power register information
 
-The long instance form is normalized internally.
+Based on the SAX Power documentation reviewed during development:
 
-The selected instance is never hard-coded.
+- Register 44 is used for the charging power limit.
+- Register 43 is intended for the discharging power limit.
 
-## State discovery
+Register 43 may not be present in every existing ioBroker Modbus configuration.
 
-The Admin UI requests writable numeric states below the selected Modbus instance.
-
-The discovery filters for:
-
-| Property | Required value |
-|---|---|
-| Object type | `state` |
-| `common.type` | `number` |
-| `common.write` | `true` |
-| Object ID prefix | Exact selected instance |
-
-States from similar instance names are excluded.
-
-Example:
-
-```text
-Selected: modbus.1
-Included: modbus.1.*
-Excluded: modbus.0.*, modbus.10.*, javascript.0.*
-```
-
-## SAX Power registers
-
-### Register 44
-
-Charging power limit.
-
-The Admin UI prefers a state whose state name starts with register number `44`.
-
-Example:
-
-```text
-modbus.1.holdingRegisters.44_Leistungsgrenzwert_für_Ladung
-```
-
-### Register 43
-
-Discharging power limit.
-
-The Admin UI prefers a state whose state name starts with register number `43`.
-
-Example:
-
-```text
-modbus.1.holdingRegisters.43_Leistungsgrenzwert_für_Entladung
-```
-
-The discharge register remains optional because it may not yet be configured in every ioBroker Modbus instance.
+The adapter must not assume that the Modbus instance is `modbus.1`.
 
 ## Safety requirements
 
-Before writing, the control module must verify:
+Before Modbus control is released, the implementation must include:
 
-- Modbus control is enabled,
-- the configured object exists,
-- the object belongs to the selected Modbus instance,
-- the object is a numeric state,
-- the object is writable,
-- the value is finite,
-- and the value is inside the supported range.
+- explicit opt-in
+- validation of writable target states
+- value range validation
+- clear units
+- safe startup behavior
+- no automatic writes after installation
+- dependency and availability checks
+- error recovery
+- audit-friendly logging without sensitive data
+- tests for missing or stale states
 
-The adapter must never write to an automatically guessed state without saving the selected full object ID in the instance configuration.
+## Intelligent charging
 
-## Separation of concerns
+A later control feature may integrate user-defined charging logic. That feature is separate from basic Modbus forwarding and must account for dependencies such as:
 
-The planned modules are:
+- PV availability
+- house consumption
+- grid direction
+- battery SOC
+- configured limits
+- stale measurements
+- communication failure
+- multiple storage devices
+- manual override
+- fallback behavior
 
-```text
-modbusDiscovery.ts
-├── normalize instance IDs
-├── discover writable states
-├── filter exact instance prefix
-└── prefer registers 43 and 44
-
-modbusControl.ts
-├── validate configured states
-├── validate requested values
-├── write values
-└── report errors
-```
-
-The later intelligent charging and discharging logic is planned as a separate feature after version 1.0.
+No control algorithm is part of version 1.0.

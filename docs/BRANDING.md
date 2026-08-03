@@ -1,60 +1,42 @@
-# Branding and Trademark Notice
+# Branding and trademarks
 
-## Adapter branding
+## Project identity
 
-The adapter icon is generated from the SAX Power logo file published by SAX Power at:
+This repository contains an independent open-source ioBroker community adapter for SAX Power storage systems.
+
+It is not:
+
+- an official SAX Power product
+- maintained by SAX Power GmbH
+- endorsed by SAX Power GmbH
+- affiliated with SAX Power GmbH
+
+## SAX Power name and logo
+
+SAX Power and the SAX Power logo are protected trademarks or trademark assets of SAX Power GmbH.
+
+The logo is used only to identify the supported product ecosystem within ioBroker.
+
+Source used during adapter development:
 
 ```text
 https://sax-power.net/wp-content/uploads/2024/04/sax-logo-standard.svg
 ```
 
-The downloaded source asset is stored as:
+The source SVG may be retained in the repository for attribution and reproducible asset generation. The adapter icon is generated from that source with a white background to remain visible in both light and dark ioBroker themes.
 
-```text
-admin/sax-power-logo-source.svg
-```
+## Repository notice
 
-The ioBroker-compatible PNG generated from that source is stored as:
+The following notice should remain visible in the documentation and administration interface:
 
-```text
-admin/sax-power.png
-```
+> SAX Power and the SAX Power logo are protected trademarks or trademark assets of SAX Power GmbH. This project is not officially affiliated with SAX Power GmbH.
 
-## Trademark notice
+## Open-source license
 
-SAX Power, the SAX Power name, and the SAX Power logo are trademarks or otherwise protected brand assets of SAX Power GmbH.
+The adapter source code is distributed under the MIT License.
 
-This open-source adapter is an independent community project.
+The MIT License applies to the adapter source code. It does not transfer ownership of third-party names, logos, or trademarks.
 
-It is not:
+## Removal request
 
-- an official SAX Power product,
-- affiliated with SAX Power GmbH,
-- endorsed by SAX Power GmbH,
-- or maintained by SAX Power GmbH.
-
-The brand asset is used only to identify compatibility with SAX Power products.
-
-## Software license and brand rights
-
-The adapter source code is licensed under the license stated in the project `LICENSE` file.
-
-That software license does not grant rights to:
-
-- third-party names,
-- logos,
-- trademarks,
-- product names,
-- or other protected brand assets.
-
-## Public release
-
-Permission for public redistribution of the logo should be confirmed with SAX Power GmbH before the first stable public release.
-
-If permission is not available, the adapter must use a neutral, independently designed compatibility icon instead.
-
-## Website copyright
-
-The official SAX Power website identifies SAX Power GmbH as the website operator and copyright holder.
-
-The adapter documentation must retain a clear source and attribution record for any official brand asset used.
+If the trademark owner requests a change to naming, presentation, or included brand assets, the project maintainer should review and address the request promptly.
