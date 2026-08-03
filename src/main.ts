@@ -6,6 +6,14 @@ import {
 	type SaxPowerLiveDataResponse,
 } from "./lib/saxPowerApiClient";
 
+import {
+	parseLiveDataResponse,
+} from "./lib/saxPowerParser";
+
+import {
+	SaxPowerStateEngine,
+} from "./lib/stateEngine";
+
 interface SaxPowerAdapterConfig {
 apiUrl: string;
 username: string;
@@ -15,6 +23,7 @@ pollInterval: number;
 
 class SaxPower extends utils.Adapter {
 	private apiClient: SaxPowerApiClient | undefined;
+	private stateEngine: SaxPowerStateEngine | undefined;
 	private pollTimer: ioBroker.Timeout | undefined;
 	private pollRunning = false;
 
@@ -67,6 +76,9 @@ this.validateConfiguration();
 			username: this.saxConfig.username,
 			password: this.saxConfig.password,
 		});
+
+		this.stateEngine =
+new SaxPowerStateEngine(this);
 
 		await this.pollLiveData();
 
@@ -199,11 +211,31 @@ this.formatError(error);
 	private async processLiveData(
 		response: SaxPowerLiveDataResponse,
 	): Promise<void> {
-		/*
- * Phase 04A deliberately stores the complete response only as
- * diagnostic JSON. The verified SAX Power field mapping and
- * device/state hierarchy will be implemented in Phase 04B.
- */
+		const receivedTimestamp =
+new Date().toISOString();
+
+		const devices =
+parseLiveDataResponse(
+	response,
+	receivedTimestamp,
+);
+
+		if (devices.length === 0) {
+			throw new Error(
+				"The SAX Power API response did not contain any valid devices.",
+			);
+		}
+
+		if (!this.stateEngine) {
+			throw new Error(
+				"The SAX Power state engine is not initialized.",
+			);
+		}
+
+		await this.stateEngine.writeDevices(
+			devices,
+		);
+
 		await this.setStateAsync(
 			"diagnostics.rawLiveData",
 			JSON.stringify(response),
