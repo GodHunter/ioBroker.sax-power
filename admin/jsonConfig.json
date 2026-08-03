@@ -1,112 +1,187 @@
 {
-	"type": "panel",
-	"label": "SAX Power",
+	"type": "tabs",
+	"i18n": true,
+	"iconPosition": "start",
 	"items": {
-		"connectionHeader": {
-			"type": "header",
-			"text": "SAX Power cloud connection",
-			"size": 2
+		"cloudTab": {
+			"type": "panel",
+			"label": "Cloud connection",
+			"items": {
+				"cloudHeader": {
+					"type": "header",
+					"text": "SAX Power cloud connection",
+					"size": 2
+				},
+				"cloudDescription": {
+					"type": "staticText",
+					"text": "The cloud connection provides live and historical SAX Power data independently of the optional Modbus integration.",
+					"newLine": true
+				},
+				"apiUrl": {
+					"type": "text",
+					"label": "SAX Power API URL",
+					"help": "Base URL of the SAX Power dashboard API.",
+					"default": "https://webserver.sax-power.net"
+				},
+				"username": {
+					"type": "text",
+					"label": "Email address",
+					"help": "Email address used for the SAX Power dashboard."
+				},
+				"password": {
+					"type": "password",
+					"label": "Password",
+					"help": "Password used for the SAX Power dashboard."
+				},
+				"pollInterval": {
+					"type": "number",
+					"label": "Polling interval",
+					"help": "Interval for retrieving live data from SAX Power.",
+					"unit": "seconds",
+					"min": 30,
+					"max": 3600,
+					"default": 60
+				}
+			}
 		},
-		"apiUrl": {
-			"type": "text",
-			"label": "SAX Power API URL",
-			"help": "Base URL of the SAX Power dashboard API.",
-			"default": "https://webserver.sax-power.net"
+		"modbusTab": {
+			"type": "panel",
+			"label": "Modbus control",
+			"items": {
+				"modbusHeader": {
+					"type": "header",
+					"text": "Optional Modbus control",
+					"size": 2
+				},
+				"modbusDescription": {
+					"type": "staticText",
+					"text": "Modbus control is optional. The adapter continues to provide all SAX Power cloud data while this feature is disabled.",
+					"newLine": true
+				},
+				"modbusControlEnabled": {
+					"type": "checkbox",
+					"label": "Enable Modbus control",
+					"help": "Enable forwarding of SAX Power control commands to selected writable Modbus states.",
+					"default": false,
+					"newLine": true
+				},
+				"modbusInstance": {
+					"type": "instance",
+					"adapter": "modbus",
+					"label": "Modbus instance",
+					"help": "Select the Modbus adapter instance containing the SAX Power registers.",
+					"onlyEnabled": false,
+					"long": false,
+					"allowDeactivate": false,
+					"hidden": "data.modbusControlEnabled !== true",
+					"newLine": true
+				},
+				"modbusChargePowerStateId": {
+					"type": "selectSendTo",
+					"command": "getModbusStates",
+					"jsonData": "{\"instance\":\"${data.modbusInstance}\",\"purpose\":\"charge\"}",
+					"alsoDependsOn": [
+						"modbusInstance"
+					],
+					"manual": false,
+					"multiple": false,
+					"noTranslation": true,
+					"label": "Charge power state",
+					"help": "Select the writable numeric Modbus state for SAX register 44, charging power limit.",
+					"placeholder": "Select a writable state",
+					"hidden": "data.modbusControlEnabled !== true || !data.modbusInstance",
+					"newLine": true
+				},
+				"modbusDischargePowerStateId": {
+					"type": "selectSendTo",
+					"command": "getModbusStates",
+					"jsonData": "{\"instance\":\"${data.modbusInstance}\",\"purpose\":\"discharge\"}",
+					"alsoDependsOn": [
+						"modbusInstance"
+					],
+					"manual": false,
+					"multiple": false,
+					"noTranslation": true,
+					"label": "Discharge power state",
+					"help": "Optional writable numeric Modbus state for SAX register 43, discharging power limit.",
+					"placeholder": "Not configured",
+					"hidden": "data.modbusControlEnabled !== true || !data.modbusInstance",
+					"newLine": true
+				},
+				"modbusNote": {
+					"type": "staticText",
+					"text": "Register 44 is used for the charging power limit. Register 43 is intended for the discharging power limit and may not yet exist in every Modbus adapter configuration.",
+					"hidden": "data.modbusControlEnabled !== true",
+					"newLine": true
+				}
+			}
 		},
-		"username": {
-			"type": "text",
-			"label": "Email address",
-			"help": "Email address used for the SAX Power dashboard."
+		"statisticsTab": {
+			"type": "panel",
+			"label": "Statistics",
+			"items": {
+				"statisticsHeader": {
+					"type": "header",
+					"text": "Energy statistics",
+					"size": 2
+				},
+				"statisticsDescription": {
+					"type": "staticText",
+					"text": "Planned statistics: charged and discharged energy for today, current month, current year and total. Values will be provided per storage device and as combined totals for all storage devices.",
+					"newLine": true
+				},
+				"statisticsScope": {
+					"type": "staticText",
+					"text": "This tab currently documents the planned V1.0 statistics scope. No additional configuration is required yet.",
+					"newLine": true
+				}
+			}
 		},
-		"password": {
-			"type": "password",
-			"label": "Password",
-			"help": "Password used for the SAX Power dashboard."
-		},
-		"pollInterval": {
-			"type": "number",
-			"label": "Polling interval",
-			"help": "Interval for retrieving live data from SAX Power.",
-			"unit": "seconds",
-			"min": 30,
-			"max": 3600,
-			"default": 60
-		},
-		"modbusDivider": {
-			"type": "divider"
-		},
-		"modbusHeader": {
-			"type": "header",
-			"text": "Optional Modbus control",
-			"size": 2
-		},
-		"modbusDescription": {
-			"type": "staticText",
-			"text": "Modbus control is optional. The adapter continues to provide all SAX Power cloud data when this feature is disabled.",
-			"newLine": true
-		},
-		"modbusControlEnabled": {
-			"type": "checkbox",
-			"label": "Enable Modbus control",
-			"help": "Enable forwarding of SAX Power control commands to selected writable ioBroker Modbus states.",
-			"default": false,
-			"newLine": true
-		},
-		"modbusInstance": {
-			"type": "instance",
-			"adapter": "modbus",
-			"label": "Modbus instance",
-			"help": "Select the Modbus adapter instance containing the SAX Power control registers.",
-			"onlyEnabled": false,
-			"long": false,
-			"allowDeactivate": false,
-			"hidden": "data.modbusControlEnabled !== true",
-			"newLine": true
-		},
-		"modbusChargePowerStateId": {
-			"type": "objectId",
-			"types": "state",
-			"label": "Charge power state",
-			"help": "Select the complete writable numeric ioBroker state used to set the SAX Power charging limit. Example: modbus.1.holdingRegisters.44_Leistungsgrenzwert_für_Ladung",
-			"placeholder": "modbus.1.holdingRegisters.44_Leistungsgrenzwert_für_Ladung",
-			"hidden": "data.modbusControlEnabled !== true",
-			"newLine": true
-		},
-		"modbusDischargePowerStateId": {
-			"type": "objectId",
-			"types": "state",
-			"label": "Discharge power state",
-			"help": "Optional writable numeric ioBroker state used to set the SAX Power discharge limit.",
-			"placeholder": "modbus.1.holdingRegisters...",
-			"hidden": "data.modbusControlEnabled !== true",
-			"newLine": true
-		},
-		"donationDivider": {
-			"type": "divider"
-		},
-		"donationHeader": {
-			"type": "header",
-			"text": "Support development",
-			"size": 2
-		},
-		"donationText": {
-			"type": "staticText",
-			"text": "If this adapter is useful to you, you can support its continued development with a voluntary PayPal contribution.",
-			"newLine": true
-		},
-		"donationButton": {
-			"type": "staticLink",
-			"href": "https://www.paypal.com/donate/?business=tobias.pruegner%40posteo.de&no_recurring=0&currency_code=EUR&item_name=ioBroker%20SAX%20Power%20Adapter",
-			"text": "Donate with PayPal",
-			"button": true,
-			"variant": "contained",
-			"color": "#0070ba",
-			"newLine": true
-		},
-		"donationRecipient": {
-			"type": "staticText",
-			"text": "Recipient: tobias.pruegner@posteo.de",
-			"newLine": true
+		"supportTab": {
+			"type": "panel",
+			"label": "Support",
+			"items": {
+				"supportHeader": {
+					"type": "header",
+					"text": "Support development",
+					"size": 2
+				},
+				"supportDescription": {
+					"type": "staticText",
+					"text": "If this adapter is useful to you, you can support its continued development with a voluntary PayPal contribution.",
+					"newLine": true
+				},
+				"donationButton": {
+					"type": "staticLink",
+					"href": "https://www.paypal.com/donate/?business=tobias.pruegner%40posteo.de&no_recurring=0&currency_code=EUR&item_name=ioBroker%20SAX%20Power%20Adapter",
+					"text": "💙  DONATE WITH PAYPAL",
+					"button": true,
+					"variant": "contained",
+					"color": "#0070ba",
+					"controlStyle": {
+						"minWidth": 280,
+						"minHeight": 58,
+						"fontSize": 16,
+						"fontWeight": 700,
+						"letterSpacing": 0.6,
+						"borderRadius": 8,
+						"textTransform": "none",
+						"boxShadow": "0 3px 8px rgba(0, 0, 0, 0.28)"
+					},
+					"style": {
+						"display": "flex",
+						"justifyContent": "center",
+						"marginTop": 18,
+						"marginBottom": 18
+					},
+					"newLine": true
+				},
+				"supportPrivacy": {
+					"type": "staticText",
+					"text": "The PayPal page opens only after clicking the button. The adapter itself does not transmit payment or account data.",
+					"newLine": true
+				}
+			}
 		}
 	}
 }

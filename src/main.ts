@@ -14,6 +14,10 @@ import {
 	SaxPowerStateEngine,
 } from "./lib/stateEngine";
 
+import {
+	discoverModbusStates,
+} from "./lib/modbusDiscovery";
+
 interface SaxPowerAdapterConfig {
 apiUrl: string;
 username: string;
@@ -42,6 +46,10 @@ class SaxPower extends utils.Adapter {
 
 		this.on("ready", this.onReady.bind(this));
 		this.on("unload", this.onUnload.bind(this));
+		this.on(
+			"message",
+			this.onMessage.bind(this),
+		);
 	}
 
 	private get saxConfig(): SaxPowerAdapterConfig {
@@ -269,6 +277,91 @@ error.statusCode !== undefined
 		}
 
 		return String(error);
+	}
+
+	private async onMessage(
+		message: ioBroker.Message,
+	): Promise<void> {
+		if (
+			!message.callback ||
+!message.from
+		) {
+			return;
+		}
+
+		if (
+			message.command !==
+"getModbusStates"
+		) {
+			return;
+		}
+
+		try {
+			const payload =
+typeof message.message === "object" &&
+message.message !== null
+	? message.message as {
+instance?: unknown;
+purpose?: unknown;
+}
+	: {};
+
+			const instance =
+typeof payload.instance === "string"
+	? payload.instance
+	: "";
+
+			const purpose =
+payload.purpose === "discharge"
+	? "discharge"
+	: "charge";
+
+			const preferredRegister =
+purpose === "discharge"
+	? 43
+	: 44;
+
+			const options =
+await discoverModbusStates(
+	async (pattern) => {
+		const objects =
+await this
+	.getForeignObjectsAsync(
+		pattern,
+		"state",
+	);
+
+		return objects as unknown as
+Record<string, unknown>;
+	},
+	{
+		instance,
+		preferredRegister,
+	},
+);
+
+			this.sendTo(
+				message.from,
+				message.command,
+				options,
+				message.callback,
+			);
+		} catch (error) {
+			this.log.warn(
+				`Unable to discover Modbus states: ${
+					error instanceof Error
+						? error.message
+						: String(error)
+				}`,
+			);
+
+			this.sendTo(
+				message.from,
+				message.command,
+				[],
+				message.callback,
+			);
+		}
 	}
 
 	private onUnload(callback: () => void): void {
