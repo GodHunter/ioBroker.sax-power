@@ -97,6 +97,19 @@
   "objects": [],
   "instanceObjects": [
     {
+      "_id": "info.connection",
+      "type": "state",
+      "common": {
+        "name": "Connection to SAX Power",
+        "type": "boolean",
+        "role": "indicator.connected",
+        "read": true,
+        "write": false,
+        "def": false
+      },
+      "native": {}
+    },
+    {
       "_id": "info.lastUpdate",
       "type": "state",
       "common": {

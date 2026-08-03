@@ -67,14 +67,23 @@ export class SaxPowerApiClient {
 	}
 
 	public async login(): Promise<void> {
+		const body = new globalThis.URLSearchParams({
+			email: this.username,
+			password: this.password,
+			stayLoggedIn: "false",
+		});
+
 		const response = await this.request<SaxPowerTokenResponse>(
 			"/api/auth/token/",
 			{
 				method: "POST",
-				body: JSON.stringify({
-					username: this.username,
-					password: this.password,
-				}),
+				headers: {
+					"Content-Type":
+						"application/x-www-form-urlencoded",
+					Origin: "https://app.sax-power.net",
+					Referer: "https://app.sax-power.net/",
+				},
+				body: body.toString(),
 			},
 			false,
 		);
@@ -155,7 +164,10 @@ error.statusCode === 401
 
 		headers.set("Accept", "application/json");
 
-		if (init.body !== undefined) {
+		if (
+			init.body !== undefined &&
+			!headers.has("Content-Type")
+		) {
 			headers.set("Content-Type", "application/json");
 		}
 
