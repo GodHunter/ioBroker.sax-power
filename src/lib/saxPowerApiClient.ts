@@ -230,9 +230,7 @@ SaxPowerEnergyChartResponse
 		init: NonNullable<Parameters<typeof globalThis.fetch>[1]>,
 		authenticated: boolean,
 	): Promise<T> {
-		const abortController = new globalThis.AbortController();
-		const timeout = setTimeout(
-			() => abortController.abort(),
+		const timeoutSignal = globalThis.AbortSignal.timeout(
 			this.requestTimeoutMs,
 		);
 
@@ -266,7 +264,7 @@ SaxPowerEnergyChartResponse
 				{
 					...init,
 					headers,
-					signal: abortController.signal,
+					signal: timeoutSignal,
 				},
 			);
 
@@ -305,7 +303,10 @@ SaxPowerEnergyChartResponse
 
 			if (
 				error instanceof Error &&
-error.name === "AbortError"
+				(
+					error.name === "AbortError" ||
+					error.name === "TimeoutError"
+				)
 			) {
 				throw new SaxPowerApiError(
 					`SAX Power API request timed out after ${this.requestTimeoutMs} ms.`,
@@ -321,8 +322,6 @@ error.name === "AbortError"
 					cause: error,
 				},
 			);
-		} finally {
-			clearTimeout(timeout);
 		}
 	}
 }

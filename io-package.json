@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "sax-power",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "news": {
+      "1.0.1": {
+        "en": "Repository compliance update with Node.js 22 support, modernized workflows, corrected password protection, cleaned admin resources and improved API timeout handling.",
+        "de": "Repository- und Kompatibilitätsupdate mit Node.js 22, modernisierten Workflows, korrigiertem Passwortschutz, bereinigten Admin-Ressourcen und verbesserter API-Timeout-Behandlung.",
+        "ru": "Обновление совместимости репозитория с поддержкой Node.js 22, обновлёнными рабочими процессами, исправленной защитой пароля, очищенными ресурсами администратора и улучшенной обработкой тайм-аутов API.",
+        "pt": "Atualização de conformidade do repositório com suporte ao Node.js 22, fluxos modernizados, proteção de senha corrigida, recursos de administração limpos e tratamento de timeout da API aprimorado.",
+        "nl": "Repository- en compatibiliteitsupdate met Node.js 22, gemoderniseerde workflows, gecorrigeerde wachtwoordbeveiliging, opgeschoonde admin-resources en verbeterde API-time-outafhandeling.",
+        "fr": "Mise à jour de conformité avec prise en charge de Node.js 22, workflows modernisés, protection du mot de passe corrigée, ressources d'administration nettoyées et meilleure gestion des délais d'attente de l'API.",
+        "it": "Aggiornamento di conformità con supporto a Node.js 22, workflow modernizzati, protezione password corretta, risorse di amministrazione ripulite e migliore gestione dei timeout API.",
+        "es": "Actualización de conformidad con Node.js 22, flujos de trabajo modernizados, protección de contraseña corregida, recursos de administración depurados y mejor gestión del tiempo de espera de la API.",
+        "pl": "Aktualizacja zgodności repozytorium z obsługą Node.js 22, zmodernizowanymi procesami, poprawioną ochroną hasła, uporządkowanymi zasobami administracyjnymi i lepszą obsługą limitów czasu API.",
+        "uk": "Оновлення сумісності репозиторію з підтримкою Node.js 22, оновленими робочими процесами, виправленим захистом пароля, очищеними ресурсами адміністратора та покращеною обробкою тайм-аутів API.",
+        "zh-cn": "仓库兼容性更新：支持 Node.js 22，更新工作流，修正密码保护，清理管理界面资源，并改进 API 超时处理。"
+      },
       "1.0.0": {
         "en": "Initial release with SAX Power cloud connectivity, live values, historical energy statistics, an aggregated live dashboard, and a responsive administration interface.",
         "de": "Erste Veröffentlichung mit SAX-Power-Cloudanbindung, Live-Werten, historischen Energiestatistiken, aggregiertem Live-Dashboard und responsiver Administrationsoberfläche.",
@@ -91,15 +104,10 @@
     ],
     "globalDependencies": [
       {
-        "admin": ">=7.0.23"
+        "admin": ">=7.8.23"
       }
     ],
-    "encryptedNative": [
-      "password"
-    ],
-    "protectedNative": [
-      "password"
-    ]
+    "noGit": true
   },
   "native": {
     "apiUrl": "https://webserver.sax-power.net",
@@ -173,5 +181,11 @@
       },
       "native": {}
     }
+  ],
+  "encryptedNative": [
+    "password"
+  ],
+  "protectedNative": [
+    "password"
   ]
 }

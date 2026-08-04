@@ -1,24 +1,33 @@
+# Dependabot runs on day 2 of each month at 02:21 Europe/Berlin.
+# Normal npm updates are delayed by seven days to reduce supply-chain risk.
 version: 2
-updates:
-  - package-ecosystem: npm
-    directory: "/"
-    schedule:
-      interval: monthly
-      day: 13
-      time: "00:05"
-      timezone: Europe/Berlin
-    open-pull-requests-limit: 5
-    assignees:
-      - GodHunter
-    versioning-strategy: increase
 
-  - package-ecosystem: github-actions
+updates:
+  - package-ecosystem: "npm"
+    directories:
+      - "/"
+      - "/src-admin"
+    schedule:
+      interval: "cron"
+      timezone: "Europe/Berlin"
+      cronjob: "21 2 2 * *"
+    open-pull-requests-limit: 15
+    assignees:
+      - "GodHunter"
+    versioning-strategy: "increase"
+    cooldown:
+      default-days: 7
+    ignore:
+      - dependency-name: "@types/node"
+        update-types:
+          - "version-update:semver-major"
+
+  - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      interval: monthly
-      day: 13
-      time: "00:05"
-      timezone: Europe/Berlin
-    open-pull-requests-limit: 5
+      interval: "cron"
+      timezone: "Europe/Berlin"
+      cronjob: "21 2 2 * *"
+    open-pull-requests-limit: 15
     assignees:
-      - GodHunter
+      - "GodHunter"
