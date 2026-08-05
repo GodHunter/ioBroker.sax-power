@@ -23,6 +23,8 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 ));
 var utils = __toESM(require("@iobroker/adapter-core"));
 var import_saxPowerApiClient = require("./lib/saxPowerApiClient");
+var import_saxPowerErrorClassifier = require("./lib/saxPowerErrorClassifier");
+var import_saxPowerConnectionStateValues = require("./lib/saxPowerConnectionStateValues");
 var import_saxPowerParser = require("./lib/saxPowerParser");
 var import_saxPowerHistoryParser = require("./lib/saxPowerHistoryParser");
 var import_stateEngine = require("./lib/stateEngine");
@@ -53,23 +55,16 @@ class SaxPower extends utils.Adapter {
     return this.config;
   }
   async onReady() {
-    await this.setStateAsync(
-      "info.connection",
-      false,
-      true
-    );
-    await this.setStateAsync(
-      "info.lastError",
-      "",
-      true
+    await this.applyConnectionResult(
+      import_saxPowerErrorClassifier.SaxPowerErrorClassifier.connecting()
     );
     const validationError = this.validateConfiguration();
     if (validationError) {
       this.log.warn(validationError);
-      await this.setStateAsync(
-        "info.lastError",
-        validationError,
-        true
+      await this.applyConnectionResult(
+        import_saxPowerErrorClassifier.SaxPowerErrorClassifier.configurationError(
+          validationError
+        )
       );
       return;
     }
@@ -135,40 +130,29 @@ class SaxPower extends utils.Adapter {
       return;
     }
     this.pollRunning = true;
+    await this.applyConnectionResult(
+      import_saxPowerErrorClassifier.SaxPowerErrorClassifier.connecting()
+    );
     try {
       const response = await this.apiClient.getLiveData();
       await this.processLiveData(response);
-      await this.setStateAsync(
-        "info.connection",
-        true,
-        true
+      await this.applyConnectionResult(
+        import_saxPowerErrorClassifier.SaxPowerErrorClassifier.connected()
       );
       await this.setStateAsync(
         "info.lastUpdate",
         (/* @__PURE__ */ new Date()).toISOString(),
         true
       );
-      await this.setStateAsync(
-        "info.lastError",
-        "",
-        true
-      );
       this.log.debug(
         "SAX Power live data updated successfully."
       );
     } catch (error) {
-      const message = this.formatError(error);
-      this.log.error(message);
-      await this.setStateAsync(
-        "info.connection",
-        false,
-        true
+      const result = import_saxPowerErrorClassifier.SaxPowerErrorClassifier.classify(
+        error
       );
-      await this.setStateAsync(
-        "info.lastError",
-        message,
-        true
-      );
+      this.log.error(result.message);
+      await this.applyConnectionResult(result);
     } finally {
       this.pollRunning = false;
     }
@@ -304,6 +288,31 @@ class SaxPower extends utils.Adapter {
     } finally {
       this.historyPollRunning = false;
     }
+  }
+  async applyConnectionResult(result) {
+    const values = (0, import_saxPowerConnectionStateValues.createConnectionStateValues)(result);
+    await Promise.all([
+      this.setStateAsync(
+        "info.connection",
+        values.connection,
+        true
+      ),
+      this.setStateAsync(
+        "info.connectionState",
+        values.connectionState,
+        true
+      ),
+      this.setStateAsync(
+        "info.lastError",
+        values.lastError,
+        true
+      ),
+      this.setStateAsync(
+        "info.lastHttpStatus",
+        values.lastHttpStatus,
+        true
+      )
+    ]);
   }
   formatError(error) {
     if (error instanceof import_saxPowerApiClient.SaxPowerApiError) {

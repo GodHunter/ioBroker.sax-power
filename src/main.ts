@@ -6,6 +6,19 @@ import {
 	type SaxPowerLiveDataResponse,
 } from "./lib/saxPowerApiClient";
 
+
+import {
+	SaxPowerErrorClassifier,
+} from "./lib/saxPowerErrorClassifier";
+
+import type {
+	SaxPowerConnectionResult,
+} from "./lib/saxPowerConnectionResult";
+
+import {
+	createConnectionStateValues,
+} from "./lib/saxPowerConnectionStateValues";
+
 import {
 	parseLiveDataResponse,
 } from "./lib/saxPowerParser";
@@ -83,16 +96,8 @@ readonly SaxPowerDevice[] = [];
 	}
 
 	private async onReady(): Promise<void> {
-		await this.setStateAsync(
-			"info.connection",
-			false,
-			true,
-		);
-
-		await this.setStateAsync(
-			"info.lastError",
-			"",
-			true,
+		await this.applyConnectionResult(
+			SaxPowerErrorClassifier.connecting(),
 		);
 
 		const validationError =
@@ -101,10 +106,10 @@ this.validateConfiguration();
 		if (validationError) {
 			this.log.warn(validationError);
 
-			await this.setStateAsync(
-				"info.lastError",
-				validationError,
-				true,
+			await this.applyConnectionResult(
+				SaxPowerErrorClassifier.configurationError(
+					validationError,
+				),
 			);
 
 			return;
@@ -204,16 +209,18 @@ this.saxConfig.pollInterval * 1_000;
 
 		this.pollRunning = true;
 
+		await this.applyConnectionResult(
+			SaxPowerErrorClassifier.connecting(),
+		);
+
 		try {
 			const response =
 await this.apiClient.getLiveData();
 
 			await this.processLiveData(response);
 
-			await this.setStateAsync(
-				"info.connection",
-				true,
-				true,
+			await this.applyConnectionResult(
+				SaxPowerErrorClassifier.connected(),
 			);
 
 			await this.setStateAsync(
@@ -222,32 +229,18 @@ await this.apiClient.getLiveData();
 				true,
 			);
 
-			await this.setStateAsync(
-				"info.lastError",
-				"",
-				true,
-			);
-
 			this.log.debug(
 				"SAX Power live data updated successfully.",
 			);
 		} catch (error) {
-			const message =
-this.formatError(error);
+			const result =
+SaxPowerErrorClassifier.classify(
+	error,
+);
 
-			this.log.error(message);
+			this.log.error(result.message);
 
-			await this.setStateAsync(
-				"info.connection",
-				false,
-				true,
-			);
-
-			await this.setStateAsync(
-				"info.lastError",
-				message,
-				true,
-			);
+			await this.applyConnectionResult(result);
 		} finally {
 			this.pollRunning = false;
 		}
@@ -456,6 +449,36 @@ this.formatError(error);
 	}
 
 
+
+	private async applyConnectionResult(
+		result: SaxPowerConnectionResult,
+	): Promise<void> {
+		const values =
+createConnectionStateValues(result);
+
+		await Promise.all([
+			this.setStateAsync(
+				"info.connection",
+				values.connection,
+				true,
+			),
+			this.setStateAsync(
+				"info.connectionState",
+				values.connectionState,
+				true,
+			),
+			this.setStateAsync(
+				"info.lastError",
+				values.lastError,
+				true,
+			),
+			this.setStateAsync(
+				"info.lastHttpStatus",
+				values.lastHttpStatus,
+				true,
+			),
+		]);
+	}
 
 	private formatError(error: unknown): string {
 		if (error instanceof SaxPowerApiError) {

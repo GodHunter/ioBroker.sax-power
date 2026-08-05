@@ -1,6 +1,6 @@
 {
   "name": "iobroker.sax-power",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Connects ioBroker to SAX Power battery storage systems using the SAX Power dashboard API.",
   "author": {
     "name": "GodHunter",
@@ -35,7 +35,7 @@
     "@iobroker/adapter-dev": "^1.5.0",
     "@iobroker/dev-server": "^0.8.0",
     "@iobroker/testing": "^5.3.0",
-    "@tsconfig/node22": "^22.0.2",
+    "@tsconfig/node22": "22.0.5",
     "@types/iobroker": "npm:@iobroker/types@^7.2.2",
     "@types/node": "^20.19.43",
     "@typescript-eslint/eslint-plugin": "^8.65.0",
@@ -77,7 +77,7 @@
     "watch:backend": "build-adapter ts --watch",
     "watch:admin": "npm --prefix src-admin start",
     "test:admin": "npm --prefix src-admin run typecheck",
-    "lint:backend": "eslint -c eslint.config.mjs \"src/**/*.ts\" \"test/**/*.{ts,js,mjs,cjs}\" eslint.config.mjs --no-error-on-unmatched-pattern",
+    "lint:backend": "eslint -c eslint.config.mjs \"src/**/*.ts\" \"test/**/*.{ts,js,mjs,cjs}\" --no-error-on-unmatched-pattern",
     "check:admin": "npm --prefix src-admin run typecheck",
     "test:history": "mocha --require ts-node/register \"test/history/**/*.test.ts\"",
     "prepare:admin": "npm --prefix src-admin ci --no-audit --no-fund",

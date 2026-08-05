@@ -172,6 +172,14 @@ npm run test:package
 
 ## Changelog
 
+
+### 1.1.1 (2026-08-05)
+
+- Added detailed SAX Power Cloud connection states and HTTP status reporting.
+- Improved authentication error messages, including guidance to re-enter and save the password after upgrading from an older adapter version.
+- Updated the React admin interface with clear connection, authentication, timeout, network and server status messages.
+- Updated `@tsconfig/node22` to 22.0.5 and removed the remaining backend ESLint warning.
+
 ### 1.1.0 (2026-08-05)
 
 - Update the TypeScript configuration from `@tsconfig/node20` to `@tsconfig/node22`

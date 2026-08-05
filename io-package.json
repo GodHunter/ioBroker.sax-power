@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "sax-power",
-    "version": "1.1.0",
+    "version": "1.1.1",
     "news": {
+      "1.1.1": {
+        "en": "Improved cloud connection diagnostics with detailed states, HTTP status reporting and clear authentication guidance. Users upgrading from an older version are advised to re-enter and save the password if authentication fails.",
+        "de": "Verbesserte Cloud-Verbindungsdiagnose mit detaillierten Zuständen, HTTP-Statusanzeige und verständlichen Hinweisen bei Anmeldefehlern. Nach einem Update von einer älteren Version sollte das Kennwort bei Bedarf einmal neu eingegeben und gespeichert werden.",
+        "ru": "Улучшена диагностика облачного подключения: добавлены подробные состояния, HTTP-статус и понятные указания при ошибках аутентификации.",
+        "pt": "Diagnóstico de ligação à nuvem melhorado com estados detalhados, estado HTTP e instruções claras para erros de autenticação.",
+        "nl": "Verbeterde diagnose van de cloudverbinding met gedetailleerde statussen, HTTP-status en duidelijke hulp bij authenticatiefouten.",
+        "fr": "Amélioration du diagnostic de connexion au cloud avec des états détaillés, le statut HTTP et des indications claires en cas d'échec de l'authentification.",
+        "it": "Diagnostica della connessione cloud migliorata con stati dettagliati, stato HTTP e indicazioni chiare per gli errori di autenticazione.",
+        "es": "Diagnóstico mejorado de la conexión a la nube con estados detallados, estado HTTP e instrucciones claras para los errores de autenticación.",
+        "pl": "Ulepszona diagnostyka połączenia z chmurą ze szczegółowymi stanami, statusem HTTP i jasnymi wskazówkami przy błędach uwierzytelniania.",
+        "uk": "Покращено діагностику хмарного підключення: додано докладні стани, HTTP-статус і зрозумілі підказки при помилках автентифікації.",
+        "zh-cn": "改进了云连接诊断，增加了详细状态、HTTP 状态以及身份验证失败时的明确提示。"
+      },
       "1.1.0": {
         "en": "Modernized the TypeScript configuration for Node.js 22, versioned the compiled backend for GitHub installations and optimized the administration build workflow.",
         "de": "TypeScript-Konfiguration auf Node.js 22 modernisiert, kompiliertes Backend für GitHub-Installationen versioniert und den Build-Ablauf der Administrationsoberfläche optimiert.",
@@ -143,6 +156,44 @@
         "read": true,
         "write": false,
         "def": false
+      },
+      "native": {}
+    },
+    {
+      "_id": "info.connectionState",
+      "type": "state",
+      "common": {
+        "name": "Detailed SAX Power connection state",
+        "type": "string",
+        "role": "text",
+        "read": true,
+        "write": false,
+        "def": "connecting",
+        "states": {
+          "connecting": "Connecting",
+          "connected": "Connected",
+          "authentication_failed": "Authentication failed",
+          "unauthorized": "Unauthorized",
+          "network_error": "Network error",
+          "timeout": "Timeout",
+          "server_error": "Server error",
+          "invalid_response": "Invalid response",
+          "configuration_error": "Configuration error",
+          "unknown_error": "Unknown error"
+        }
+      },
+      "native": {}
+    },
+    {
+      "_id": "info.lastHttpStatus",
+      "type": "state",
+      "common": {
+        "name": "Last SAX Power HTTP status",
+        "type": "number",
+        "role": "value",
+        "read": true,
+        "write": false,
+        "def": 0
       },
       "native": {}
     },

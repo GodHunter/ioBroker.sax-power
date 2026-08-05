@@ -57,6 +57,7 @@ type GenericAppState,
 import type {
 AdapterRuntimeStatus,
 AdminTab,
+SaxPowerConnectionState,
 SaxPowerNativeConfig,
 } from "./types";
 
@@ -113,6 +114,8 @@ return null;
 const EMPTY_RUNTIME_STATUS:
 AdapterRuntimeStatus = {
 connection: null,
+connectionState: "unknown",
+	lastHttpStatus: 0,
 lastError: "",
 lastUpdate: "",
 deviceCount: null,
@@ -232,7 +235,9 @@ this.getNamespace();
 
 const [
 connectionState,
-lastErrorState,
+connectionDetailState,
+			lastHttpStatusState,
+			lastErrorState,
 lastUpdateState,
 deviceCountState,
 statisticsSourceState,
@@ -249,6 +254,12 @@ liveLastUpdateState,
 ] = await Promise.all([
 this.socket.getState(
 `${namespace}.info.connection`,
+),
+this.socket.getState(
+`${namespace}.info.connectionState`,
+),
+this.socket.getState(
+`${namespace}.info.lastHttpStatus`,
 ),
 this.socket.getState(
 `${namespace}.info.lastError`,
@@ -299,6 +310,16 @@ this.readStateValue(
 connectionState,
 );
 
+const connectionDetailValue =
+this.readStateValue(
+connectionDetailState,
+);
+
+const lastHttpStatusValue =
+this.readStateValue(
+lastHttpStatusState,
+);
+
 const deviceCountValue =
 this.readStateValue(
 deviceCountState,
@@ -312,6 +333,17 @@ typeof connectionValue ===
 ? connectionValue
 : null,
 
+
+connectionState:
+this.normalizeConnectionState(
+connectionDetailValue,
+),
+
+lastHttpStatus:
+typeof lastHttpStatusValue ===
+"number"
+? lastHttpStatusValue
+: 0,
 lastError:
 String(
 this.readStateValue(
@@ -817,13 +849,183 @@ flexShrink: 0,
 
 
 
+private normalizeConnectionState(
+value: unknown,
+): SaxPowerConnectionState | "unknown" {
+const allowed = new Set<string>([
+"connecting",
+"connected",
+"authentication_failed",
+"unauthorized",
+"network_error",
+"timeout",
+"server_error",
+"invalid_response",
+"configuration_error",
+"unknown_error",
+]);
+
+return typeof value === "string" &&
+allowed.has(value)
+? value as SaxPowerConnectionState
+: "unknown";
+}
+
+private getConnectionPresentation(
+status: AdapterRuntimeStatus,
+): {
+label: string;
+description: string;
+color:
+| "default"
+| "primary"
+| "secondary"
+| "error"
+| "info"
+| "success"
+| "warning";
+severity:
+| "error"
+| "info"
+| "success"
+| "warning";
+} {
+const httpSuffix =
+status.lastHttpStatus > 0
+? ` (HTTP ${status.lastHttpStatus})`
+: "";
+
+switch (status.connectionState) {
+case "connected":
+return {
+label: "Verbunden",
+description:
+"Die SAX-Power-Cloud ist erreichbar.",
+color: "success",
+severity: "success",
+};
+
+case "connecting":
+return {
+label: "Verbindung wird aufgebaut",
+description:
+"Der Adapter meldet sich gerade an der SAX-Power-Cloud an.",
+color: "info",
+severity: "info",
+};
+
+case "authentication_failed":
+return {
+label: "Anmeldung fehlgeschlagen",
+description:
+"Bitte Benutzername und Kennwort prüfen. Nach einem Update von einer älteren Adapterversion muss das Kennwort möglicherweise einmal neu eingegeben und gespeichert werden.",
+color: "warning",
+severity: "warning",
+};
+
+case "unauthorized":
+return {
+label: "Zugriff verweigert",
+description:
+`Die SAX-Power-Cloud hat den Zugriff verweigert${httpSuffix}.`,
+color: "error",
+severity: "error",
+};
+
+case "network_error":
+return {
+label: "Cloud nicht erreichbar",
+description:
+"Die SAX-Power-Cloud konnte nicht erreicht werden. Bitte Internet-, DNS- und Firewall-Verbindung prüfen.",
+color: "error",
+severity: "error",
+};
+
+case "timeout":
+return {
+label: "Zeitüberschreitung",
+description:
+"Die SAX-Power-Cloud hat nicht rechtzeitig geantwortet.",
+color: "warning",
+severity: "warning",
+};
+
+case "server_error":
+return {
+label: "Cloud-Serverfehler",
+description:
+`Die SAX-Power-Cloud meldet einen Serverfehler${httpSuffix}.`,
+color: "error",
+severity: "error",
+};
+
+case "invalid_response":
+return {
+label: "Ungültige Cloud-Antwort",
+description:
+"Die SAX-Power-Cloud hat eine unerwartete oder ungültige Antwort geliefert.",
+color: "warning",
+severity: "warning",
+};
+
+case "configuration_error":
+return {
+label: "Konfiguration unvollständig",
+description:
+status.lastError ||
+"Bitte die Cloud-Konfiguration prüfen.",
+color: "warning",
+severity: "warning",
+};
+
+case "unknown_error":
+return {
+label: "Unbekannter Fehler",
+description:
+status.lastError ||
+"Es ist ein unbekannter Verbindungsfehler aufgetreten.",
+color: "error",
+severity: "error",
+};
+
+default:
+return {
+label:
+status.connection === true
+? "Verbunden"
+: status.connection === false
+? "Nicht verbunden"
+: "Status unbekannt",
+description:
+status.lastError ||
+"Noch kein detaillierter Cloud-Status verfügbar.",
+color:
+status.connection === true
+? "success"
+: status.connection === false
+? "error"
+: "default",
+severity:
+status.connection === true
+? "success"
+: status.connection === false
+? "error"
+: "info",
+};
+}
+}
+
 private renderHeader(
 darkMode: boolean,
 ): JSX.Element {
 const status =
 this.state.runtimeStatus;
 
+const connection =
+this.getConnectionPresentation(status);
+
 const connected =
+status.connectionState === "connected" ||
 status.connection === true;
 
 return (
@@ -925,22 +1127,8 @@ connected
 ? <CloudDone />
 : <CloudOff />
 }
-label={
-connected
-? "Verbunden"
-: status.connection ===
-null
-? "Status unbekannt"
-: "Nicht verbunden"
-}
-color={
-connected
-? "success"
-: status.connection ===
-null
-? "default"
-: "error"
-}
+label={connection.label}
+color={connection.color}
 variant={
 darkMode
 ? "outlined"
@@ -1298,9 +1486,27 @@ const pending =
 status.statisticsSource ===
 "pending-history-discovery";
 
+const connection =
+this.getConnectionPresentation(status);
+
 return (
 <Stack spacing={2}>
 {this.renderLiveDashboard()}
+
+<Alert severity={connection.severity}>
+<Typography fontWeight={700}>
+{connection.label}
+</Typography>
+
+<Typography
+variant="body2"
+sx={{
+marginTop: 0.5,
+}}
+>
+{connection.description}
+</Typography>
+</Alert>
 {
 this.state.statusError
 ? (
@@ -1324,13 +1530,7 @@ spacing={2}
 title:
 "Cloud-Verbindung",
 value:
-status.connection ===
-true
-? "Verbunden"
-: status.connection ===
-null
-? "Unbekannt"
-: "Getrennt",
+connection.label,
 icon:
 status.connection ===
 true

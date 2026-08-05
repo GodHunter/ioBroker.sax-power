@@ -1,0 +1,7 @@
+{
+  "version": 3,
+  "sources": ["../../src/lib/saxPowerConnectionResult.ts"],
+  "sourcesContent": ["import type {\n\tSaxPowerConnectionState,\n} from \"./saxPowerConnectionState\";\n\nexport interface SaxPowerConnectionResult {\nconnected: boolean;\nstate: SaxPowerConnectionState;\nmessage: string;\nhttpStatus?: number;\n}\n"],
+  "mappings": ";;;;;;;;;;;;;;AAAA;AAAA;",
+  "names": []
+}

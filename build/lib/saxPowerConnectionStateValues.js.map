@@ -1,0 +1,7 @@
+{
+  "version": 3,
+  "sources": ["../../src/lib/saxPowerConnectionStateValues.ts"],
+  "sourcesContent": ["import type {\n\tSaxPowerConnectionResult,\n} from \"./saxPowerConnectionResult\";\n\nexport interface SaxPowerConnectionStateValues {\nconnection: boolean;\nconnectionState: string;\nlastError: string;\nlastHttpStatus: number;\n}\n\nexport function createConnectionStateValues(\n\tresult: SaxPowerConnectionResult,\n): SaxPowerConnectionStateValues {\n\treturn {\n\t\tconnection: result.connected,\n\t\tconnectionState: result.state,\n\t\tlastError: result.message,\n\t\tlastHttpStatus: result.httpStatus ?? 0,\n\t};\n}\n"],
+  "mappings": ";;;;;;;;;;;;;;;;;;AAAA;AAAA;AAAA;AAAA;AAAA;AAWO,SAAS,4BACf,QACgC;AAbjC;AAcC,SAAO;AAAA,IACN,YAAY,OAAO;AAAA,IACnB,iBAAiB,OAAO;AAAA,IACxB,WAAW,OAAO;AAAA,IAClB,iBAAgB,YAAO,eAAP,YAAqB;AAAA,EACtC;AACD;",
+  "names": []
+}

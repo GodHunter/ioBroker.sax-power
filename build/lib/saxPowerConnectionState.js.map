@@ -1,0 +1,7 @@
+{
+  "version": 3,
+  "sources": ["../../src/lib/saxPowerConnectionState.ts"],
+  "sourcesContent": ["export enum SaxPowerConnectionState {\nConnecting = \"connecting\",\nConnected = \"connected\",\nAuthenticationFailed = \"authentication_failed\",\nUnauthorized = \"unauthorized\",\nNetworkError = \"network_error\",\nTimeout = \"timeout\",\nServerError = \"server_error\",\nInvalidResponse = \"invalid_response\",\nConfigurationError = \"configuration_error\",\nUnknownError = \"unknown_error\",\n}\n"],
+  "mappings": ";;;;;;;;;;;;;;;;;;AAAA;AAAA;AAAA;AAAA;AAAA;AAAO,IAAK,0BAAL,kBAAKA,6BAAL;AACP,EAAAA,yBAAA,gBAAa;AACb,EAAAA,yBAAA,eAAY;AACZ,EAAAA,yBAAA,0BAAuB;AACvB,EAAAA,yBAAA,kBAAe;AACf,EAAAA,yBAAA,kBAAe;AACf,EAAAA,yBAAA,aAAU;AACV,EAAAA,yBAAA,iBAAc;AACd,EAAAA,yBAAA,qBAAkB;AAClB,EAAAA,yBAAA,wBAAqB;AACrB,EAAAA,yBAAA,kBAAe;AAVH,SAAAA;AAAA,GAAA;",
+  "names": ["SaxPowerConnectionState"]
+}

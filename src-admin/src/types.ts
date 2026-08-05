@@ -14,8 +14,22 @@ modbusChargePowerStateId?: string;
 modbusDischargePowerStateId?: string;
 }
 
+export type SaxPowerConnectionState =
+| "connecting"
+| "connected"
+| "authentication_failed"
+| "unauthorized"
+| "network_error"
+| "timeout"
+| "server_error"
+| "invalid_response"
+| "configuration_error"
+| "unknown_error";
+
 export interface AdapterRuntimeStatus {
 connection: boolean | null;
+	connectionState: SaxPowerConnectionState | "unknown";
+	lastHttpStatus: number;
 lastError: string;
 lastUpdate: string;
 deviceCount: number | null;
