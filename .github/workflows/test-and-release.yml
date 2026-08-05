@@ -74,9 +74,9 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
 
-      - name: Update GitHub release description
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: >
-          gh release edit "${GITHUB_REF_NAME}"
-          --notes-file ".github/release-notes/${GITHUB_REF_NAME}.md"
+          - name: Update GitHub release description
+            env:
+              GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            run: >
+              gh release edit "${GITHUB_REF_NAME}"
+              --notes-file ".github/release-notes/${GITHUB_REF_NAME}.md"
