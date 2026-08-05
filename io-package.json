@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "sax-power",
-    "version": "1.0.1",
+    "version": "1.1.0",
     "news": {
+      "1.1.0": {
+        "en": "Modernized the TypeScript configuration for Node.js 22, versioned the compiled backend for GitHub installations and optimized the administration build workflow.",
+        "de": "TypeScript-Konfiguration auf Node.js 22 modernisiert, kompiliertes Backend für GitHub-Installationen versioniert und den Build-Ablauf der Administrationsoberfläche optimiert.",
+        "ru": "Конфигурация TypeScript обновлена для Node.js 22, скомпилированный серверный код добавлен для установки из GitHub, а процесс сборки интерфейса администратора оптимизирован.",
+        "pt": "Configuração TypeScript modernizada para Node.js 22, backend compilado versionado para instalações via GitHub e fluxo de compilação da administração otimizado.",
+        "nl": "TypeScript-configuratie gemoderniseerd voor Node.js 22, gecompileerde backend opgenomen voor GitHub-installaties en de admin-buildworkflow geoptimaliseerd.",
+        "fr": "Configuration TypeScript modernisée pour Node.js 22, backend compilé versionné pour les installations GitHub et processus de construction de l'administration optimisé.",
+        "it": "Configurazione TypeScript modernizzata per Node.js 22, backend compilato versionato per le installazioni GitHub e flusso di build dell'amministrazione ottimizzato.",
+        "es": "Configuración TypeScript modernizada para Node.js 22, backend compilado versionado para instalaciones desde GitHub y flujo de compilación de administración optimizado.",
+        "pl": "Zmodernizowano konfigurację TypeScript dla Node.js 22, dodano skompilowany backend dla instalacji z GitHub i zoptymalizowano proces budowania panelu administracyjnego.",
+        "uk": "Конфігурацію TypeScript оновлено для Node.js 22, скомпільований серверний код додано для встановлення з GitHub, а процес збірки адміністративного інтерфейсу оптимізовано.",
+        "zh-cn": "将 TypeScript 配置更新为 Node.js 22，提交编译后的后端以支持 GitHub 安装，并优化管理界面的构建流程。"
+      },
       "1.0.1": {
         "en": "Repository compliance update with Node.js 22 support, modernized workflows, corrected password protection, cleaned admin resources and improved API timeout handling.",
         "de": "Repository- und Kompatibilitätsupdate mit Node.js 22, modernisierten Workflows, korrigiertem Passwortschutz, bereinigten Admin-Ressourcen und verbesserter API-Timeout-Behandlung.",
@@ -106,8 +119,7 @@
       {
         "admin": ">=7.8.23"
       }
-    ],
-    "noGit": true
+    ]
   },
   "native": {
     "apiUrl": "https://webserver.sax-power.net",

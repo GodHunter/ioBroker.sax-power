@@ -1,0 +1,7 @@
+{
+  "version": 3,
+  "sources": ["../../src/lib/adapterContract.ts"],
+  "sourcesContent": ["export interface SaxPowerObjectAdapter {\nextendObjectAsync(\nid: string,\nobject: ioBroker.PartialObject,\n): Promise<unknown>;\n\nsetStateAsync(\nid: string,\nstate: ioBroker.SettableState,\n): Promise<unknown>;\n\ndelObjectAsync(\nid: string,\noptions?: {\nrecursive?: boolean;\n},\n): Promise<unknown>;\n}\n"],
+  "mappings": ";;;;;;;;;;;;;;AAAA;AAAA;",
+  "names": []
+}

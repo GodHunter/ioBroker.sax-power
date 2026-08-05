@@ -172,6 +172,16 @@ npm run test:package
 
 ## Changelog
 
+### 1.1.0 (2026-08-05)
+
+- Update the TypeScript configuration from `@tsconfig/node20` to `@tsconfig/node22`
+- Commit the compiled backend to support direct GitHub installations
+- Remove the unsupported `common.noGit` property
+- Optimize the build workflow so admin dependencies are installed only once per full check
+- Clean up conflicting and malformed `.gitignore` rules
+- Keep runtime behavior and the existing SAX Power functionality unchanged
+
+
 ### 1.0.1 (2026-08-04)
 
 - Require Node.js 22 or newer

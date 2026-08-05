@@ -1,6 +1,6 @@
 {
   "name": "iobroker.sax-power",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "description": "Connects ioBroker to SAX Power battery storage systems using the SAX Power dashboard API.",
   "author": {
     "name": "GodHunter",
@@ -35,7 +35,7 @@
     "@iobroker/adapter-dev": "^1.5.0",
     "@iobroker/dev-server": "^0.8.0",
     "@iobroker/testing": "^5.3.0",
-    "@tsconfig/node20": "^20.1.9",
+    "@tsconfig/node22": "^22.0.2",
     "@types/iobroker": "npm:@iobroker/types@^7.2.2",
     "@types/node": "^20.19.43",
     "@typescript-eslint/eslint-plugin": "^8.65.0",
@@ -58,7 +58,7 @@
   ],
   "scripts": {
     "prebuild": "rimraf build",
-    "build": "npm run build:backend && npm run build:admin",
+    "build": "npm run prepare:admin && npm run build:all",
     "watch": "build-adapter ts --watch",
     "prebuild:ts": "rimraf build",
     "build:ts": "build-adapter ts",
@@ -67,19 +67,21 @@
     "test:package": "mocha test/package --exit",
     "test:integration": "mocha test/integration --exit",
     "test": "npm run test:ts && npm run test:package",
-    "check": "npm run lint:backend && npm run check:admin && npm run build",
+    "check": "npm run prepare:admin && npm run lint:backend && npm run check:admin && npm run build:all",
     "lint": "eslint -c eslint.config.mjs \"src/**/*.ts\" \"test/**/*.{ts,js,mjs,cjs}\" eslint.config.mjs --no-error-on-unmatched-pattern",
     "translate": "translate-adapter",
     "release": "release-script",
     "dev-server": "dev-server",
     "build:backend": "build-adapter ts",
-    "build:admin": "npm --prefix src-admin ci --no-audit --no-fund && npm --prefix src-admin run build",
+    "build:admin": "npm --prefix src-admin run build",
     "watch:backend": "build-adapter ts --watch",
     "watch:admin": "npm --prefix src-admin start",
     "test:admin": "npm --prefix src-admin run typecheck",
     "lint:backend": "eslint -c eslint.config.mjs \"src/**/*.ts\" \"test/**/*.{ts,js,mjs,cjs}\" eslint.config.mjs --no-error-on-unmatched-pattern",
-    "check:admin": "npm --prefix src-admin ci --no-audit --no-fund && npm --prefix src-admin run typecheck",
-    "test:history": "mocha --require ts-node/register \"test/history/**/*.test.ts\""
+    "check:admin": "npm --prefix src-admin run typecheck",
+    "test:history": "mocha --require ts-node/register \"test/history/**/*.test.ts\"",
+    "prepare:admin": "npm --prefix src-admin ci --no-audit --no-fund",
+    "build:all": "npm run build:backend && npm run build:admin"
   },
   "bugs": {
     "url": "https://github.com/GodHunter/ioBroker.sax-power/issues"
