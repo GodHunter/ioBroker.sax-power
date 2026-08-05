@@ -1,20 +1,33 @@
 {
   "common": {
     "name": "sax-power",
-    "version": "1.1.1",
+    "version": "1.1.2",
     "news": {
+      "1.1.2": {
+        "en": "Updated the public project identity and maintainer contact, corrected donation information and aligned the Node.js 22 TypeScript dependency declaration with repository requirements.",
+        "de": "Öffentliche Projektidentität und Maintainer-Kontakt aktualisiert, Spendeninformationen korrigiert und die Node.js-22-TypeScript-Abhängigkeit an die Repository-Anforderungen angepasst.",
+        "ru": "Обновлены публичные данные проекта и контакт сопровождающего, исправлена информация о пожертвованиях и согласована зависимость TypeScript для Node.js 22 с требованиями репозитория.",
+        "pt": "Atualizados a identidade pública do projeto e o contacto do mantenedor, corrigidas as informações de donativos e alinhada a dependência TypeScript do Node.js 22 com os requisitos do repositório.",
+        "nl": "De openbare projectidentiteit en het contactadres van de beheerder zijn bijgewerkt, donatiegegevens zijn gecorrigeerd en de TypeScript-afhankelijkheid voor Node.js 22 is afgestemd op de repositoryvereisten.",
+        "fr": "Mise à jour de l’identité publique du projet et du contact du mainteneur, correction des informations de don et alignement de la dépendance TypeScript pour Node.js 22 sur les exigences du dépôt.",
+        "it": "Aggiornati l’identità pubblica del progetto e il contatto del manutentore, corrette le informazioni sulle donazioni e allineata la dipendenza TypeScript per Node.js 22 ai requisiti del repository.",
+        "es": "Se actualizaron la identidad pública del proyecto y el contacto del mantenedor, se corrigió la información de donaciones y se ajustó la dependencia TypeScript de Node.js 22 a los requisitos del repositorio.",
+        "pl": "Zaktualizowano publiczną tożsamość projektu i dane kontaktowe opiekuna, poprawiono informacje o darowiznach oraz dostosowano zależność TypeScript dla Node.js 22 do wymagań repozytorium.",
+        "uk": "Оновлено публічні дані проєкту й контакт супровідника, виправлено інформацію про пожертви та узгоджено залежність TypeScript для Node.js 22 з вимогами репозиторію.",
+        "zh-cn": "更新了项目公开身份和维护者联系方式，修正了捐赠信息，并使 Node.js 22 的 TypeScript 依赖声明符合仓库要求。"
+      },
       "1.1.1": {
-        "en": "Improved cloud connection diagnostics with detailed states, HTTP status reporting and clear authentication guidance. Users upgrading from an older version are advised to re-enter and save the password if authentication fails.",
-        "de": "Verbesserte Cloud-Verbindungsdiagnose mit detaillierten Zuständen, HTTP-Statusanzeige und verständlichen Hinweisen bei Anmeldefehlern. Nach einem Update von einer älteren Version sollte das Kennwort bei Bedarf einmal neu eingegeben und gespeichert werden.",
-        "ru": "Улучшена диагностика облачного подключения: добавлены подробные состояния, HTTP-статус и понятные указания при ошибках аутентификации.",
-        "pt": "Diagnóstico de ligação à nuvem melhorado com estados detalhados, estado HTTP e instruções claras para erros de autenticação.",
-        "nl": "Verbeterde diagnose van de cloudverbinding met gedetailleerde statussen, HTTP-status en duidelijke hulp bij authenticatiefouten.",
-        "fr": "Amélioration du diagnostic de connexion au cloud avec des états détaillés, le statut HTTP et des indications claires en cas d'échec de l'authentification.",
-        "it": "Diagnostica della connessione cloud migliorata con stati dettagliati, stato HTTP e indicazioni chiare per gli errori di autenticazione.",
-        "es": "Diagnóstico mejorado de la conexión a la nube con estados detallados, estado HTTP e instrucciones claras para los errores de autenticación.",
-        "pl": "Ulepszona diagnostyka połączenia z chmurą ze szczegółowymi stanami, statusem HTTP i jasnymi wskazówkami przy błędach uwierzytelniania.",
-        "uk": "Покращено діагностику хмарного підключення: додано докладні стани, HTTP-статус і зрозумілі підказки при помилках автентифікації.",
-        "zh-cn": "改进了云连接诊断，增加了详细状态、HTTP 状态以及身份验证失败时的明确提示。"
+        "en": "Improved reliability and compatibility with Node.js 22 support, safer password handling, cleaned admin resources and clearer SAX Power Cloud timeout diagnostics.",
+        "de": "Verbesserte Zuverlässigkeit und Kompatibilität durch Node.js-22-Unterstützung, sicherere Passwortbehandlung, bereinigte Admin-Ressourcen und klarere Diagnosen bei Zeitüberschreitungen der SAX-Power-Cloud.",
+        "ru": "Повышены надежность и совместимость: поддержка Node.js 22, более безопасная обработка паролей, очищенные ресурсы интерфейса администратора и более понятная диагностика тайм-аутов SAX Power Cloud.",
+        "pt": "Maior fiabilidade e compatibilidade com suporte para Node.js 22, tratamento de palavras-passe mais seguro, recursos de administração limpos e diagnósticos mais claros de tempo limite da SAX Power Cloud.",
+        "nl": "Verbeterde betrouwbaarheid en compatibiliteit met ondersteuning voor Node.js 22, veiligere wachtwoordverwerking, opgeschoonde beheerbronnen en duidelijkere diagnose van time-outs in de SAX Power Cloud.",
+        "fr": "Fiabilité et compatibilité améliorées grâce à la prise en charge de Node.js 22, à une gestion plus sûre des mots de passe, au nettoyage des ressources d’administration et à des diagnostics plus clairs des délais d’attente du cloud SAX Power.",
+        "it": "Affidabilità e compatibilità migliorate con il supporto di Node.js 22, una gestione più sicura delle password, risorse di amministrazione ripulite e diagnostica più chiara dei timeout di SAX Power Cloud.",
+        "es": "Fiabilidad y compatibilidad mejoradas con soporte para Node.js 22, gestión de contraseñas más segura, recursos de administración depurados y diagnósticos más claros de los tiempos de espera de SAX Power Cloud.",
+        "pl": "Poprawiono niezawodność i zgodność dzięki obsłudze Node.js 22, bezpieczniejszej obsłudze haseł, uporządkowanym zasobom panelu administracyjnego i czytelniejszej diagnostyce przekroczeń czasu SAX Power Cloud.",
+        "uk": "Підвищено надійність і сумісність: підтримка Node.js 22, безпечніша обробка паролів, очищені ресурси інтерфейсу адміністратора та зрозуміліша діагностика тайм-аутів SAX Power Cloud.",
+        "zh-cn": "提升了可靠性和兼容性：支持 Node.js 22、更安全的密码处理、清理后的管理界面资源，以及更清晰的 SAX Power Cloud 超时诊断。"
       },
       "1.1.0": {
         "en": "Modernized the TypeScript configuration for Node.js 22, versioned the compiled backend for GitHub installations and optimized the administration build workflow.",
@@ -96,7 +109,7 @@
       "zh-cn": "使用 SAX Power 仪表板 API 将 ioBroker 连接到 SAX Power 电池存储系统。"
     },
     "authors": [
-      "GodHunter <tobias.pruegner@posteo.de>"
+      "GodHunter <godhunter@posteo.de>"
     ],
     "keywords": [
       "energy",

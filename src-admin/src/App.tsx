@@ -1995,7 +1995,7 @@ Der SAX Power Adapter entsteht vollst√§ndig in meiner Freizeit. Wenn er dir gef√
 fullWidth
 variant="contained"
 component="a"
-href="https://www.paypal.com/donate/?business=tobias.pruegner%40posteo.de&no_recurring=0&currency_code=EUR&item_name=ioBroker%20SAX%20Power%20Adapter"
+href="https://www.paypal.com/donate/?business=godhunter%40posteo.de&no_recurring=0&currency_code=EUR&item_name=ioBroker%20SAX%20Power%20Adapter"
 target="_blank"
 rel="noreferrer"
 startIcon={

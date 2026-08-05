@@ -172,6 +172,12 @@ npm run test:package
 
 ## Changelog
 
+### 1.1.2 (2026-08-05)
+
+- Updated the public project identity and maintainer contact.
+- Corrected the donation address shown in the administration interface.
+- Aligned the Node.js 22 TypeScript dependency declaration with ioBroker repository requirements.
+
 
 ### 1.1.1 (2026-08-05)
 
@@ -217,7 +223,7 @@ npm run test:package
 
 ## License
 
-Copyright (c) 2026 GodHunter tobias.pruegner@posteo.de
+Copyright (c) 2026 GodHunter godhunter@posteo.de
 
 MIT License
 
