@@ -180,6 +180,12 @@ npm run test:package
 
 ## Changelog
 
+### 1.2.2 (2026-08-10)
+
+- Limited the adapter news history to the seven entries supported by the ioBroker repository builder.
+- Added mandatory release checks for version metadata, release notes and the README changelog.
+- Kept adapter runtime behavior unchanged.
+
 ### 1.2.1 (2026-08-10)
 
 - Removed the deprecated `common.title` metadata in favor of `common.titleLang`.
