@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "sax-power",
-    "version": "1.2.1",
+    "version": "1.2.2",
     "news": {
+      "1.2.2": {
+        "en": "Prepared release notes validation and limited the adapter news history to the repository requirement.",
+        "de": "Validierung der Release Notes ergänzt und die Adapter-News-Historie auf die Repository-Vorgabe begrenzt.",
+        "ru": "Добавлена проверка примечаний к выпуску, а история новостей адаптера ограничена требованиями репозитория.",
+        "pt": "Adicionada a validação das notas de lançamento e limitado o histórico de notícias do adaptador ao requisito do repositório.",
+        "nl": "Validatie van releaseopmerkingen toegevoegd en de nieuwsgeschiedenis van de adapter beperkt volgens de repositoryvereiste.",
+        "fr": "Ajout de la validation des notes de version et limitation de l’historique des actualités de l’adaptateur conformément aux exigences du dépôt.",
+        "it": "Aggiunta la convalida delle note di rilascio e limitata la cronologia delle notizie dell’adattatore ai requisiti del repository.",
+        "es": "Se añadió la validación de las notas de la versión y se limitó el historial de noticias del adaptador al requisito del repositorio.",
+        "pl": "Dodano walidację informacji o wydaniu i ograniczono historię aktualności adaptera zgodnie z wymaganiami repozytorium.",
+        "uk": "Додано перевірку приміток до випуску та обмежено історію новин адаптера відповідно до вимог репозиторію.",
+        "zh-cn": "新增发行说明验证，并按照仓库要求限制适配器新闻历史记录。"
+      },
       "1.2.1": {
         "en": "Updated repository compliance metadata and installation documentation.",
         "de": "Repository-Metadaten und Installationsdokumentation an die aktuellen Vorgaben angepasst.",
@@ -80,32 +93,6 @@
         "pl": "Aktualizacja zgodności repozytorium z obsługą Node.js 22, zmodernizowanymi procesami, poprawioną ochroną hasła, uporządkowanymi zasobami administracyjnymi i lepszą obsługą limitów czasu API.",
         "uk": "Оновлення сумісності репозиторію з підтримкою Node.js 22, оновленими робочими процесами, виправленим захистом пароля, очищеними ресурсами адміністратора та покращеною обробкою тайм-аутів API.",
         "zh-cn": "仓库兼容性更新：支持 Node.js 22，更新工作流，修正密码保护，清理管理界面资源，并改进 API 超时处理。"
-      },
-      "1.0.0": {
-        "en": "Initial release with SAX Power cloud connectivity, live values, historical energy statistics, an aggregated live dashboard, and a responsive administration interface.",
-        "de": "Erste Veröffentlichung mit SAX-Power-Cloudanbindung, Live-Werten, historischen Energiestatistiken, aggregiertem Live-Dashboard und responsiver Administrationsoberfläche.",
-        "ru": "Первый выпуск с подключением к облаку SAX Power, текущими значениями, исторической статистикой энергии, сводной панелью и адаптивным интерфейсом администрирования.",
-        "pt": "Primeira versão com ligação à cloud SAX Power, valores em tempo real, estatísticas históricas de energia, painel agregado e interface de administração responsiva.",
-        "nl": "Eerste release met SAX Power-cloudverbinding, livewaarden, historische energiestatistieken, een geaggregeerd dashboard en een responsieve beheerinterface.",
-        "fr": "Première version avec connexion au cloud SAX Power, valeurs en direct, statistiques énergétiques historiques, tableau de bord agrégé et interface d’administration responsive.",
-        "it": "Prima versione con connessione al cloud SAX Power, valori in tempo reale, statistiche energetiche storiche, dashboard aggregata e interfaccia di amministrazione responsiva.",
-        "es": "Primera versión con conexión a la nube SAX Power, valores en tiempo real, estadísticas históricas de energía, panel agregado e interfaz de administración adaptable.",
-        "pl": "Pierwsze wydanie z połączeniem z chmurą SAX Power, wartościami bieżącymi, historycznymi statystykami energii, zbiorczym panelem i responsywnym interfejsem administracyjnym.",
-        "uk": "Перший випуск із підключенням до хмари SAX Power, поточними значеннями, історичною статистикою енергії, зведеною панеллю та адаптивним інтерфейсом адміністрування.",
-        "zh-cn": "首次发布，支持 SAX Power 云连接、实时数据、历史能源统计、聚合实时仪表板和响应式管理界面。"
-      },
-      "0.0.1": {
-        "en": "initial release",
-        "de": "Erstveröffentlichung",
-        "ru": "Начальная версия",
-        "pt": "lançamento inicial",
-        "nl": "Eerste uitgave",
-        "fr": "Première version",
-        "it": "Versione iniziale",
-        "es": "Versión inicial",
-        "pl": "Pierwsze wydanie",
-        "uk": "Початкова версія",
-        "zh-cn": "首次出版"
       }
     },
     "titleLang": {

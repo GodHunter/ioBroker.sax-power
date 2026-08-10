@@ -67,6 +67,11 @@ jobs:
       contents: write
 
     steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify release notes
+        run: test -f ".github/release-notes/${GITHUB_REF_NAME}.md"
+
       - uses: ioBroker/testing-action-deploy@v1
         with:
           node-version: "24.x"
