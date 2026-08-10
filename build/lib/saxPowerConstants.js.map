@@ -1,0 +1,7 @@
+{
+  "version": 3,
+  "sources": ["../../src/lib/saxPowerConstants.ts"],
+  "sourcesContent": ["export const SAX_POWER_API_URL =\n\t\"https://webserver.sax-power.net\";\n"],
+  "mappings": ";;;;;;;;;;;;;;;;;;AAAA;AAAA;AAAA;AAAA;AAAA;AAAO,MAAM,oBACZ;",
+  "names": []
+}

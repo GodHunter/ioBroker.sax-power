@@ -29,6 +29,7 @@ var import_saxPowerParser = require("./lib/saxPowerParser");
 var import_saxPowerHistoryParser = require("./lib/saxPowerHistoryParser");
 var import_stateEngine = require("./lib/stateEngine");
 var import_modbusDiscovery = require("./lib/modbusDiscovery");
+var import_saxPowerConstants = require("./lib/saxPowerConstants");
 class SaxPower extends utils.Adapter {
   apiClient;
   stateEngine;
@@ -69,7 +70,7 @@ class SaxPower extends utils.Adapter {
       return;
     }
     this.apiClient = new import_saxPowerApiClient.SaxPowerApiClient({
-      baseUrl: this.saxConfig.apiUrl,
+      baseUrl: import_saxPowerConstants.SAX_POWER_API_URL,
       username: this.saxConfig.username,
       password: this.saxConfig.password
     });
@@ -78,21 +79,8 @@ class SaxPower extends utils.Adapter {
     this.scheduleNextPoll();
   }
   validateConfiguration() {
-    var _a, _b;
-    if (!((_a = this.saxConfig.apiUrl) == null ? void 0 : _a.trim())) {
-      return "The SAX Power API URL is not configured.";
-    }
-    try {
-      const url = new globalThis.URL(
-        this.saxConfig.apiUrl
-      );
-      if (url.protocol !== "https:" && url.protocol !== "http:") {
-        return "The SAX Power API URL must use HTTP or HTTPS.";
-      }
-    } catch {
-      return "The configured SAX Power API URL is invalid.";
-    }
-    if (!((_b = this.saxConfig.username) == null ? void 0 : _b.trim())) {
+    var _a;
+    if (!((_a = this.saxConfig.username) == null ? void 0 : _a.trim())) {
       return "The SAX Power username is not configured.";
     }
     if (!this.saxConfig.password) {
@@ -158,6 +146,7 @@ class SaxPower extends utils.Adapter {
     }
   }
   async processLiveData(response) {
+    var _a;
     const receivedTimestamp = (/* @__PURE__ */ new Date()).toISOString();
     const devices = (0, import_saxPowerParser.parseLiveDataResponse)(
       response,
@@ -176,6 +165,7 @@ class SaxPower extends utils.Adapter {
     await this.stateEngine.writeDevices(
       devices
     );
+    await this.stateEngine.observeBatteryHealth(devices, (_a = this.saxConfig.batteryModels) != null ? _a : {});
     await this.stateEngine.writeAggregateLiveData(
       devices
     );
@@ -206,6 +196,7 @@ class SaxPower extends utils.Adapter {
     );
   }
   async pollHistory() {
+    var _a, _b;
     if (this.historyPollRunning) {
       this.log.debug(
         "Skipping SAX Power history poll because a previous history request is still running."
@@ -220,8 +211,12 @@ class SaxPower extends utils.Adapter {
       const today = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
       const deviceStatistics = {};
       const deviceMetadata = {};
+      const batteryModels = {};
+      const reportedCycles = {};
       for (const device of this.latestDevices) {
         const serialNumber = device.info.serialNumber;
+        batteryModels[serialNumber] = (_b = (_a = this.saxConfig.batteryModels) == null ? void 0 : _a[serialNumber]) != null ? _b : "";
+        reportedCycles[serialNumber] = device.info.reportedCycleCount;
         const [
           week,
           month,
@@ -272,7 +267,9 @@ class SaxPower extends utils.Adapter {
       await this.stateEngine.writeStatistics(
         statistics,
         metadata,
-        updatedAt
+        updatedAt,
+        batteryModels,
+        reportedCycles
       );
       this.log.debug(
         `SAX Power statistics updated successfully for ${Object.keys(deviceStatistics).length} device(s).`

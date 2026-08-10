@@ -10,6 +10,8 @@ ioBroker adapter for SAX Power battery storage systems.
 
 This independent community adapter connects ioBroker to the SAX Power cloud and provides live measurements, device information and historical energy statistics. It supports automatic device discovery and aggregates values across all detected storage systems.
 
+Product and manufacturer information: [SAX Power GmbH](https://sax-power.net/)
+
 > This project is not affiliated with, endorsed by or maintained by SAX Power GmbH.
 
 ## Features
@@ -18,6 +20,8 @@ This independent community adapter connects ioBroker to the SAX Power cloud and 
 - Automatic discovery of all storage systems assigned to the account
 - Live values for photovoltaic generation, house consumption, grid power, battery power and state of charge
 - Historical energy statistics for today, week, month, year and total
+- SAX-reported cycle count plus transparent equivalent-full-cycle calculations per device and for the complete installation
+- Explicit battery model assignment with nominal and usable capacities
 - Aggregated live values and statistics across multiple storage systems
 - Responsive React-based administration interface
 - Optional Modbus configuration prepared for future control functions
@@ -50,12 +54,15 @@ Open the adapter configuration in ioBroker Admin and enter:
 
 - the SAX Power dashboard email address
 - the corresponding password
-- the SAX Power API base URL, unless the default must be changed
 - the polling interval
+- the SAX Power model for every automatically detected storage system
 
 The minimum polling interval is **60 seconds**.
+The SAX Power API endpoint is built into the adapter and cannot be changed in the administration interface.
 
-The password is stored using ioBroker's encrypted and protected native configuration mechanisms.
+The password is stored through ioBroker's `encryptedNative` configuration mechanism and protected from ordinary configuration reads through `protectedNative`. It remains unchanged when unrelated settings such as the polling interval or battery model are saved.
+
+The administration interface separates cloud login from adapter settings. Storage systems cannot be added manually: the adapter discovers them from the SAX Power account and only asks for the matching model.
 
 ## Live dashboard
 
@@ -71,7 +78,7 @@ The dashboard reads only ioBroker states. It does not perform additional cloud r
 
 ## Object structure
 
-The adapter creates separate object trees for every detected SAX Power storage system and an additional aggregated statistics tree.
+The adapter creates separate object trees for every detected SAX Power storage system. All installation-wide values are grouped below `summary`, so they cannot be confused with the values of an individual storage device.
 
 Typical structure:
 
@@ -82,14 +89,17 @@ sax-power.0
 │   └── <device-id>
 │       ├── info
 │       ├── live
+│       ├── battery
 │       └── statistics
-└── statistics
-    ├── info
-    ├── today
-    ├── week
-    ├── month
-    ├── year
-    └── total
+└── summary
+    ├── battery
+    └── statistics
+        ├── info
+        ├── day
+        ├── week
+        ├── month
+        ├── year
+        └── total
 ```
 
 Detailed references are available in:
@@ -97,6 +107,7 @@ Detailed references are available in:
 - [Object reference](docs/OBJECTS.md)
 - [Field reference](docs/FIELD_REFERENCE.md)
 - [Statistics](docs/STATISTICS.md)
+- [Battery models, cycles and health](docs/BATTERY.md)
 
 ## Statistics
 
@@ -114,6 +125,8 @@ For accounts with multiple storage systems, the adapter also calculates aggregat
 
 Further details are documented in [docs/STATISTICS.md](docs/STATISTICS.md).
 
+Equivalent full cycles use the documented formula `(charged energy + discharged energy) / (2 × nominal capacity)`. Battery health is explicitly estimated from the median of five qualified discharge runs covering at least 40 SOC percentage points each. Valid, required and rejected runs, plus current-run progress, remain visible while data is collected. The integration method, acceptance limits, persistence and known accuracy limitations are documented in [docs/BATTERY.md](docs/BATTERY.md).
+
 ## Modbus
 
 Modbus configuration is optional and independent of the SAX Power cloud connection.
@@ -126,6 +139,7 @@ See [docs/MODBUS.md](docs/MODBUS.md).
 
 - [API integration](docs/API.md)
 - [Architecture](docs/ARCHITECTURE.md)
+- [Battery models, cycles and health](docs/BATTERY.md)
 - [Branding and project independence](docs/BRANDING.md)
 - [Field reference](docs/FIELD_REFERENCE.md)
 - [Modbus](docs/MODBUS.md)
@@ -171,6 +185,15 @@ npm run test:package
 ```
 
 ## Changelog
+
+### 1.2.0 (2026-08-10)
+
+- Added automatically assigned battery models with documented nominal and usable capacities.
+- Added SAX-reported and adapter-calculated equivalent full cycles per device and for the complete system.
+- Added persistent, transparent battery-health estimation from qualified discharge runs, including valid, required and rejected run counters.
+- Added the separate `devices.<serial>.*` and `summary.*` object structures and automatic cleanup of obsolete root objects.
+- Redesigned the administration interface and fixed password persistence when saving unrelated settings.
+- Documented health formulas, validation rules, object paths, data sources and known limitations in `docs/BATTERY.md` and the object references.
 
 ### 1.1.2 (2026-08-05)
 

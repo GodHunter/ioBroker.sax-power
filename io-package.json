@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "sax-power",
-    "version": "1.1.2",
+    "version": "1.2.0",
     "news": {
+      "1.2.0": {
+        "en": "Added per-device and system battery statistics, equivalent full cycles, transparent battery-health tracking, automatic model assignment and a redesigned administration interface.",
+        "de": "Geräte- und Systemstatistiken, äquivalente Vollzyklen, transparentes Batteriegesundheits-Tracking, automatische Modellzuordnung und eine überarbeitete Administrationsoberfläche ergänzt.",
+        "ru": "Добавлены статистика батарей по устройствам и системе, эквивалентные полные циклы, прозрачное отслеживание состояния батареи, автоматическое назначение модели и обновлённый интерфейс администрирования.",
+        "pt": "Adicionadas estatísticas da bateria por dispositivo e sistema, ciclos completos equivalentes, acompanhamento transparente da saúde da bateria, atribuição automática do modelo e uma interface de administração redesenhada.",
+        "nl": "Batterijstatistieken per apparaat en voor het systeem, equivalente volledige cycli, transparante batterijgezondheidsregistratie, automatische modeltoewijzing en een vernieuwde beheerinterface toegevoegd.",
+        "fr": "Ajout de statistiques de batterie par appareil et pour le système, de cycles complets équivalents, d’un suivi transparent de l’état de la batterie, de l’attribution automatique du modèle et d’une interface d’administration remaniée.",
+        "it": "Aggiunte statistiche della batteria per dispositivo e sistema, cicli completi equivalenti, monitoraggio trasparente della salute della batteria, assegnazione automatica del modello e un’interfaccia di amministrazione rinnovata.",
+        "es": "Se añadieron estadísticas de batería por dispositivo y del sistema, ciclos completos equivalentes, seguimiento transparente de la salud de la batería, asignación automática del modelo y una interfaz de administración renovada.",
+        "pl": "Dodano statystyki baterii dla urządzeń i systemu, równoważne pełne cykle, przejrzyste śledzenie kondycji baterii, automatyczne przypisanie modelu oraz odświeżony interfejs administracyjny.",
+        "uk": "Додано статистику батарей для пристроїв і системи, еквівалентні повні цикли, прозоре відстеження стану батареї, автоматичне призначення моделі та оновлений інтерфейс адміністрування.",
+        "zh-cn": "新增单设备和系统电池统计、等效完整循环、透明的电池健康跟踪、自动型号分配以及重新设计的管理界面。"
+      },
       "1.1.2": {
         "en": "Updated the public project identity and maintainer contact, corrected donation information and aligned the Node.js 22 TypeScript dependency declaration with repository requirements.",
         "de": "Öffentliche Projektidentität und Maintainer-Kontakt aktualisiert, Spendeninformationen korrigiert und die Node.js-22-TypeScript-Abhängigkeit an die Repository-Anforderungen angepasst.",
@@ -82,6 +95,7 @@
         "zh-cn": "首次出版"
       }
     },
+    "title": "SAX Power",
     "titleLang": {
       "en": "SAX Power",
       "de": "SAX-Power",
@@ -148,10 +162,10 @@
     ]
   },
   "native": {
-    "apiUrl": "https://webserver.sax-power.net",
     "username": "",
     "password": "",
     "pollInterval": 60,
+    "batteryModels": {},
     "modbusControlEnabled": false,
     "modbusInstance": "",
     "modbusChargePowerStateId": "",

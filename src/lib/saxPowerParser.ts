@@ -87,6 +87,8 @@ readString(raw.data_time),
 readNumber(raw.phase),
 			lastOnlineFrom:
 readNumber(raw.last_online_from),
+			reportedCycleCount:
+readNumber(raw.data_cycle),
 		},
 		live: {
 			soc:
