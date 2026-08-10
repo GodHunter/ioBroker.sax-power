@@ -52,7 +52,8 @@ function parseDevice(serialNumber, raw, receivedTimestamp) {
       sourceTimestamp: readString(raw.data_time),
       receivedTimestamp,
       phase: readNumber(raw.phase),
-      lastOnlineFrom: readNumber(raw.last_online_from)
+      lastOnlineFrom: readNumber(raw.last_online_from),
+      reportedCycleCount: readNumber(raw.data_cycle)
     },
     live: {
       soc: readNumber(raw.SOC),

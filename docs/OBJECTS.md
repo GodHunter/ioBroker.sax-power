@@ -1,5 +1,9 @@
 # ioBroker object structure
 
+## Battery-health progress
+
+Each `devices.<serialNumber>.battery.health` channel exposes the estimated `value`, availability `status`, `validRuns`, `requiredRuns`, `rejectedRuns`, current-run direction/SOC/energy/timestamps, collection start and last evaluation. The `progress` JSON state is the persistent internal checkpoint. `summary.battery.health` aggregates the visible counters and result across configured devices.
+
 ## Root structure
 
 ```text
@@ -10,20 +14,25 @@ sax-power.0
 │   └── <serialNumber>
 │       ├── info
 │       ├── live
+│       ├── battery
 │       └── statistics
 │           ├── day
 │           ├── week
 │           ├── month
 │           ├── year
 │           └── total
-└── statistics
-    ├── info
-    ├── day
-    ├── week
-    ├── month
-    ├── year
-    └── total
+└── summary
+    ├── battery
+    └── statistics
+        ├── info
+        ├── day
+        ├── week
+        ├── month
+        ├── year
+        └── total
 ```
+
+`summary` contains only installation-wide values. `devices.<serialNumber>` always contains the values of one physical storage device.
 
 ## `info`
 
@@ -110,6 +119,66 @@ States:
 
 Optional cloud fields remain `null` when unavailable.
 
+## Device battery analysis
+
+```text
+devices.<serialNumber>.battery
+├── model
+├── nominalCapacity
+├── usableCapacity
+├── cycles
+│   ├── reported
+│   ├── day
+│   ├── week
+│   ├── month
+│   ├── year
+│   └── total
+├── health
+│   ├── value
+│   ├── status
+│   ├── validRuns
+│   ├── requiredRuns
+│   ├── rejectedRuns
+│   ├── activeRun
+│   ├── activeRunDirection
+│   ├── activeRunSocStart
+│   ├── activeRunSocCurrent
+│   ├── activeRunEnergy
+│   ├── activeRunStartedAt
+│   ├── dataCollectionStartedAt
+│   ├── lastEvaluation
+│   └── progress
+└── info.lastUpdate
+```
+
+`cycles.reported` is the SAX `data_cycle` value. Period values are calculated. `health.value` remains `null` until five qualified discharge runs exist. `progress` is the persistent internal JSON checkpoint; all other health states are public, read-only observations. `activeRun*` describes the currently observed run, while `validRuns`, `requiredRuns` and `rejectedRuns` make the evaluation progress visible. See [BATTERY.md](BATTERY.md) for the exact formula, integration method, validation rules and status semantics.
+
+## Combined battery analysis
+
+```text
+summary.battery
+├── deviceCount
+├── nominalCapacity
+├── usableCapacity
+├── cycles.<day|week|month|year|total>
+├── health.value
+├── health.status
+├── health.validRuns
+├── health.requiredRuns
+├── health.rejectedRuns
+├── health.activeRun
+├── health.activeRunDirection
+├── health.activeRunSocStart
+├── health.activeRunSocCurrent
+├── health.activeRunEnergy
+├── health.activeRunStartedAt
+├── health.dataCollectionStartedAt
+├── health.lastEvaluation
+└── info.lastUpdate
+```
+
+Combined cycles are capacity-weighted and are not the sum of device cycle counts. Summary health counters are summed across devices. Active-run detail is intentionally empty or `mixed`, because progress must be inspected per device. The internal `progress` state exists only below individual devices. See [BATTERY.md](BATTERY.md) for formulas and availability rules.
+
 ## Device statistics
 
 ```text
@@ -136,15 +205,15 @@ lastTimestamp
 ## Aggregated statistics
 
 ```text
-statistics.<period>
+summary.statistics.<period>
 ```
 
-The root statistics tree uses the same period and state structure as each device. Energy values are summed across all detected storage devices.
+The summary statistics tree uses the same period and state structure as each device. Energy values are summed across all detected storage devices.
 
 ## Statistics runtime information
 
 ```text
-statistics.info
+summary.statistics.info
 ```
 
 This channel contains operational metadata for the history subsystem, such as the current source, last update, and last error.

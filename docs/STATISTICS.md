@@ -87,7 +87,7 @@ devices.<serialNumber>.statistics.<period>
 Combined statistics are written below:
 
 ```text
-statistics.<period>
+summary.statistics.<period>
 ```
 
 For multiple storage devices:
@@ -97,12 +97,14 @@ For multiple storage devices:
 - the earliest valid first timestamp is used
 - the latest valid last timestamp is used
 
+Battery cycle aggregation is different from energy aggregation: cycle counts are never summed. See [BATTERY.md](BATTERY.md) for the capacity-weighted formula.
+
 ## Internal source
 
 The history subsystem identifies its active source under:
 
 ```text
-statistics.info.source
+summary.statistics.info.source
 ```
 
 For the current implementation, this is the SAX Power energy-chart endpoint.

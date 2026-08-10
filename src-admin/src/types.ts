@@ -1,8 +1,8 @@
 export interface SaxPowerNativeConfig {
-apiUrl: string;
 username: string;
 password: string;
 pollInterval: number;
+batteryModels?: Record<string, string>;
 
 /*
  * Retained only for compatibility with development instances.
@@ -46,9 +46,48 @@ batteryDirection: string;
 soc: number | null;
 liveLastUpdate: string;
 
+batteries: BatteryRuntimeStatus[];
+aggregateBattery: BatteryAggregateRuntimeStatus;
+
+}
+
+export interface BatteryRuntimeStatus {
+serialNumber: string;
+model: string;
+reportedCycles: number | null;
+dayCycles: number | null;
+monthCycles: number | null;
+yearCycles: number | null;
+totalCycles: number | null;
+healthStatus: string;
+healthValue: number | null;
+validRuns: number;
+requiredRuns: number;
+rejectedRuns: number;
+activeRun: string;
+activeRunDirection: string;
+activeRunSocStart: number | null;
+activeRunSocCurrent: number | null;
+activeRunEnergy: number | null;
+dataCollectionStartedAt: string;
+lastEvaluation: string;
+}
+
+export interface BatteryAggregateRuntimeStatus {
+deviceCount: number | null;
+dayCycles: number | null;
+monthCycles: number | null;
+yearCycles: number | null;
+totalCycles: number | null;
+healthStatus: string;
+healthValue: number | null;
+validRuns: number;
+requiredRuns: number;
+rejectedRuns: number;
 }
 
 export type AdminTab =
-| "cloud"
+| "login"
+| "settings"
 | "status"
 | "support";

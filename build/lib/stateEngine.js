@@ -276,6 +276,9 @@ class SaxPowerStateEngine {
       );
     }
   }
+  async observeBatteryHealth(devices, batteryModels) {
+    await this.statistics.observeBatteryHealth(devices, batteryModels);
+  }
   async ensureAggregateLiveObjects() {
     await this.adapter.extendObjectAsync(
       "live",
@@ -365,11 +368,13 @@ class SaxPowerStateEngine {
       );
     }
   }
-  async writeStatistics(result, metadata, updatedAt) {
+  async writeStatistics(result, metadata, updatedAt, batteryModels, reportedCycles) {
     await this.statistics.writeStatistics(
       result,
       metadata,
-      updatedAt
+      updatedAt,
+      batteryModels,
+      reportedCycles
     );
   }
   async writeStatisticsError(message) {

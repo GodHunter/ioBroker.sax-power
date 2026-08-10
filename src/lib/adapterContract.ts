@@ -9,6 +9,10 @@ id: string,
 state: ioBroker.SettableState,
 ): Promise<unknown>;
 
+getStateAsync?(
+id: string,
+): Promise<ioBroker.State | null | undefined>;
+
 delObjectAsync(
 id: string,
 options?: {

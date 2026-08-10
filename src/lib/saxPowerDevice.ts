@@ -14,6 +14,7 @@ sourceTimestamp: string;
 receivedTimestamp: string;
 phase: number | null;
 lastOnlineFrom: number | null;
+	reportedCycleCount: number | null;
 }
 
 export interface SaxPowerDeviceLiveData {

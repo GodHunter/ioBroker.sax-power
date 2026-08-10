@@ -48,11 +48,15 @@ import {
 	discoverModbusStates,
 } from "./lib/modbusDiscovery";
 
+import {
+	SAX_POWER_API_URL,
+} from "./lib/saxPowerConstants";
+
 interface SaxPowerAdapterConfig {
-apiUrl: string;
 username: string;
 password: string;
 pollInterval: number;
+batteryModels?: Record<string, string>;
 
 modbusControlEnabled: boolean;
 modbusInstance: string;
@@ -116,7 +120,7 @@ this.validateConfiguration();
 		}
 
 		this.apiClient = new SaxPowerApiClient({
-			baseUrl: this.saxConfig.apiUrl,
+			baseUrl: SAX_POWER_API_URL,
 			username: this.saxConfig.username,
 			password: this.saxConfig.password,
 		});
@@ -130,25 +134,6 @@ new SaxPowerStateEngine(this);
 	}
 
 	private validateConfiguration(): string | undefined {
-		if (!this.saxConfig.apiUrl?.trim()) {
-			return "The SAX Power API URL is not configured.";
-		}
-
-		try {
-			const url = new globalThis.URL(
-				this.saxConfig.apiUrl,
-			);
-
-			if (
-				url.protocol !== "https:" &&
-url.protocol !== "http:"
-			) {
-				return "The SAX Power API URL must use HTTP or HTTPS.";
-			}
-		} catch {
-			return "The configured SAX Power API URL is invalid.";
-		}
-
 		if (!this.saxConfig.username?.trim()) {
 			return "The SAX Power username is not configured.";
 		}
@@ -274,6 +259,8 @@ parseLiveDataResponse(
 			devices,
 		);
 
+		await this.stateEngine.observeBatteryHealth(devices, this.saxConfig.batteryModels ?? {});
+
 		await this.stateEngine
 			.writeAggregateLiveData(
 				devices,
@@ -349,12 +336,20 @@ string,
 SaxPowerDeviceHistoryMetadata
 > = {};
 
+			const batteryModels: Record<string, string> = {};
+			const reportedCycles: Record<string, number | null> = {};
+
 			for (
 				const device
 				of this.latestDevices
 			) {
 				const serialNumber =
 device.info.serialNumber;
+
+				batteryModels[serialNumber] =
+this.saxConfig.batteryModels?.[serialNumber] ?? "";
+				reportedCycles[serialNumber] =
+device.info.reportedCycleCount;
 
 				const [
 					week,
@@ -426,6 +421,8 @@ new Date().toISOString();
 					statistics,
 					metadata,
 					updatedAt,
+					batteryModels,
+					reportedCycles,
 				);
 
 			this.log.debug(

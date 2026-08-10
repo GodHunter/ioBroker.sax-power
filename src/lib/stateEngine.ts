@@ -462,6 +462,10 @@ value
 		}
 	}
 
+	public async observeBatteryHealth(devices: readonly SaxPowerDevice[], batteryModels: Record<string, string>): Promise<void> {
+		await this.statistics.observeBatteryHealth(devices, batteryModels);
+	}
+
 	private async ensureAggregateLiveObjects():
 Promise<void> {
 		await this.adapter.extendObjectAsync(
@@ -586,11 +590,15 @@ Promise<void> {
 		result: SaxPowerStatisticsResult,
 		metadata: SaxPowerStatisticsMetadata,
 		updatedAt: string,
+		batteryModels: Record<string, string>,
+		reportedCycles: Record<string, number | null>,
 	): Promise<void> {
 		await this.statistics.writeStatistics(
 			result,
 			metadata,
 			updatedAt,
+			batteryModels,
+			reportedCycles,
 		);
 	}
 
