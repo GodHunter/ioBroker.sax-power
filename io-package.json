@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "sax-power",
-    "version": "1.2.0",
+    "version": "1.2.1",
     "news": {
+      "1.2.1": {
+        "en": "Updated repository compliance metadata and installation documentation.",
+        "de": "Repository-Metadaten und Installationsdokumentation an die aktuellen Vorgaben angepasst.",
+        "ru": "Обновлены метаданные репозитория и документация по установке в соответствии с текущими требованиями.",
+        "pt": "Metadados do repositório e documentação de instalação atualizados para os requisitos atuais.",
+        "nl": "Repositorymetadata en installatiedocumentatie bijgewerkt volgens de huidige vereisten.",
+        "fr": "Métadonnées du dépôt et documentation d’installation mises à jour selon les exigences actuelles.",
+        "it": "Metadati del repository e documentazione di installazione aggiornati ai requisiti attuali.",
+        "es": "Metadatos del repositorio y documentación de instalación actualizados según los requisitos actuales.",
+        "pl": "Zaktualizowano metadane repozytorium i dokumentację instalacji zgodnie z aktualnymi wymaganiami.",
+        "uk": "Оновлено метадані репозиторію та документацію зі встановлення відповідно до актуальних вимог.",
+        "zh-cn": "根据当前要求更新了仓库元数据和安装文档。"
+      },
       "1.2.0": {
         "en": "Added per-device and system battery statistics, equivalent full cycles, transparent battery-health tracking, automatic model assignment and a redesigned administration interface.",
         "de": "Geräte- und Systemstatistiken, äquivalente Vollzyklen, transparentes Batteriegesundheits-Tracking, automatische Modellzuordnung und eine überarbeitete Administrationsoberfläche ergänzt.",
@@ -95,7 +108,6 @@
         "zh-cn": "首次出版"
       }
     },
-    "title": "SAX Power",
     "titleLang": {
       "en": "SAX Power",
       "de": "SAX-Power",

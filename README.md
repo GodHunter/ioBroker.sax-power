@@ -36,13 +36,7 @@ Product and manufacturer information: [SAX Power GmbH](https://sax-power.net/)
 
 ## Installation
 
-The adapter can be installed from npm:
-
-```bash
-npm install iobroker.sax-power
-```
-
-During the testing phase it can also be installed from GitHub using the ioBroker expert installation dialog:
+Install the adapter through the ioBroker Admin interface. During the testing phase, use the expert installation dialog and select the GitHub option with:
 
 ```text
 https://github.com/GodHunter/ioBroker.sax-power
@@ -185,6 +179,12 @@ npm run test:package
 ```
 
 ## Changelog
+
+### 1.2.1 (2026-08-10)
+
+- Removed the deprecated `common.title` metadata in favor of `common.titleLang`.
+- Replaced the direct npm installation command with ioBroker Admin installation guidance.
+- Kept adapter runtime behavior unchanged.
 
 ### 1.2.0 (2026-08-10)
 
