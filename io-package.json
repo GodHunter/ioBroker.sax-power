@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "sax-power",
-    "version": "1.2.2",
+    "version": "1.2.3",
     "news": {
+      "1.2.3": {
+        "en": "Corrected the ioBroker object hierarchy for instance information and SAX Power devices.",
+        "de": "Die ioBroker-Objekthierarchie für Instanzinformationen und SAX-Power-Geräte wurde korrigiert.",
+        "ru": "Исправлена иерархия объектов ioBroker для информации об экземпляре и устройств SAX Power.",
+        "pt": "Corrigida a hierarquia de objetos do ioBroker para informações da instância e dispositivos SAX Power.",
+        "nl": "De ioBroker-objecthiërarchie voor instantie-informatie en SAX Power-apparaten is gecorrigeerd.",
+        "fr": "Correction de la hiérarchie des objets ioBroker pour les informations d’instance et les appareils SAX Power.",
+        "it": "Corretta la gerarchia degli oggetti ioBroker per le informazioni dell'istanza e i dispositivi SAX Power.",
+        "es": "Se corrigió la jerarquía de objetos de ioBroker para la información de instancia y los dispositivos SAX Power.",
+        "pl": "Poprawiono hierarchię obiektów ioBroker dla informacji o instancji i urządzeń SAX Power.",
+        "uk": "Виправлено ієрархію об’єктів ioBroker для інформації про екземпляр і пристроїв SAX Power.",
+        "zh-cn": "修正了实例信息和 SAX Power 设备的 ioBroker 对象层次结构。"
+      },
       "1.2.2": {
         "en": "Prepared release notes validation and limited the adapter news history to the repository requirement.",
         "de": "Validierung der Release Notes ergänzt und die Adapter-News-Historie auf die Repository-Vorgabe begrenzt.",
@@ -80,19 +93,6 @@
         "pl": "Zmodernizowano konfigurację TypeScript dla Node.js 22, dodano skompilowany backend dla instalacji z GitHub i zoptymalizowano proces budowania panelu administracyjnego.",
         "uk": "Конфігурацію TypeScript оновлено для Node.js 22, скомпільований серверний код додано для встановлення з GitHub, а процес збірки адміністративного інтерфейсу оптимізовано.",
         "zh-cn": "将 TypeScript 配置更新为 Node.js 22，提交编译后的后端以支持 GitHub 安装，并优化管理界面的构建流程。"
-      },
-      "1.0.1": {
-        "en": "Repository compliance update with Node.js 22 support, modernized workflows, corrected password protection, cleaned admin resources and improved API timeout handling.",
-        "de": "Repository- und Kompatibilitätsupdate mit Node.js 22, modernisierten Workflows, korrigiertem Passwortschutz, bereinigten Admin-Ressourcen und verbesserter API-Timeout-Behandlung.",
-        "ru": "Обновление совместимости репозитория с поддержкой Node.js 22, обновлёнными рабочими процессами, исправленной защитой пароля, очищенными ресурсами администратора и улучшенной обработкой тайм-аутов API.",
-        "pt": "Atualização de conformidade do repositório com suporte ao Node.js 22, fluxos modernizados, proteção de senha corrigida, recursos de administração limpos e tratamento de timeout da API aprimorado.",
-        "nl": "Repository- en compatibiliteitsupdate met Node.js 22, gemoderniseerde workflows, gecorrigeerde wachtwoordbeveiliging, opgeschoonde admin-resources en verbeterde API-time-outafhandeling.",
-        "fr": "Mise à jour de conformité avec prise en charge de Node.js 22, workflows modernisés, protection du mot de passe corrigée, ressources d'administration nettoyées et meilleure gestion des délais d'attente de l'API.",
-        "it": "Aggiornamento di conformità con supporto a Node.js 22, workflow modernizzati, protezione password corretta, risorse di amministrazione ripulite e migliore gestione dei timeout API.",
-        "es": "Actualización de conformidad con Node.js 22, flujos de trabajo modernizados, protección de contraseña corregida, recursos de administración depurados y mejor gestión del tiempo de espera de la API.",
-        "pl": "Aktualizacja zgodności repozytorium z obsługą Node.js 22, zmodernizowanymi procesami, poprawioną ochroną hasła, uporządkowanymi zasobami administracyjnymi i lepszą obsługą limitów czasu API.",
-        "uk": "Оновлення сумісності репозиторію з підтримкою Node.js 22, оновленими робочими процесами, виправленим захистом пароля, очищеними ресурсами адміністратора та покращеною обробкою тайм-аутів API.",
-        "zh-cn": "仓库兼容性更新：支持 Node.js 22，更新工作流，修正密码保护，清理管理界面资源，并改进 API 超时处理。"
       }
     },
     "titleLang": {
@@ -172,6 +172,14 @@
   },
   "objects": [],
   "instanceObjects": [
+    {
+      "_id": "info",
+      "type": "channel",
+      "common": {
+        "name": "Information"
+      },
+      "native": {}
+    },
     {
       "_id": "info.connection",
       "type": "state",

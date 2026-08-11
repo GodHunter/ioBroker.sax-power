@@ -55,7 +55,7 @@ class SaxPowerStateEngine {
     await this.adapter.extendObjectAsync(
       DEVICE_ROOT,
       {
-        type: "channel",
+        type: "folder",
         common: {
           name: "SAX Power devices"
         },

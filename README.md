@@ -180,6 +180,14 @@ npm run test:package
 
 ## Changelog
 
+### 1.2.3 (2026-08-11)
+
+- Added the missing `info` channel required by the instance information states.
+- Corrected the `devices` container from `channel` to `folder` so device objects have a valid ioBroker parent.
+- Added regression tests for both object hierarchy requirements.
+- Existing state IDs and values remain unchanged.
+
+
 ### 1.2.2 (2026-08-10)
 
 - Limited the adapter news history to the seven entries supported by the ioBroker repository builder.
