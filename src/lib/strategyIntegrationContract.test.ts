@@ -17,11 +17,22 @@ describe("strategy integration contract", () => {
 	it("maps the verified SAX Modbus registers", () => {
 		const modbus = STRATEGY_INTEGRATION_CONTRACT.modbus;
 
-		expect(Object.values(modbus).map(({ register }) => register)).to.deep.equal([44, 45, 46, 47, 48]);
+		expect(Object.values(modbus).map(({ register }) => register)).to.deep.equal([43, 44, 45, 46, 47, 48]);
 
 		expect(modbus.stateOfCharge.unit).to.equal("%");
 		expect(modbus.batteryPower.unit).to.equal("W");
 		expect(modbus.smartMeterPower.unit).to.equal("W");
+	});
+
+	it("treats register 43 as a transient discharge command", () => {
+		const command = STRATEGY_INTEGRATION_CONTRACT.modbus.dischargePowerCommand;
+
+		expect(command).to.include({
+			register: 43,
+			unit: "W",
+			access: "command",
+			confirmation: "transient-command",
+		});
 	});
 
 	it("treats register 44 as a transient command", () => {

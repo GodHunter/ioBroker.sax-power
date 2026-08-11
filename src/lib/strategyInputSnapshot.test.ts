@@ -28,6 +28,10 @@ function validResolution(): StrategyStateResolution {
 
 	return {
 		modbus: {
+			dischargePowerCommand: available(
+				modbus.dischargePowerCommand,
+				null,
+			),
 			chargePowerCommand: available(modbus.chargePowerCommand, null),
 			operatingState: available(modbus.operatingState, 2),
 			stateOfCharge: available(modbus.stateOfCharge, 63),
@@ -72,6 +76,23 @@ describe("strategy input snapshot", () => {
 				lastUpdatedTimestamp: 1_786_464_000_000,
 			},
 		});
+	});
+
+	it("fails closed when the discharge command object is unavailable", () => {
+		const resolution = validResolution();
+		const command = resolution.modbus.dischargePowerCommand;
+
+		expect(createStrategyInputSnapshot({
+			...resolution,
+			modbus: {
+				...resolution.modbus,
+				dischargePowerCommand: {
+					...command,
+					available: false,
+					reason: "object-missing",
+				},
+			},
+		})).to.equal(null);
 	});
 
 	it("creates an immutable nested snapshot", () => {

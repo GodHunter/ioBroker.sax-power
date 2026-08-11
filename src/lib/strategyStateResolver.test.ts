@@ -139,10 +139,12 @@ describe("strategy state resolver", () => {
 		expect(resolution.modbus.stateOfCharge.value).to.equal(70);
 	});
 
-	it("checks the transient command object without reading its state", async () => {
+	it("checks transient command objects without reading their states", async () => {
 		const baseReader = reader();
-		const commandId =
-            STRATEGY_INTEGRATION_CONTRACT.modbus.chargePowerCommand.stateId;
+		const commandIds = [
+			STRATEGY_INTEGRATION_CONTRACT.modbus.dischargePowerCommand.stateId,
+			STRATEGY_INTEGRATION_CONTRACT.modbus.chargePowerCommand.stateId,
+		];
 		const readStateIds: string[] = [];
 
 		const recordingReader: StrategyStateReader = {
@@ -160,9 +162,11 @@ describe("strategy state resolver", () => {
 			{ now: NOW },
 		);
 
+		expect(resolution.modbus.dischargePowerCommand.available).to.equal(true);
+		expect(resolution.modbus.dischargePowerCommand.value).to.equal(null);
 		expect(resolution.modbus.chargePowerCommand.available).to.equal(true);
 		expect(resolution.modbus.chargePowerCommand.value).to.equal(null);
-		expect(readStateIds).not.to.include(commandId);
+		expect(readStateIds).not.to.include.members(commandIds);
 	});
 
 	it("distinguishes a missing object from a missing state", async () => {

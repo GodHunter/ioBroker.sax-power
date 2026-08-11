@@ -22,6 +22,7 @@ export interface StrategyStateContract {
 }
 
 export interface StrategyModbusContract {
+	readonly dischargePowerCommand: StrategyStateContract;
 	readonly chargePowerCommand: StrategyStateContract;
 	readonly operatingState: StrategyStateContract;
 	readonly stateOfCharge: StrategyStateContract;
@@ -59,6 +60,13 @@ export interface StrategyIntegrationAvailability {
 
 export const STRATEGY_INTEGRATION_CONTRACT: StrategyIntegrationContract = {
 	modbus: {
+		dischargePowerCommand: {
+			stateId: "modbus.1.holdingRegisters.43_Leistungsgrenzwert_für_Entladung",
+			register: 43,
+			unit: "W",
+			access: "command",
+			confirmation: "transient-command",
+		},
 		chargePowerCommand: {
 			stateId: "modbus.1.holdingRegisters.44_Leistungsgrenzwert_für_Ladung",
 			register: 44,

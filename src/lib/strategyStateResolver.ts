@@ -34,6 +34,7 @@ export interface StrategyResolvedState {
 
 export interface StrategyStateResolution {
     readonly modbus: {
+		readonly dischargePowerCommand: StrategyResolvedState;
         readonly chargePowerCommand: StrategyResolvedState;
         readonly operatingState: StrategyResolvedState;
         readonly stateOfCharge: StrategyResolvedState;
@@ -203,6 +204,7 @@ export async function resolveStrategyStates(
 		);
 
 	const [
+		dischargePowerCommand,
 		chargePowerCommand,
 		operatingState,
 		stateOfCharge,
@@ -213,6 +215,7 @@ export async function resolveStrategyStates(
 		energyTomorrow,
 		lastUpdated,
 	] = await Promise.all([
+		resolve(contract.modbus.dischargePowerCommand),
 		resolve(contract.modbus.chargePowerCommand),
 		resolve(contract.modbus.operatingState),
 		resolve(contract.modbus.stateOfCharge),
@@ -225,6 +228,7 @@ export async function resolveStrategyStates(
 	]);
 
 	const modbus = {
+		dischargePowerCommand,
 		chargePowerCommand,
 		operatingState,
 		stateOfCharge,
