@@ -1,0 +1,38 @@
+import type { StrategyConfiguration } from "./strategyConfiguration";
+import {
+	executeStrategyDayDischargeCycleWithDaylightWindow,
+	type StrategyDaylightWindowCycleExecution,
+} from "./strategyDaylightWindowCycleExecution";
+import type { StrategyDaylightWindowProvider } from "./strategyDaylightWindowCyclePreparation";
+import {
+	STRATEGY_INTEGRATION_CONTRACT,
+	type StrategyIntegrationContract,
+} from "./strategyIntegrationContract";
+import {
+	createStrategyIoBrokerRuntime,
+	type StrategyIoBrokerRuntimeAdapter,
+} from "./strategyIoBrokerRuntime";
+import type { StrategyStateResolverOptions } from "./strategyStateResolver";
+
+export async function executeStrategyIoBrokerDayDischargeCycle(
+	adapter: StrategyIoBrokerRuntimeAdapter,
+	daylightWindowProvider: StrategyDaylightWindowProvider,
+	configuration: StrategyConfiguration,
+	maximumForecastAgeMs: number,
+	requestedDischargePowerW: number,
+	contract: StrategyIntegrationContract = STRATEGY_INTEGRATION_CONTRACT,
+	resolverOptions: StrategyStateResolverOptions = {},
+): Promise<StrategyDaylightWindowCycleExecution | null> {
+	const runtime = createStrategyIoBrokerRuntime(adapter);
+
+	return executeStrategyDayDischargeCycleWithDaylightWindow(
+		runtime.reader,
+		daylightWindowProvider,
+		runtime.writer,
+		configuration,
+		maximumForecastAgeMs,
+		requestedDischargePowerW,
+		contract,
+		resolverOptions,
+	);
+}
