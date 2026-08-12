@@ -1,5 +1,11 @@
 import type { StrategyConfiguration } from "./strategyConfiguration";
-import type { StrategyInputSnapshot } from "./strategyInputSnapshot";
+
+export interface StrategySafetySnapshot {
+	readonly createdAt: number;
+	readonly modbus: {
+		readonly stateOfChargePercent: number;
+	};
+}
 
 export interface StrategySafetyEnvelope {
 	readonly createdAt: number;
@@ -21,7 +27,7 @@ function energyAtStateOfCharge(
 }
 
 export function createStrategySafetyEnvelope(
-	snapshot: StrategyInputSnapshot,
+	snapshot: StrategySafetySnapshot,
 	configuration: StrategyConfiguration,
 ): StrategySafetyEnvelope | null {
 	const stateOfChargePercent = snapshot.modbus.stateOfChargePercent;

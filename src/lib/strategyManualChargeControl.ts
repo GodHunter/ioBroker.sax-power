@@ -1,7 +1,7 @@
 import type { StrategyConfiguration } from "./strategyConfiguration";
-import type { StrategyInputSnapshot } from "./strategyInputSnapshot";
 import {
 	createStrategySafetyEnvelope,
+	type StrategySafetySnapshot,
 	type StrategySafetyEnvelope,
 } from "./strategySafetyEnvelope";
 
@@ -9,6 +9,8 @@ export interface StrategyManualChargeControlInput {
 	readonly enabled: boolean;
 	readonly requestedChargePowerW: number;
 }
+
+export type StrategyManualChargeSnapshot = StrategySafetySnapshot;
 
 export type StrategyOperatingMode = "automatic" | "manual-charge";
 
@@ -30,7 +32,7 @@ export interface StrategyManualChargeControl {
 }
 
 export function createStrategyManualChargeControl(
-	snapshot: StrategyInputSnapshot,
+	snapshot: StrategyManualChargeSnapshot,
 	configuration: StrategyConfiguration,
 	input: StrategyManualChargeControlInput,
 ): StrategyManualChargeControl | null {

@@ -1,6 +1,5 @@
 import type { StrategyConfiguration } from "./strategyConfiguration";
 import type { StrategyCommandWriter } from "./strategyDayDischargeCommandExecutor";
-import type { StrategyInputSnapshot } from "./strategyInputSnapshot";
 import {
 	executeStrategyManualChargeCommand,
 	type StrategyManualChargeCommandExecution,
@@ -12,12 +11,17 @@ import {
 import {
 	createStrategyManualChargeControl,
 	type StrategyManualChargeControl,
+	type StrategyManualChargeSnapshot,
 } from "./strategyManualChargeControl";
 import {
 	publishStrategyManualChargeStatus,
 	readStrategyManualChargeInput,
 	type StrategyManualChargeIoBrokerAdapter,
 } from "./strategyManualChargeStates";
+import {
+	STRATEGY_INTEGRATION_CONTRACT,
+	type StrategyStateContract,
+} from "./strategyIntegrationContract";
 
 export interface StrategyManualChargeCycle {
 	readonly createdAt: number;
@@ -29,8 +33,10 @@ export interface StrategyManualChargeCycle {
 export async function executeStrategyManualChargeCycle(
 	adapter: StrategyManualChargeIoBrokerAdapter,
 	writer: StrategyCommandWriter,
-	snapshot: StrategyInputSnapshot,
+	snapshot: StrategyManualChargeSnapshot,
 	configuration: StrategyConfiguration,
+	commandContract: StrategyStateContract =
+	STRATEGY_INTEGRATION_CONTRACT.modbus.chargePowerCommand,
 ): Promise<StrategyManualChargeCycle | null> {
 	const input = await readStrategyManualChargeInput(adapter);
 
@@ -59,7 +65,10 @@ export async function executeStrategyManualChargeCycle(
 		});
 	}
 
-	const commandPlan = createStrategyManualChargeCommandPlan(control);
+	const commandPlan = createStrategyManualChargeCommandPlan(
+		control,
+		commandContract,
+	);
 
 	if (commandPlan === null || commandPlan.control !== control) {
 		return null;
@@ -68,6 +77,7 @@ export async function executeStrategyManualChargeCycle(
 	const commandExecution = await executeStrategyManualChargeCommand(
 		writer,
 		commandPlan,
+		commandContract,
 	);
 
 	if (

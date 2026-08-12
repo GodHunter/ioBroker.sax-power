@@ -181,6 +181,26 @@ async function resolveState(
 	return available(contract, state.val);
 }
 
+export async function resolveStrategyState(
+	reader: StrategyStateReader,
+	contract: StrategyStateContract,
+	options: StrategyStateResolverOptions = {},
+): Promise<StrategyResolvedState> {
+	const now = options.now ?? Date.now();
+	const maximumStateAgeMs =
+		options.maximumStateAgeMs ?? DEFAULT_MAXIMUM_STATE_AGE_MS;
+	const maximumTimestampAgeMs =
+		options.maximumTimestampAgeMs ?? DEFAULT_MAXIMUM_TIMESTAMP_AGE_MS;
+
+	return resolveState(
+		reader,
+		contract,
+		now,
+		maximumStateAgeMs,
+		maximumTimestampAgeMs,
+	);
+}
+
 export async function resolveStrategyStates(
 	reader: StrategyStateReader,
 	contract: StrategyIntegrationContract = STRATEGY_INTEGRATION_CONTRACT,
@@ -192,16 +212,12 @@ export async function resolveStrategyStates(
 	const maximumTimestampAgeMs =
         options.maximumTimestampAgeMs ?? DEFAULT_MAXIMUM_TIMESTAMP_AGE_MS;
 
-	const resolve = (
-		stateContract: StrategyStateContract,
-	): Promise<StrategyResolvedState> =>
-		resolveState(
-			reader,
-			stateContract,
+	const resolve = (stateContract: StrategyStateContract) =>
+		resolveStrategyState(reader, stateContract, {
 			now,
 			maximumStateAgeMs,
 			maximumTimestampAgeMs,
-		);
+		});
 
 	const [
 		dischargePowerCommand,
