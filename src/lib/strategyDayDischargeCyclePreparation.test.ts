@@ -10,10 +10,9 @@ import type { StrategyStateReader } from "./strategyStateResolver";
 const NOW = Date.parse("2026-08-11T12:00:00.000Z");
 const CONFIGURATION: StrategyConfiguration = {
 	batteryModelId: "home-plus-7.7",
-	batteryCapacityWh: 10_000,
 	minimumStateOfChargePercent: 20,
 	maximumStateOfChargePercent: 90,
-	maximumChargePowerW: 4_000,
+	maximumChargePowerW: 3_500,
 	maximumDischargePowerW: 3_000,
 	pvForecastReserveWh: 500,
 };

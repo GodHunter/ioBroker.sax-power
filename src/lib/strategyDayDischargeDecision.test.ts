@@ -7,10 +7,9 @@ const CREATED_AT = 1_800_000;
 const DAYLIGHT_WINDOW_ENDS_AT = CREATED_AT + 10 * 60 * 60 * 1_000;
 const CONFIGURATION: StrategyConfiguration = {
 	batteryModelId: "home-plus-7.7",
-	batteryCapacityWh: 10_000,
 	minimumStateOfChargePercent: 20,
 	maximumStateOfChargePercent: 90,
-	maximumChargePowerW: 4_000,
+	maximumChargePowerW: 3_500,
 	maximumDischargePowerW: 3_000,
 	pvForecastReserveWh: 500,
 };
@@ -52,7 +51,7 @@ describe("strategy day discharge decision", () => {
 		expect(result?.permission).to.deep.include({
 			allowed: true,
 			reason: "discharge-allowed",
-			permittedDischargeEnergyWh: 4_000,
+			permittedDischargeEnergyWh: 2_800,
 			maximumDischargePowerW: 3_000,
 		});
 		expect(result?.powerTarget).to.deep.equal({
@@ -94,7 +93,7 @@ describe("strategy day discharge decision", () => {
 
 	it("returns a zero target when no PV surplus remains", () => {
 		const result = createStrategyDayDischargeDecision(
-			snapshot({ energyNowUntilEndOfDayWh: 3_500 }),
+			snapshot({ energyNowUntilEndOfDayWh: 2_600 }),
 			CONFIGURATION,
 			60_000,
 			2_000,

@@ -6,10 +6,9 @@ import { createStrategySafetyEnvelope } from "./strategySafetyEnvelope";
 
 const CONFIGURATION: StrategyConfiguration = {
 	batteryModelId: "home-plus-7.7",
-	batteryCapacityWh: 15400,
 	minimumStateOfChargePercent: 10,
 	maximumStateOfChargePercent: 90,
-	maximumChargePowerW: 4600,
+	maximumChargePowerW: 3500,
 	maximumDischargePowerW: 4200,
 	pvForecastReserveWh: 1500,
 };
@@ -42,12 +41,12 @@ describe("strategy safety envelope", () => {
 		expect(result).to.deep.equal({
 			createdAt: 1_786_464_123_000,
 			stateOfChargePercent: 50,
-			storedEnergyWh: 7700,
-			minimumStoredEnergyWh: 1540,
-			maximumStoredEnergyWh: 13860,
-			availableChargeEnergyWh: 6160,
-			availableDischargeEnergyWh: 6160,
-			maximumChargePowerW: 4600,
+			storedEnergyWh: 3500,
+			minimumStoredEnergyWh: 700,
+			maximumStoredEnergyWh: 6300,
+			availableChargeEnergyWh: 2800,
+			availableDischargeEnergyWh: 2800,
+			maximumChargePowerW: 3500,
 			maximumDischargePowerW: 4200,
 		});
 	});
@@ -83,6 +82,17 @@ describe("strategy safety envelope", () => {
 				CONFIGURATION,
 			)).to.equal(null);
 		}
+	});
+
+	it("fails closed when unchecked power limits exceed the model", () => {
+		expect(createStrategySafetyEnvelope(snapshot(50), {
+			...CONFIGURATION,
+			maximumChargePowerW: 3_501,
+		})).to.equal(null);
+		expect(createStrategySafetyEnvelope(snapshot(50), {
+			...CONFIGURATION,
+			maximumDischargePowerW: 4_601,
+		})).to.equal(null);
 	});
 
 	it("creates an immutable result without mutating its inputs", () => {

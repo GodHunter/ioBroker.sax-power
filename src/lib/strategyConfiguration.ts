@@ -1,8 +1,11 @@
-import type { SaxPowerBatteryModelId } from "./batteryAnalysis";
+import {
+	getBatteryModel,
+	type SaxPowerBatteryModelId,
+} from "./batteryAnalysis";
+import { resolveStrategyBatteryTechnicalLimits } from "./strategyBatteryChargeCapability";
 
 export interface StrategyConfigurationInput {
 	readonly batteryModelId: unknown;
-	readonly batteryCapacityWh: unknown;
 	readonly minimumStateOfChargePercent: unknown;
 	readonly maximumStateOfChargePercent: unknown;
 	readonly maximumChargePowerW: unknown;
@@ -12,7 +15,6 @@ export interface StrategyConfigurationInput {
 
 export interface StrategyConfiguration {
 	readonly batteryModelId: SaxPowerBatteryModelId;
-	readonly batteryCapacityWh: number;
 	readonly minimumStateOfChargePercent: number;
 	readonly maximumStateOfChargePercent: number;
 	readonly maximumChargePowerW: number;
@@ -28,6 +30,7 @@ export interface StrategyConfigurationIssue {
 		| "invalid-model"
 		| "invalid-number"
 		| "out-of-range"
+		| "exceeds-model-limit"
 		| "invalid-order";
 }
 
@@ -56,7 +59,6 @@ type StrategyNumericConfigurationField = Exclude<
 const NUMERIC_CONSTRAINTS: Readonly<
 	Record<StrategyNumericConfigurationField, NumericConstraint>
 > = {
-	batteryCapacityWh: { minimum: 1 },
 	minimumStateOfChargePercent: { minimum: 0, maximum: 100 },
 	maximumStateOfChargePercent: { minimum: 0, maximum: 100 },
 	maximumChargePowerW: { minimum: 0 },
@@ -102,6 +104,37 @@ export function validateStrategyConfiguration(
 		issues.unshift({ field: "batteryModelId", reason: "invalid-model" });
 	}
 
+	const batteryModel = typeof input.batteryModelId === "string"
+		? getBatteryModel(input.batteryModelId)
+		: null;
+	const technicalLimits = batteryModel === null
+		? null
+		: resolveStrategyBatteryTechnicalLimits(batteryModel);
+
+	if (technicalLimits !== null) {
+		if (
+			typeof input.maximumChargePowerW === "number"
+			&& Number.isFinite(input.maximumChargePowerW)
+			&& input.maximumChargePowerW > technicalLimits.maximumChargePowerW
+		) {
+			issues.push({
+				field: "maximumChargePowerW",
+				reason: "exceeds-model-limit",
+			});
+		}
+		if (
+			typeof input.maximumDischargePowerW === "number"
+			&& Number.isFinite(input.maximumDischargePowerW)
+			&& input.maximumDischargePowerW
+				> technicalLimits.maximumDischargePowerW
+		) {
+			issues.push({
+				field: "maximumDischargePowerW",
+				reason: "exceeds-model-limit",
+			});
+		}
+	}
+
 	if (
 		issues.length === 0
 		&& (input.minimumStateOfChargePercent as number)
@@ -125,7 +158,6 @@ export function validateStrategyConfiguration(
 		valid: true,
 		configuration: Object.freeze({
 			batteryModelId: input.batteryModelId as SaxPowerBatteryModelId,
-			batteryCapacityWh: input.batteryCapacityWh as number,
 			minimumStateOfChargePercent:
 				input.minimumStateOfChargePercent as number,
 			maximumStateOfChargePercent:

@@ -8,10 +8,9 @@ import {
 function validInput(): StrategyConfigurationInput {
 	return {
 		batteryModelId: "home-plus-7.7",
-		batteryCapacityWh: 15400,
 		minimumStateOfChargePercent: 10,
 		maximumStateOfChargePercent: 90,
-		maximumChargePowerW: 4600,
+		maximumChargePowerW: 3500,
 		maximumDischargePowerW: 4600,
 		pvForecastReserveWh: 1500,
 	};
@@ -45,8 +44,7 @@ describe("strategy configuration", () => {
 
 		const result = validateStrategyConfiguration({
 			...input,
-			batteryCapacityWh: undefined,
-			maximumChargePowerW: "4600",
+			maximumChargePowerW: "3500",
 			maximumDischargePowerW: Number.NaN,
 		});
 
@@ -54,7 +52,6 @@ describe("strategy configuration", () => {
 			valid: false,
 			configuration: null,
 			issues: [
-				{ field: "batteryCapacityWh", reason: "invalid-number" },
 				{ field: "maximumChargePowerW", reason: "invalid-number" },
 				{ field: "maximumDischargePowerW", reason: "invalid-number" },
 			],
@@ -74,10 +71,32 @@ describe("strategy configuration", () => {
 		});
 	});
 
+	it("rejects power limits above the selected model specification", () => {
+		const result = validateStrategyConfiguration({
+			...validInput(),
+			maximumChargePowerW: 3_501,
+			maximumDischargePowerW: 4_601,
+		});
+
+		expect(result).to.deep.equal({
+			valid: false,
+			configuration: null,
+			issues: [
+				{
+					field: "maximumChargePowerW",
+					reason: "exceeds-model-limit",
+				},
+				{
+					field: "maximumDischargePowerW",
+					reason: "exceeds-model-limit",
+				},
+			],
+		});
+	});
+
 	it("rejects values outside their allowed ranges", () => {
 		const result = validateStrategyConfiguration({
 			...validInput(),
-			batteryCapacityWh: 0,
 			minimumStateOfChargePercent: -1,
 			maximumStateOfChargePercent: 101,
 			maximumChargePowerW: -1,
@@ -86,7 +105,7 @@ describe("strategy configuration", () => {
 		});
 
 		expect(result.valid).to.equal(false);
-		expect(result.issues).to.have.length(6);
+		expect(result.issues).to.have.length(5);
 		expect(result.issues.every(issue => issue.reason === "out-of-range"))
 			.to.equal(true);
 	});

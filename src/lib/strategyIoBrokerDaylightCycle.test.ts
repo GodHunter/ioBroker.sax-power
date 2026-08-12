@@ -11,10 +11,9 @@ const SUNRISE = Date.UTC(2026, 5, 21, 4, 17);
 const SUNSET = Date.UTC(2026, 5, 21, 19, 34);
 const CONFIGURATION: StrategyConfiguration = {
 	batteryModelId: "home-plus-7.7",
-	batteryCapacityWh: 10_000,
 	minimumStateOfChargePercent: 20,
 	maximumStateOfChargePercent: 90,
-	maximumChargePowerW: 4_000,
+	maximumChargePowerW: 3_500,
 	maximumDischargePowerW: 3_000,
 	pvForecastReserveWh: 500,
 };

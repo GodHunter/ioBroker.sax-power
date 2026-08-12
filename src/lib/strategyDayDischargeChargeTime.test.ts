@@ -8,10 +8,9 @@ import type { StrategySafetyEnvelope } from "./strategySafetyEnvelope";
 const CREATED_AT = 1_786_464_123_000;
 const CONFIGURATION: StrategyConfiguration = {
 	batteryModelId: "home-5.8",
-	batteryCapacityWh: 5_200,
 	minimumStateOfChargePercent: 20,
 	maximumStateOfChargePercent: 90,
-	maximumChargePowerW: 4_000,
+	maximumChargePowerW: 2_500,
 	maximumDischargePowerW: 4_000,
 	pvForecastReserveWh: 500,
 };

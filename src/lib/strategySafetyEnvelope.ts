@@ -25,26 +25,39 @@ export function createStrategySafetyEnvelope(
 	configuration: StrategyConfiguration,
 ): StrategySafetyEnvelope | null {
 	const stateOfChargePercent = snapshot.modbus.stateOfChargePercent;
+	const batteryModel = getBatteryModel(configuration.batteryModelId);
+	const technicalLimits = batteryModel === null
+		? null
+		: resolveStrategyBatteryTechnicalLimits(batteryModel);
 
 	if (
-		!Number.isFinite(snapshot.createdAt)
+		technicalLimits === null
+		|| !Number.isFinite(snapshot.createdAt)
 		|| !Number.isFinite(stateOfChargePercent)
 		|| stateOfChargePercent < 0
 		|| stateOfChargePercent > 100
+		|| !Number.isFinite(configuration.maximumChargePowerW)
+		|| configuration.maximumChargePowerW < 0
+		|| configuration.maximumChargePowerW
+			> technicalLimits.maximumChargePowerW
+		|| !Number.isFinite(configuration.maximumDischargePowerW)
+		|| configuration.maximumDischargePowerW < 0
+		|| configuration.maximumDischargePowerW
+			> technicalLimits.maximumDischargePowerW
 	) {
 		return null;
 	}
 
 	const storedEnergyWh = energyAtStateOfCharge(
-		configuration.batteryCapacityWh,
+		technicalLimits.usableCapacityWh,
 		stateOfChargePercent,
 	);
 	const minimumStoredEnergyWh = energyAtStateOfCharge(
-		configuration.batteryCapacityWh,
+		technicalLimits.usableCapacityWh,
 		configuration.minimumStateOfChargePercent,
 	);
 	const maximumStoredEnergyWh = energyAtStateOfCharge(
-		configuration.batteryCapacityWh,
+		technicalLimits.usableCapacityWh,
 		configuration.maximumStateOfChargePercent,
 	);
 	const availableChargeEnergyWh = Math.max(
@@ -74,3 +87,5 @@ export function createStrategySafetyEnvelope(
 				: 0,
 	});
 }
+import { getBatteryModel } from "./batteryAnalysis";
+import { resolveStrategyBatteryTechnicalLimits } from "./strategyBatteryChargeCapability";

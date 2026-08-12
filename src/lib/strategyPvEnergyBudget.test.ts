@@ -9,10 +9,9 @@ const CREATED_AT = 1_786_464_123_000;
 
 const CONFIGURATION: StrategyConfiguration = {
 	batteryModelId: "home-plus-7.7",
-	batteryCapacityWh: 10_000,
 	minimumStateOfChargePercent: 20,
 	maximumStateOfChargePercent: 90,
-	maximumChargePowerW: 5_000,
+	maximumChargePowerW: 3_500,
 	maximumDischargePowerW: 4_000,
 	pvForecastReserveWh: 1_500,
 };
