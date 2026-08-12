@@ -7,6 +7,7 @@ import {
 
 function validInput(): StrategyConfigurationInput {
 	return {
+		batteryModelId: "home-plus-7.7",
 		batteryCapacityWh: 15400,
 		minimumStateOfChargePercent: 10,
 		maximumStateOfChargePercent: 90,
@@ -57,6 +58,19 @@ describe("strategy configuration", () => {
 				{ field: "maximumChargePowerW", reason: "invalid-number" },
 				{ field: "maximumDischargePowerW", reason: "invalid-number" },
 			],
+		});
+	});
+
+	it("rejects an unknown battery model", () => {
+		const result = validateStrategyConfiguration({
+			...validInput(),
+			batteryModelId: "unknown-model",
+		});
+
+		expect(result).to.deep.equal({
+			valid: false,
+			configuration: null,
+			issues: [{ field: "batteryModelId", reason: "invalid-model" }],
 		});
 	});
 

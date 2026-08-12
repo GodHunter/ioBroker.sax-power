@@ -8,6 +8,7 @@ import { STRATEGY_INTEGRATION_CONTRACT } from "./strategyIntegrationContract";
 
 const NOW = Date.UTC(2026, 5, 21, 12);
 const CONFIGURATION: StrategyConfiguration = {
+	batteryModelId: "home-plus-7.7",
 	batteryCapacityWh: 10_000,
 	minimumStateOfChargePercent: 20,
 	maximumStateOfChargePercent: 90,
@@ -60,7 +61,9 @@ function recordingAdapter(): AdapterRecording {
 
 	const adapter: StrategyIoBrokerCycleTimerAdapter = {
 		getAstroDate(pattern) {
-			return new Date(pattern === "sunrise" ? NOW - 1_000 : NOW + 1_000);
+			return new Date(pattern === "sunrise"
+				? NOW - 1_000
+				: NOW + 10 * 60 * 60 * 1_000);
 		},
 		async getForeignObjectAsync(stateId) {
 			return {

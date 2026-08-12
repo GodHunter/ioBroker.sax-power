@@ -28,22 +28,24 @@ export function createStrategyDayDischargeEvaluation(
 	daylightWindowStartsAt: number,
 	daylightWindowEndsAt: number,
 ): StrategyDayDischargeEvaluation | null {
-	const decision = createStrategyDayDischargeDecision(
-		snapshot,
-		configuration,
-		maximumForecastAgeMs,
-		requestedDischargePowerW,
-	);
-	if (decision === null) {
-		return null;
-	}
-
 	const daylightWindow = assessStrategyDaylightWindow(
 		snapshot.createdAt,
 		daylightWindowStartsAt,
 		daylightWindowEndsAt,
 	);
 	if (daylightWindow === null) {
+		return null;
+	}
+
+	const decision = createStrategyDayDischargeDecision(
+		snapshot,
+		configuration,
+		maximumForecastAgeMs,
+		requestedDischargePowerW,
+		daylightWindowEndsAt,
+		daylightWindow.active,
+	);
+	if (decision === null) {
 		return null;
 	}
 

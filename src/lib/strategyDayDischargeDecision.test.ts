@@ -4,7 +4,9 @@ import { createStrategyDayDischargeDecision } from "./strategyDayDischargeDecisi
 import type { StrategyInputSnapshot } from "./strategyInputSnapshot";
 
 const CREATED_AT = 1_800_000;
+const DAYLIGHT_WINDOW_ENDS_AT = CREATED_AT + 10 * 60 * 60 * 1_000;
 const CONFIGURATION: StrategyConfiguration = {
+	batteryModelId: "home-plus-7.7",
 	batteryCapacityWh: 10_000,
 	minimumStateOfChargePercent: 20,
 	maximumStateOfChargePercent: 90,
@@ -42,6 +44,7 @@ describe("strategy day discharge decision", () => {
 			CONFIGURATION,
 			60_000,
 			4_000,
+			DAYLIGHT_WINDOW_ENDS_AT,
 		);
 
 		expect(result).not.to.equal(null);
@@ -66,6 +69,7 @@ describe("strategy day discharge decision", () => {
 			CONFIGURATION,
 			60_000,
 			2_000,
+			DAYLIGHT_WINDOW_ENDS_AT,
 		);
 
 		expect(result?.permission.reason).to.equal("forecast-stale");
@@ -79,6 +83,7 @@ describe("strategy day discharge decision", () => {
 			CONFIGURATION,
 			60_000,
 			2_000,
+			DAYLIGHT_WINDOW_ENDS_AT,
 		);
 
 		expect(result?.permission.reason).to.equal(
@@ -93,9 +98,24 @@ describe("strategy day discharge decision", () => {
 			CONFIGURATION,
 			60_000,
 			2_000,
+			DAYLIGHT_WINDOW_ENDS_AT,
 		);
 
 		expect(result?.permission.reason).to.equal("insufficient-pv-energy");
+		expect(result?.powerTarget.targetDischargePowerW).to.equal(0);
+	});
+
+	it("returns a zero target when recharge cannot finish before sunset", () => {
+		const result = createStrategyDayDischargeDecision(
+			snapshot(),
+			CONFIGURATION,
+			60_000,
+			2_000,
+			CREATED_AT + 1_000,
+		);
+
+		expect(result?.chargeTime.sufficient).to.equal(false);
+		expect(result?.permission.reason).to.equal("insufficient-charge-time");
 		expect(result?.powerTarget.targetDischargePowerW).to.equal(0);
 	});
 
@@ -110,6 +130,7 @@ describe("strategy day discharge decision", () => {
 			CONFIGURATION,
 			60_000,
 			2_000,
+			DAYLIGHT_WINDOW_ENDS_AT,
 		)).to.equal(null);
 	});
 
@@ -119,6 +140,7 @@ describe("strategy day discharge decision", () => {
 			CONFIGURATION,
 			-1,
 			2_000,
+			DAYLIGHT_WINDOW_ENDS_AT,
 		)).to.equal(null);
 	});
 
@@ -128,6 +150,7 @@ describe("strategy day discharge decision", () => {
 			CONFIGURATION,
 			60_000,
 			Number.POSITIVE_INFINITY,
+			DAYLIGHT_WINDOW_ENDS_AT,
 		)).to.equal(null);
 	});
 });

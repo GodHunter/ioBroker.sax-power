@@ -6,6 +6,7 @@ export type StrategyDayDischargeReason =
 	| "forecast-stale"
 	| "minimum-state-of-charge-reached"
 	| "insufficient-pv-energy"
+	| "insufficient-charge-time"
 	| "discharge-allowed";
 
 export interface StrategyDayDischargePermission {
@@ -20,6 +21,8 @@ export function createStrategyDayDischargePermission(
 	safetyEnvelope: StrategySafetyEnvelope,
 	pvEnergyBudget: StrategyPvEnergyBudget,
 	pvForecastFreshness: StrategyPvForecastFreshness,
+	chargeTime: Pick<StrategyDayDischargeChargeTime, "createdAt" | "sufficient">,
+	chargeTimeRequired: boolean = true,
 ): StrategyDayDischargePermission | null {
 	const { createdAt } = safetyEnvelope;
 
@@ -27,6 +30,9 @@ export function createStrategyDayDischargePermission(
 		!Number.isFinite(createdAt)
 		|| pvEnergyBudget.createdAt !== createdAt
 		|| pvForecastFreshness.createdAt !== createdAt
+		|| chargeTime.createdAt !== createdAt
+		|| typeof chargeTime.sufficient !== "boolean"
+		|| typeof chargeTimeRequired !== "boolean"
 		|| !Number.isFinite(safetyEnvelope.availableDischargeEnergyWh)
 		|| safetyEnvelope.availableDischargeEnergyWh < 0
 		|| !Number.isFinite(safetyEnvelope.maximumDischargePowerW)
@@ -48,6 +54,8 @@ export function createStrategyDayDischargePermission(
 		reason = "minimum-state-of-charge-reached";
 	} else if (pvEnergyBudget.permittedDayDischargeEnergyWh === 0) {
 		reason = "insufficient-pv-energy";
+	} else if (chargeTimeRequired && !chargeTime.sufficient) {
+		reason = "insufficient-charge-time";
 	}
 
 	const allowed = reason === "discharge-allowed";
@@ -67,3 +75,4 @@ export function createStrategyDayDischargePermission(
 			: 0,
 	});
 }
+import type { StrategyDayDischargeChargeTime } from "./strategyDayDischargeChargeTime";

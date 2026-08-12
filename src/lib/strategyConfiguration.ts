@@ -1,4 +1,7 @@
+import type { SaxPowerBatteryModelId } from "./batteryAnalysis";
+
 export interface StrategyConfigurationInput {
+	readonly batteryModelId: unknown;
 	readonly batteryCapacityWh: unknown;
 	readonly minimumStateOfChargePercent: unknown;
 	readonly maximumStateOfChargePercent: unknown;
@@ -8,6 +11,7 @@ export interface StrategyConfigurationInput {
 }
 
 export interface StrategyConfiguration {
+	readonly batteryModelId: SaxPowerBatteryModelId;
 	readonly batteryCapacityWh: number;
 	readonly minimumStateOfChargePercent: number;
 	readonly maximumStateOfChargePercent: number;
@@ -20,7 +24,11 @@ export type StrategyConfigurationField = keyof StrategyConfiguration;
 
 export interface StrategyConfigurationIssue {
 	readonly field: StrategyConfigurationField;
-	readonly reason: "invalid-number" | "out-of-range" | "invalid-order";
+	readonly reason:
+		| "invalid-model"
+		| "invalid-number"
+		| "out-of-range"
+		| "invalid-order";
 }
 
 export type StrategyConfigurationValidation =
@@ -40,8 +48,13 @@ interface NumericConstraint {
 	readonly maximum?: number;
 }
 
+type StrategyNumericConfigurationField = Exclude<
+	StrategyConfigurationField,
+	"batteryModelId"
+>;
+
 const NUMERIC_CONSTRAINTS: Readonly<
-	Record<StrategyConfigurationField, NumericConstraint>
+	Record<StrategyNumericConfigurationField, NumericConstraint>
 > = {
 	batteryCapacityWh: { minimum: 1 },
 	minimumStateOfChargePercent: { minimum: 0, maximum: 100 },
@@ -52,7 +65,7 @@ const NUMERIC_CONSTRAINTS: Readonly<
 };
 
 function validateNumber(
-	field: StrategyConfigurationField,
+	field: StrategyNumericConfigurationField,
 	value: unknown,
 ): StrategyConfigurationIssue | null {
 	if (typeof value !== "number" || !Number.isFinite(value)) {
@@ -77,10 +90,17 @@ function validateNumber(
 export function validateStrategyConfiguration(
 	input: StrategyConfigurationInput,
 ): StrategyConfigurationValidation {
-	const fields = Object.keys(NUMERIC_CONSTRAINTS) as StrategyConfigurationField[];
-	const issues = fields
+	const fields = Object.keys(NUMERIC_CONSTRAINTS) as StrategyNumericConfigurationField[];
+	const issues: StrategyConfigurationIssue[] = fields
 		.map(field => validateNumber(field, input[field]))
 		.filter((issue): issue is StrategyConfigurationIssue => issue !== null);
+
+	if (
+		input.batteryModelId !== "home-5.8"
+		&& input.batteryModelId !== "home-plus-7.7"
+	) {
+		issues.unshift({ field: "batteryModelId", reason: "invalid-model" });
+	}
 
 	if (
 		issues.length === 0
@@ -104,6 +124,7 @@ export function validateStrategyConfiguration(
 	return Object.freeze({
 		valid: true,
 		configuration: Object.freeze({
+			batteryModelId: input.batteryModelId as SaxPowerBatteryModelId,
 			batteryCapacityWh: input.batteryCapacityWh as number,
 			minimumStateOfChargePercent:
 				input.minimumStateOfChargePercent as number,

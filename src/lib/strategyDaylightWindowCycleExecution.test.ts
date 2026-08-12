@@ -8,6 +8,7 @@ import type { StrategyStateReader } from "./strategyStateResolver";
 
 const NOW = Date.parse("2026-08-12T10:00:00.000Z");
 const CONFIGURATION: StrategyConfiguration = {
+	batteryModelId: "home-plus-7.7",
 	batteryCapacityWh: 10_000,
 	minimumStateOfChargePercent: 20,
 	maximumStateOfChargePercent: 90,
@@ -62,7 +63,7 @@ function reader(): StrategyStateReader {
 
 function provider(
 	startsAt = NOW - 1_000,
-	endsAt = NOW + 1_000,
+	endsAt = NOW + 10 * 60 * 60 * 1_000,
 ): StrategyDaylightWindowProvider {
 	return {
 		async getDaylightWindow() {

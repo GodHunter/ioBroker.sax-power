@@ -10,6 +10,7 @@ import type { StrategyIoBrokerRuntimeAdapter } from "./strategyIoBrokerRuntime";
 const NOW = Date.UTC(2026, 5, 21, 12);
 const MAXIMUM_FORECAST_AGE_MS = 60 * 60 * 1_000;
 const CONFIGURATION: StrategyConfiguration = {
+	batteryModelId: "home-plus-7.7",
 	batteryCapacityWh: 10_000,
 	minimumStateOfChargePercent: 20,
 	maximumStateOfChargePercent: 90,

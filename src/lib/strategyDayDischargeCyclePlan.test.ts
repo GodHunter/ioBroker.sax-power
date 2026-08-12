@@ -6,6 +6,7 @@ import type { StrategyStateContract } from "./strategyIntegrationContract";
 
 const CREATED_AT = 1_800_000;
 const CONFIGURATION: StrategyConfiguration = {
+	batteryModelId: "home-plus-7.7",
 	batteryCapacityWh: 10_000,
 	minimumStateOfChargePercent: 20,
 	maximumStateOfChargePercent: 90,
@@ -39,7 +40,7 @@ function plan(
 	inputSnapshot: StrategyInputSnapshot = snapshot(),
 	requestedDischargePowerW = 2_000,
 	daylightWindowStartsAt = CREATED_AT - 1_000,
-	daylightWindowEndsAt = CREATED_AT + 1_000,
+	daylightWindowEndsAt = CREATED_AT + 10 * 60 * 60 * 1_000,
 	commandContract?: StrategyStateContract,
 ) {
 	return createStrategyDayDischargeCyclePlan(

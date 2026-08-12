@@ -8,6 +8,7 @@ import type { StrategySafetyEnvelope } from "./strategySafetyEnvelope";
 const CREATED_AT = 1_786_464_123_000;
 
 const CONFIGURATION: StrategyConfiguration = {
+	batteryModelId: "home-plus-7.7",
 	batteryCapacityWh: 10_000,
 	minimumStateOfChargePercent: 20,
 	maximumStateOfChargePercent: 90,

@@ -1,5 +1,9 @@
 import type { StrategyConfiguration } from "./strategyConfiguration";
 import {
+	assessStrategyDayDischargeChargeTime,
+	type StrategyDayDischargeChargeTime,
+} from "./strategyDayDischargeChargeTime";
+import {
 	createStrategyDayDischargePermission,
 	type StrategyDayDischargePermission,
 } from "./strategyDayDischargePermission";
@@ -26,6 +30,7 @@ export interface StrategyDayDischargeDecision {
 	readonly safetyEnvelope: StrategySafetyEnvelope;
 	readonly pvEnergyBudget: StrategyPvEnergyBudget;
 	readonly pvForecastFreshness: StrategyPvForecastFreshness;
+	readonly chargeTime: StrategyDayDischargeChargeTime;
 	readonly permission: StrategyDayDischargePermission;
 	readonly powerTarget: StrategyDayDischargePowerTarget;
 }
@@ -35,6 +40,8 @@ export function createStrategyDayDischargeDecision(
 	configuration: StrategyConfiguration,
 	maximumForecastAgeMs: number,
 	requestedDischargePowerW: number,
+	daylightWindowEndsAt: number,
+	chargeTimeRequired: boolean = true,
 ): StrategyDayDischargeDecision | null {
 	const safetyEnvelope = createStrategySafetyEnvelope(
 		snapshot,
@@ -61,10 +68,22 @@ export function createStrategyDayDischargeDecision(
 		return null;
 	}
 
+	const chargeTime = assessStrategyDayDischargeChargeTime(
+		safetyEnvelope,
+		pvEnergyBudget,
+		configuration,
+		daylightWindowEndsAt,
+	);
+	if (chargeTime === null) {
+		return null;
+	}
+
 	const permission = createStrategyDayDischargePermission(
 		safetyEnvelope,
 		pvEnergyBudget,
 		pvForecastFreshness,
+		chargeTime,
+		chargeTimeRequired,
 	);
 	if (permission === null) {
 		return null;
@@ -83,6 +102,7 @@ export function createStrategyDayDischargeDecision(
 		safetyEnvelope,
 		pvEnergyBudget,
 		pvForecastFreshness,
+		chargeTime,
 		permission,
 		powerTarget,
 	});

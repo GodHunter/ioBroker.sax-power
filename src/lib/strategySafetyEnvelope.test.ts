@@ -5,6 +5,7 @@ import type { StrategyInputSnapshot } from "./strategyInputSnapshot";
 import { createStrategySafetyEnvelope } from "./strategySafetyEnvelope";
 
 const CONFIGURATION: StrategyConfiguration = {
+	batteryModelId: "home-plus-7.7",
 	batteryCapacityWh: 15400,
 	minimumStateOfChargePercent: 10,
 	maximumStateOfChargePercent: 90,

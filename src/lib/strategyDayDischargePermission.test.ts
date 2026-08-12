@@ -50,12 +50,17 @@ function freshness(fresh: boolean = true): StrategyPvForecastFreshness {
 	};
 }
 
+function chargeTime(sufficient: boolean = true) {
+	return { createdAt: CREATED_AT, sufficient };
+}
+
 describe("strategy day discharge permission", () => {
 	it("allows discharge within the PV budget and safety envelope", () => {
 		const result = createStrategyDayDischargePermission(
 			safetyEnvelope(),
 			pvEnergyBudget(),
 			freshness(),
+			chargeTime(),
 		);
 
 		expect(result).to.deep.equal({
@@ -73,6 +78,7 @@ describe("strategy day discharge permission", () => {
 			safetyEnvelope(1_000),
 			pvEnergyBudget(2_500),
 			freshness(),
+			chargeTime(),
 		);
 
 		expect(result?.allowed).to.equal(true);
@@ -84,6 +90,7 @@ describe("strategy day discharge permission", () => {
 			safetyEnvelope(),
 			pvEnergyBudget(),
 			freshness(false),
+			chargeTime(),
 		);
 
 		expect(result).to.include({
@@ -99,6 +106,7 @@ describe("strategy day discharge permission", () => {
 			safetyEnvelope(0, 0),
 			pvEnergyBudget(0),
 			freshness(),
+			chargeTime(),
 		);
 
 		expect(result).to.include({
@@ -112,11 +120,28 @@ describe("strategy day discharge permission", () => {
 			safetyEnvelope(),
 			pvEnergyBudget(0),
 			freshness(),
+			chargeTime(),
 		);
 
 		expect(result).to.include({
 			allowed: false,
 			reason: "insufficient-pv-energy",
+		});
+	});
+
+	it("denies discharge without sufficient remaining charge time", () => {
+		const result = createStrategyDayDischargePermission(
+			safetyEnvelope(),
+			pvEnergyBudget(),
+			freshness(),
+			chargeTime(false),
+		);
+
+		expect(result).to.include({
+			allowed: false,
+			reason: "insufficient-charge-time",
+			permittedDischargeEnergyWh: 0,
+			maximumDischargePowerW: 0,
 		});
 	});
 
@@ -127,6 +152,7 @@ describe("strategy day discharge permission", () => {
 			safetyEnvelope(),
 			budget,
 			freshness(),
+			chargeTime(),
 		)).to.equal(null);
 	});
 
@@ -135,12 +161,14 @@ describe("strategy day discharge permission", () => {
 			safetyEnvelope(-1),
 			pvEnergyBudget(),
 			freshness(),
+			chargeTime(),
 		)).to.equal(null);
 
 		expect(createStrategyDayDischargePermission(
 			safetyEnvelope(),
 			pvEnergyBudget(Number.NaN),
 			freshness(),
+			chargeTime(),
 		)).to.equal(null);
 	});
 });
