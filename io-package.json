@@ -271,6 +271,7 @@
         "states": {
           "disabled": "Disabled",
           "invalid-configuration": "Invalid configuration",
+          "waiting-for-inputs": "Waiting for inputs",
           "starting": "Starting",
           "running": "Running",
           "error": "Error"

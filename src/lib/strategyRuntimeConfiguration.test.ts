@@ -7,6 +7,7 @@ import {
 function validInput(): StrategyRuntimeConfigurationInput {
 	return {
 		enabled: true,
+		modbusInstance: "modbus.1",
 		batteryModelId: "home-plus-7.7",
 		minimumStateOfChargePercent: 20,
 		maximumStateOfChargePercent: 90,
@@ -43,6 +44,19 @@ describe("strategy runtime configuration", () => {
 				configuration: null,
 				issues: [{ field: "enabled", reason: "invalid-boolean" }],
 			});
+		}
+	});
+
+	it("requires a selected Modbus adapter instance when enabled", () => {
+		for (const modbusInstance of [undefined, "", "javascript.0", "modbus.x"]) {
+			const result = validateStrategyRuntimeConfiguration({
+				...validInput(),
+				modbusInstance,
+			});
+
+			expect(result.issues).to.include.deep.members([
+				{ field: "modbusInstance", reason: "invalid-instance" },
+			]);
 		}
 	});
 

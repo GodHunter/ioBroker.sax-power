@@ -137,6 +137,45 @@ export const STRATEGY_INTEGRATION_CONTRACT: StrategyIntegrationContract = {
 	},
 };
 
+export function createStrategyIntegrationContract(
+	modbusInstance: string,
+): StrategyIntegrationContract | null {
+	const normalized = modbusInstance.trim();
+	if (!/^modbus\.\d+$/.test(normalized)) return null;
+
+	const replaceModbusInstance = (
+		state: StrategyStateContract,
+	): StrategyStateContract => Object.freeze({
+		...state,
+		stateId: state.stateId.replace(/^modbus\.1/, normalized),
+	});
+
+	return Object.freeze({
+		modbus: Object.freeze({
+			dischargePowerCommand: replaceModbusInstance(
+				STRATEGY_INTEGRATION_CONTRACT.modbus.dischargePowerCommand,
+			),
+			chargePowerCommand: replaceModbusInstance(
+				STRATEGY_INTEGRATION_CONTRACT.modbus.chargePowerCommand,
+			),
+			operatingState: replaceModbusInstance(
+				STRATEGY_INTEGRATION_CONTRACT.modbus.operatingState,
+			),
+			stateOfCharge: replaceModbusInstance(
+				STRATEGY_INTEGRATION_CONTRACT.modbus.stateOfCharge,
+			),
+			batteryPower: replaceModbusInstance(
+				STRATEGY_INTEGRATION_CONTRACT.modbus.batteryPower,
+			),
+			smartMeterPower: replaceModbusInstance(
+				STRATEGY_INTEGRATION_CONTRACT.modbus.smartMeterPower,
+			),
+		}),
+		pvForecast: STRATEGY_INTEGRATION_CONTRACT.pvForecast,
+		marketPrice: STRATEGY_INTEGRATION_CONTRACT.marketPrice,
+	});
+}
+
 function stateContracts(
 	contract: StrategyIntegrationContract,
 ): {

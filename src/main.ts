@@ -45,6 +45,7 @@ import {
 } from "./lib/stateEngine";
 
 import {
+	discoverModbusInstances,
 	discoverModbusStates,
 } from "./lib/modbusDiscovery";
 
@@ -77,6 +78,17 @@ import type {
 import {
 	publishStrategyRuntimeStatus,
 } from "./lib/strategyRuntimeStatus";
+
+import {
+	assessStrategyIoBrokerReadiness,
+	formatStrategyUnavailableInputs,
+	type StrategyIoBrokerReadiness,
+} from "./lib/strategyIoBrokerReadiness";
+
+import {
+	createStrategyIntegrationContract,
+	STRATEGY_INTEGRATION_CONTRACT,
+} from "./lib/strategyIntegrationContract";
 
 interface SaxPowerAdapterConfig extends StrategyNativeConfiguration {
 username: string;
@@ -202,13 +214,20 @@ new SaxPowerStateEngine(this);
 	}
 
 	private async startStrategy(): Promise<void> {
+		const runtimeConfiguration = strategyRuntimeConfigurationFromNative(
+			this.saxConfig,
+		);
+		const contract = typeof runtimeConfiguration.modbusInstance === "string"
+			? createStrategyIntegrationContract(runtimeConfiguration.modbusInstance)
+			: null;
 		const binding = createStrategyIoBrokerStrategyBinding(
 			this.strategyAdapter(),
-			strategyRuntimeConfigurationFromNative(this.saxConfig),
+			runtimeConfiguration,
 			error => {
 				this.logStrategyError("cycle", error);
 				void this.publishStrategyErrorStatus("cycle", error);
 			},
+			contract ?? STRATEGY_INTEGRATION_CONTRACT,
 		);
 
 		this.strategyBinding = binding;
@@ -231,6 +250,43 @@ new SaxPowerStateEngine(this);
 			);
 			this.log.error(
 				`SAX Power strategy configuration is invalid: ${detail}`,
+			);
+			return;
+		}
+
+		if (contract === null) {
+			await publishStrategyRuntimeStatus(
+				this,
+				"invalid-configuration",
+				"modbusInstance:invalid-instance",
+			);
+			return;
+		}
+
+		let readiness: StrategyIoBrokerReadiness;
+		try {
+			readiness = await assessStrategyIoBrokerReadiness(
+				this.strategyAdapter(),
+				binding.configuration.maximumForecastAgeMs,
+				contract,
+			);
+		} catch (error) {
+			this.logStrategyError("readiness check", error);
+			await this.publishStrategyErrorStatus("readiness check", error);
+			return;
+		}
+
+		if (!readiness.ready) {
+			const detail = formatStrategyUnavailableInputs(
+				readiness.unavailableInputs,
+			);
+			await publishStrategyRuntimeStatus(
+				this,
+				"waiting-for-inputs",
+				detail,
+			);
+			this.log.warn(
+				`SAX Power strategy is waiting for required inputs: ${detail}`,
 			);
 			return;
 		}
@@ -641,12 +697,28 @@ error.statusCode !== undefined
 			return;
 		}
 
-		if (
-			message.command !==
-"getModbusStates"
-		) {
+		if (message.command === "getModbusInstances") {
+			try {
+				const objects = await this.getForeignObjectsAsync(
+					"system.adapter.modbus.*",
+					"instance",
+				);
+				this.sendTo(
+					message.from,
+					message.command,
+					discoverModbusInstances(objects),
+					message.callback,
+				);
+			} catch (error) {
+				this.log.warn(
+					`Unable to discover Modbus instances: ${this.formatError(error)}`,
+				);
+				this.sendTo(message.from, message.command, [], message.callback);
+			}
 			return;
 		}
+
+		if (message.command !== "getModbusStates") return;
 
 		try {
 			const payload =

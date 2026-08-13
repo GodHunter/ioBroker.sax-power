@@ -5,6 +5,7 @@ pollInterval: number;
 batteryModels?: Record<string, string>;
 
 strategyEnabled?: boolean;
+strategyModbusInstance?: unknown;
 strategyBatteryModelId?: unknown;
 strategyMinimumStateOfChargePercent?: unknown;
 strategyMaximumStateOfChargePercent?: unknown;
@@ -40,10 +41,16 @@ export type SaxPowerConnectionState =
 export type StrategyRuntimeState =
 | "disabled"
 | "invalid-configuration"
+| "waiting-for-inputs"
 | "starting"
 | "running"
 | "error"
 | "unknown";
+
+export interface ModbusInstanceOption {
+value: string;
+label: string;
+}
 
 export interface AdapterRuntimeStatus {
 connection: boolean | null;

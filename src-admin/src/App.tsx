@@ -61,6 +61,7 @@ type GenericAppState,
 import type {
 AdapterRuntimeStatus,
 AdminTab,
+ModbusInstanceOption,
 SaxPowerConnectionState,
 SaxPowerNativeConfig,
 StrategyRuntimeState,
@@ -82,6 +83,8 @@ statusLoading: boolean;
 statusLoaded: boolean;
 statusError: string;
 showPassword: boolean;
+modbusInstances: ModbusInstanceOption[];
+modbusInstancesLoaded: boolean;
 }
 
 interface RuntimeLoaderProps {
@@ -187,6 +190,8 @@ statusLoading: false,
 statusLoaded: false,
 statusError: "",
 showPassword: false,
+modbusInstances: [],
+modbusInstancesLoaded: false,
 };
 }
 
@@ -245,6 +250,10 @@ return typeof value === "number"
 
 private readonly loadRuntimeStatus =
 async (): Promise<void> => {
+if (!this.state.modbusInstancesLoaded) {
+void this.loadModbusInstances();
+}
+
 if (this.state.statusLoading) {
 return;
 }
@@ -355,6 +364,7 @@ const numberValue = (suffix: string): number | null => {
 const value = readBatteryState(`${root}.${suffix}`);
 return typeof value === "number" ? value : null;
 };
+
 return {
 serialNumber,
 model: String(readBatteryState(`${root}.model`) ?? "notConfigured"),
@@ -554,6 +564,25 @@ error instanceof Error
 }
 };
 
+private readonly loadModbusInstances = async (): Promise<void> => {
+try {
+const options = await this.socket.sendTo<ModbusInstanceOption[]>(
+this.getNamespace(),
+"getModbusInstances",
+{},
+);
+this.setState({
+modbusInstances: Array.isArray(options) ? options : [],
+modbusInstancesLoaded: true,
+});
+} catch {
+this.setState({
+modbusInstances: [],
+modbusInstancesLoaded: true,
+});
+}
+};
+
 private updateNativeField<
 Key extends keyof SaxPowerNativeConfig,
 >(
@@ -609,6 +638,7 @@ value: string | number | boolean | null,
 switch (value) {
 case "disabled":
 case "invalid-configuration":
+case "waiting-for-inputs":
 case "starting":
 case "running":
 case "error":
@@ -1608,6 +1638,7 @@ severity: "success" | "info" | "warning" | "error";
 }> = {
 disabled: { label: "Deaktiviert", severity: "info" },
 "invalid-configuration": { label: "Konfiguration fehlerhaft", severity: "warning" },
+"waiting-for-inputs": { label: "Wartet auf Eingänge", severity: "warning" },
 starting: { label: "Wird gestartet", severity: "info" },
 running: { label: "Aktiv", severity: "success" },
 error: { label: "Laufzeitfehler", severity: "error" },
@@ -1694,6 +1725,21 @@ label="Speicherstrategie aktivieren"
 ? "Die Strategie-Konfiguration ist vollständig und kann gespeichert werden."
 : "Bitte alle markierten Pflichtfelder vollständig und gültig ausfüllen."}
 </Alert>
+<TextField
+select
+fullWidth
+required
+label="Modbus-Instanz"
+value={typeof native.strategyModbusInstance === "string" ? native.strategyModbusInstance : ""}
+onChange={(event) => this.updateNativeField("strategyModbusInstance", event.target.value || undefined)}
+error={hasStrategyIssue("modbusInstance")}
+helperText="Die benötigten SAX-Register 43 bis 48 werden beim Adapterstart live geprüft"
+>
+<MenuItem value=""><em>Bitte Instanz auswählen</em></MenuItem>
+{this.state.modbusInstances.map(option => (
+<MenuItem key={option.value} value={option.value}>{option.label}</MenuItem>
+))}
+</TextField>
 <TextField
 select
 fullWidth

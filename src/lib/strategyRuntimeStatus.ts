@@ -6,6 +6,7 @@ export const STRATEGY_RUNTIME_STATUS_STATE_IDS = Object.freeze({
 export type StrategyRuntimeState =
 	| "disabled"
 	| "invalid-configuration"
+	| "waiting-for-inputs"
 	| "starting"
 	| "running"
 	| "error";

@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 const STRATEGY_DETAIL_FIELDS = [
+	"strategyModbusInstance",
 	"strategyBatteryModelId",
 	"strategyMinimumStateOfChargePercent",
 	"strategyMaximumStateOfChargePercent",

@@ -9,6 +9,7 @@ import {
 export interface StrategyRuntimeConfigurationInput
 	extends StrategyConfigurationInput {
 	readonly enabled: unknown;
+	readonly modbusInstance: unknown;
 	readonly maximumForecastAgeMs: unknown;
 	readonly requestedDischargePowerW: unknown;
 	readonly intervalMs: unknown;
@@ -19,6 +20,7 @@ export type StrategyRuntimeConfiguration =
 	| Readonly<{
 		enabled: true;
 		configuration: StrategyConfiguration;
+		modbusInstance: string;
 		maximumForecastAgeMs: number;
 		requestedDischargePowerW: number;
 		intervalMs: number;
@@ -26,6 +28,7 @@ export type StrategyRuntimeConfiguration =
 
 export type StrategyRuntimeConfigurationField =
 	| "enabled"
+	| "modbusInstance"
 	| StrategyConfigurationField
 	| "maximumForecastAgeMs"
 	| "requestedDischargePowerW"
@@ -33,7 +36,7 @@ export type StrategyRuntimeConfigurationField =
 
 export interface StrategyRuntimeConfigurationIssue {
 	readonly field: StrategyRuntimeConfigurationField;
-	readonly reason: StrategyConfigurationIssue["reason"] | "invalid-boolean";
+	readonly reason: StrategyConfigurationIssue["reason"] | "invalid-boolean" | "invalid-instance";
 }
 
 export type StrategyRuntimeConfigurationValidation =
@@ -78,6 +81,13 @@ export function validateStrategyRuntimeConfiguration(
 		...strategyValidation.issues,
 	];
 
+	if (
+		typeof input.modbusInstance !== "string"
+		|| !/^modbus\.\d+$/.test(input.modbusInstance)
+	) {
+		issues.push({ field: "modbusInstance", reason: "invalid-instance" });
+	}
+
 	for (const field of [
 		"maximumForecastAgeMs",
 		"requestedDischargePowerW",
@@ -101,6 +111,7 @@ export function validateStrategyRuntimeConfiguration(
 		configuration: Object.freeze({
 			enabled: true as const,
 			configuration: strategyValidation.configuration,
+			modbusInstance: input.modbusInstance as string,
 			maximumForecastAgeMs: input.maximumForecastAgeMs as number,
 			requestedDischargePowerW: input.requestedDischargePowerW as number,
 			intervalMs: input.intervalMs as number,

@@ -8,6 +8,7 @@ import type { StrategyRuntimeConfigurationInput } from "./strategyRuntimeConfigu
 function validInput(): StrategyRuntimeConfigurationInput {
 	return {
 		enabled: true,
+		modbusInstance: "modbus.1",
 		batteryModelId: "home-plus-7.7",
 		minimumStateOfChargePercent: 20,
 		maximumStateOfChargePercent: 90,

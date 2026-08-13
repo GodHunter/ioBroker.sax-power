@@ -1,6 +1,7 @@
 import { expect } from "chai";
 
 import {
+	createStrategyIntegrationContract,
 	inspectStrategyIntegrationAvailability,
 	STRATEGY_INTEGRATION_CONTRACT,
 } from "./strategyIntegrationContract";
@@ -22,6 +23,23 @@ describe("strategy integration contract", () => {
 		expect(modbus.stateOfCharge.unit).to.equal("%");
 		expect(modbus.batteryPower.unit).to.equal("W");
 		expect(modbus.smartMeterPower.unit).to.equal("W");
+	});
+
+	it("binds the verified register contract to a selected Modbus instance", () => {
+		const contract = createStrategyIntegrationContract("modbus.7");
+
+		expect(contract).not.to.equal(null);
+		expect(Object.values(contract?.modbus ?? {}).map(({ stateId }) => stateId))
+			.to.deep.equal([
+				"modbus.7.holdingRegisters.43_Leistungsgrenzwert_für_Entladung",
+				"modbus.7.holdingRegisters.44_Leistungsgrenzwert_für_Ladung",
+				"modbus.7.holdingRegisters.45_Schaltzustand_Speicher",
+				"modbus.7.holdingRegisters.46_SOC",
+				"modbus.7.holdingRegisters.47_Leistung",
+				"modbus.7.holdingRegisters.48_Leistung_Smartmeter",
+			]);
+		expect(Object.isFrozen(contract)).to.equal(true);
+		expect(createStrategyIntegrationContract("javascript.0")).to.equal(null);
 	});
 
 	it("treats register 43 as a transient discharge command", () => {

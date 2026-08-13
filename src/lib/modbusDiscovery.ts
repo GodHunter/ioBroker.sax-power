@@ -3,6 +3,11 @@ value: string;
 label: string;
 }
 
+export interface ModbusInstanceOption {
+value: string;
+label: string;
+}
+
 export type ForeignObjectReader = (
 pattern: string,
 ) => Promise<Record<string, unknown>>;
@@ -46,6 +51,26 @@ function normalizeInstance(
 	);
 
 	return longMatch?.[1] ?? "";
+}
+
+export function discoverModbusInstances(
+	objects: Readonly<Record<string, unknown>>,
+): ModbusInstanceOption[] {
+	return Object.entries(objects)
+		.map(([id, rawObject]) => {
+			const instance = normalizeInstance(id);
+			if (!instance || typeof rawObject !== "object" || rawObject === null) {
+				return null;
+			}
+
+			const object = rawObject as { common?: CommonObjectData };
+			const name = readDisplayName(object.common?.name, instance);
+			return { value: instance, label: `${name} — ${instance}` };
+		})
+		.filter((option): option is ModbusInstanceOption => option !== null)
+		.sort((left, right) => left.value.localeCompare(right.value, "en", {
+			numeric: true,
+		}));
 }
 
 function readDisplayName(
