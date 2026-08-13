@@ -37,6 +37,14 @@ export type SaxPowerConnectionState =
 | "configuration_error"
 | "unknown_error";
 
+export type StrategyRuntimeState =
+| "disabled"
+| "invalid-configuration"
+| "starting"
+| "running"
+| "error"
+| "unknown";
+
 export interface AdapterRuntimeStatus {
 connection: boolean | null;
 	connectionState: SaxPowerConnectionState | "unknown";
@@ -47,6 +55,8 @@ deviceCount: number | null;
 statisticsSource: string;
 firstMeasurement: string;
 statisticsLastUpdate: string;
+strategyState: StrategyRuntimeState;
+strategyDetail: string;
 
 pvPower: number | null;
 houseConsumptionPower: number | null;

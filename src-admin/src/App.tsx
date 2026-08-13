@@ -63,6 +63,7 @@ AdapterRuntimeStatus,
 AdminTab,
 SaxPowerConnectionState,
 SaxPowerNativeConfig,
+StrategyRuntimeState,
 } from "./types";
 
 import {
@@ -135,6 +136,8 @@ statisticsSource:
 "pending-history-discovery",
 firstMeasurement: "",
 statisticsLastUpdate: "",
+strategyState: "unknown",
+strategyDetail: "",
 pvPower: null,
 houseConsumptionPower: null,
 gridPower: null,
@@ -265,6 +268,8 @@ deviceCountState,
 statisticsSourceState,
 firstMeasurementState,
 statisticsLastUpdateState,
+strategyState,
+strategyDetailState,
 pvPowerState,
 houseConsumptionPowerState,
 gridPowerState,
@@ -301,6 +306,12 @@ this.socket.getState(
 ),
 this.socket.getState(
 `${namespace}.summary.statistics.info.lastUpdate`,
+),
+this.socket.getState(
+`${namespace}.info.strategyState`,
+),
+this.socket.getState(
+`${namespace}.info.strategyDetail`,
 ),
 this.socket.getState(
 `${namespace}.live.pvPower`,
@@ -453,6 +464,20 @@ statisticsLastUpdateState,
 ) ?? "",
 ),
 
+strategyState:
+this.normalizeStrategyRuntimeState(
+this.readStateValue(
+strategyState,
+),
+),
+
+strategyDetail:
+String(
+this.readStateValue(
+strategyDetailState,
+) ?? "",
+),
+
 pvPower:
 this.readNumberState(
 pvPowerState,
@@ -576,6 +601,21 @@ return validation.valid
 : `Strategie-Konfiguration unvollständig: ${validation.issues
 .map(issue => `${issue.field}:${issue.reason}`)
 .join(", ")}`;
+}
+
+private normalizeStrategyRuntimeState(
+value: string | number | boolean | null,
+): StrategyRuntimeState {
+switch (value) {
+case "disabled":
+case "invalid-configuration":
+case "starting":
+case "running":
+case "error":
+return value;
+default:
+return "unknown";
+}
 }
 
 private updateBatteryModel(serialNumber: string, model: string): void {
@@ -1561,6 +1601,19 @@ return (
 
 private renderSettingsTab(native: SaxPowerNativeConfig): React.JSX.Element {
 const batteries = this.state.runtimeStatus.batteries;
+const strategyRuntime = this.state.runtimeStatus.strategyState;
+const strategyRuntimePresentation: Record<StrategyRuntimeState, {
+label: string;
+severity: "success" | "info" | "warning" | "error";
+}> = {
+disabled: { label: "Deaktiviert", severity: "info" },
+"invalid-configuration": { label: "Konfiguration fehlerhaft", severity: "warning" },
+starting: { label: "Wird gestartet", severity: "info" },
+running: { label: "Aktiv", severity: "success" },
+error: { label: "Laufzeitfehler", severity: "error" },
+unknown: { label: "Noch nicht verfügbar", severity: "info" },
+};
+const strategyRuntimeStatus = strategyRuntimePresentation[strategyRuntime];
 const strategyValidation = validateStrategyRuntimeConfiguration(
 strategyRuntimeConfigurationFromNative(native),
 );
@@ -1611,6 +1664,20 @@ htmlInput: { min: 60, step: 10 },
 <Typography variant="body2" sx={{ color: "text.secondary", marginBottom: 2 }}>
 Steuert die automatische Tagesentladung und den manuellen Ladeleistungsmodus. Die Strategie bleibt ausgeschaltet, bis alle Werte vollständig konfiguriert und gespeichert wurden.
 </Typography>
+<Alert
+severity={strategyRuntimeStatus.severity}
+sx={{ marginBottom: 2 }}
+action={<Chip size="small" label={strategyRuntimeStatus.label} />}
+>
+<Typography variant="body2" sx={{ fontWeight: 700 }}>
+Laufzeitstatus
+</Typography>
+{this.state.runtimeStatus.strategyDetail ? (
+<Typography variant="caption" sx={{ overflowWrap: "anywhere" }}>
+{this.state.runtimeStatus.strategyDetail}
+</Typography>
+) : null}
+</Alert>
 <FormControlLabel
 control={(
 <Switch
