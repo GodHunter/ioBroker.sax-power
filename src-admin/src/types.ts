@@ -4,6 +4,17 @@ password: string;
 pollInterval: number;
 batteryModels?: Record<string, string>;
 
+strategyEnabled?: boolean;
+strategyBatteryModelId?: unknown;
+strategyMinimumStateOfChargePercent?: unknown;
+strategyMaximumStateOfChargePercent?: unknown;
+strategyMaximumChargePowerW?: unknown;
+strategyMaximumDischargePowerW?: unknown;
+strategyPvForecastReserveWh?: unknown;
+strategyMaximumForecastAgeMs?: unknown;
+strategyRequestedDischargePowerW?: unknown;
+strategyIntervalMs?: unknown;
+
 /*
  * Retained only for compatibility with development instances.
  * Modbus control is intentionally not exposed in V1.0.

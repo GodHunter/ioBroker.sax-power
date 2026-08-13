@@ -57,9 +57,10 @@ import {
 	type StrategyIoBrokerStrategyBinding,
 } from "./lib/strategyIoBrokerStrategyBinding";
 
-import type {
-	StrategyRuntimeConfigurationInput,
-} from "./lib/strategyRuntimeConfiguration";
+import {
+	strategyRuntimeConfigurationFromNative,
+	type StrategyNativeConfiguration,
+} from "./lib/strategyNativeConfiguration";
 
 import {
 	resolveStrategyAstroDate,
@@ -73,7 +74,7 @@ import type {
 	StrategyIoBrokerStrategyTimerAdapter,
 } from "./lib/strategyIoBrokerStrategyCycleScheduler";
 
-interface SaxPowerAdapterConfig {
+interface SaxPowerAdapterConfig extends StrategyNativeConfiguration {
 username: string;
 password: string;
 pollInterval: number;
@@ -84,16 +85,6 @@ modbusInstance: string;
 modbusChargePowerStateId: string;
 modbusDischargePowerStateId: string;
 
-strategyEnabled?: unknown;
-strategyBatteryModelId?: unknown;
-strategyMinimumStateOfChargePercent?: unknown;
-strategyMaximumStateOfChargePercent?: unknown;
-strategyMaximumChargePowerW?: unknown;
-strategyMaximumDischargePowerW?: unknown;
-strategyPvForecastReserveWh?: unknown;
-strategyMaximumForecastAgeMs?: unknown;
-strategyRequestedDischargePowerW?: unknown;
-strategyIntervalMs?: unknown;
 }
 
 class SaxPower extends utils.Adapter {
@@ -169,25 +160,6 @@ new SaxPowerStateEngine(this);
 		this.scheduleNextPoll();
 	}
 
-	private strategyRuntimeConfiguration(): StrategyRuntimeConfigurationInput {
-		return {
-			enabled: this.saxConfig.strategyEnabled ?? false,
-			batteryModelId: this.saxConfig.strategyBatteryModelId,
-			minimumStateOfChargePercent:
-				this.saxConfig.strategyMinimumStateOfChargePercent,
-			maximumStateOfChargePercent:
-				this.saxConfig.strategyMaximumStateOfChargePercent,
-			maximumChargePowerW: this.saxConfig.strategyMaximumChargePowerW,
-			maximumDischargePowerW:
-				this.saxConfig.strategyMaximumDischargePowerW,
-			pvForecastReserveWh: this.saxConfig.strategyPvForecastReserveWh,
-			maximumForecastAgeMs: this.saxConfig.strategyMaximumForecastAgeMs,
-			requestedDischargePowerW:
-				this.saxConfig.strategyRequestedDischargePowerW,
-			intervalMs: this.saxConfig.strategyIntervalMs,
-		};
-	}
-
 	public getAstroDate(
 		event: StrategyIoBrokerAstroEvent,
 		date = new Date(),
@@ -228,7 +200,7 @@ new SaxPowerStateEngine(this);
 	private async startStrategy(): Promise<void> {
 		const binding = createStrategyIoBrokerStrategyBinding(
 			this.strategyAdapter(),
-			this.strategyRuntimeConfiguration(),
+			strategyRuntimeConfigurationFromNative(this.saxConfig),
 			error => this.logStrategyError("cycle", error),
 		);
 

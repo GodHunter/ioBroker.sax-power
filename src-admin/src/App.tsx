@@ -63,6 +63,14 @@ SaxPowerConnectionState,
 SaxPowerNativeConfig,
 } from "./types";
 
+import {
+strategyRuntimeConfigurationFromNative,
+} from "../../src/lib/strategyNativeConfiguration";
+
+import {
+validateStrategyRuntimeConfiguration,
+} from "../../src/lib/strategyRuntimeConfiguration";
+
 interface SaxPowerAdminState
 extends GenericAppState {
 selectedTab: AdminTab;
@@ -557,6 +565,24 @@ this.updateNativeField("batteryModels", {
 ...(native.batteryModels ?? {}),
 [serialNumber]: model,
 });
+}
+
+public override onPrepareSave(settings: Record<string, unknown>): boolean {
+const validation = validateStrategyRuntimeConfiguration(
+strategyRuntimeConfigurationFromNative(settings),
+);
+
+if (!validation.valid) {
+this.setConfigurationError(
+`Strategie-Konfiguration unvollständig: ${validation.issues
+.map(issue => `${issue.field}:${issue.reason}`)
+.join(", ")}`,
+);
+return false;
+}
+
+this.setConfigurationError("");
+return super.onPrepareSave(settings);
 }
 
 private formatDate(
