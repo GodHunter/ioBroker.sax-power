@@ -168,7 +168,8 @@
     "modbusControlEnabled": false,
     "modbusInstance": "",
     "modbusChargePowerStateId": "",
-    "modbusDischargePowerStateId": ""
+    "modbusDischargePowerStateId": "",
+    "strategyEnabled": false
   },
   "objects": [],
   "instanceObjects": [
