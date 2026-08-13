@@ -183,7 +183,13 @@ function stateContracts(
 	pvForecast: readonly StrategyStateContract[];
 } {
 	return {
-		modbus: Object.values(contract.modbus),
+		modbus: [
+			contract.modbus.chargePowerCommand,
+			contract.modbus.operatingState,
+			contract.modbus.stateOfCharge,
+			contract.modbus.batteryPower,
+			contract.modbus.smartMeterPower,
+		],
 		pvForecast: Object.values(contract.pvForecast),
 	};
 }

@@ -98,6 +98,18 @@ describe("strategy integration contract", () => {
 		expect(availability.missingRequiredStateIds).to.deep.equal([missingStateId]);
 	});
 
+	it("does not treat optional register 43 as a base requirement", () => {
+		const objects = requiredObjects();
+		delete objects[
+			STRATEGY_INTEGRATION_CONTRACT.modbus.dischargePowerCommand.stateId
+		];
+
+		const availability = inspectStrategyIntegrationAvailability(objects);
+		expect(availability.modbusAvailable).to.equal(true);
+		expect(availability.strategyInputsReady).to.equal(true);
+		expect(availability.missingRequiredStateIds).to.deep.equal([]);
+	});
+
 	it("does not invent an APG price state", () => {
 		const marketPrice = STRATEGY_INTEGRATION_CONTRACT.marketPrice;
 
