@@ -102,6 +102,11 @@ describe("strategy ioBroker lifecycle", () => {
 			"strategy.manualCharge",
 			"strategy.status",
 			...STRATEGY_MANUAL_CHARGE_STATE_DEFINITIONS.map(({ id }) => id),
+			"strategy.dayDischarge",
+			"strategy.dayDischarge.allowed",
+			"strategy.dayDischarge.availablePowerW",
+			"strategy.dayDischarge.reason",
+			"strategy.dayDischarge.validUntil",
 		]);
 		expect(run.timers).to.have.length(1);
 		expect(run.timers[0]?.delay).to.equal(30_000);

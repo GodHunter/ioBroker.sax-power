@@ -97,11 +97,8 @@ describe("strategy day discharge cycle preparation", () => {
 
 		expect(result?.createdAt).to.equal(NOW);
 		expect(result?.snapshot.modbus.stateOfChargePercent).to.equal(60);
-		expect(result?.cyclePlan.commandPlan).to.deep.include({
-			register: 43,
-			valueW: 2_000,
-			reason: "apply-discharge-target",
-		});
+		expect(result?.cyclePlan.evaluation.windowGate.targetDischargePowerW)
+			.to.equal(2_000);
 		expect(result?.cyclePlan.evaluation.createdAt).to.equal(
 			result?.snapshot.createdAt,
 		);
@@ -113,7 +110,8 @@ describe("strategy day discharge cycle preparation", () => {
 		expect(result?.cyclePlan.evaluation.windowGate.reason).to.equal(
 			"before-daylight-window",
 		);
-		expect(result?.cyclePlan.commandPlan.valueW).to.equal(0);
+		expect(result?.cyclePlan.evaluation.windowGate.targetDischargePowerW)
+			.to.equal(0);
 	});
 
 	it("fails closed when a required object is missing", async () => {
@@ -133,7 +131,7 @@ describe("strategy day discharge cycle preparation", () => {
 		expect(await prepare(staleReader)).to.equal(null);
 	});
 
-	it("uses the selected integration contract for reading and writing", async () => {
+	it("uses the selected integration contract for reading", async () => {
 		const contract: StrategyIntegrationContract = {
 			...STRATEGY_INTEGRATION_CONTRACT,
 			modbus: {
@@ -151,9 +149,8 @@ describe("strategy day discharge cycle preparation", () => {
 			contract,
 		);
 
-		expect(result?.cyclePlan.commandPlan.stateId).to.equal(
-			"modbus.2.command.43",
-		);
+		expect(result?.resolution.modbus.dischargePowerCommand.stateId)
+			.to.equal("modbus.2.command.43");
 	});
 
 	it("fails closed for a non-finite cycle timestamp", async () => {

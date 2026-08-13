@@ -74,6 +74,10 @@ strategyRuntimeConfigurationFromNative,
 import {
 validateStrategyRuntimeConfiguration,
 } from "../../src/lib/strategyRuntimeConfiguration";
+import type {
+StrategyCapabilities,
+StrategyCapabilityModeId,
+} from "../../src/lib/strategyCapabilities";
 
 interface SaxPowerAdminState
 extends GenericAppState {
@@ -85,6 +89,8 @@ statusError: string;
 showPassword: boolean;
 modbusInstances: ModbusInstanceOption[];
 modbusInstancesLoaded: boolean;
+strategyCapabilities: StrategyCapabilities | null;
+strategyCapabilitiesLoading: boolean;
 }
 
 interface RuntimeLoaderProps {
@@ -192,6 +198,8 @@ statusError: "",
 showPassword: false,
 modbusInstances: [],
 modbusInstancesLoaded: false,
+strategyCapabilities: null,
+strategyCapabilitiesLoading: false,
 };
 }
 
@@ -252,6 +260,16 @@ private readonly loadRuntimeStatus =
 async (): Promise<void> => {
 if (!this.state.modbusInstancesLoaded) {
 void this.loadModbusInstances();
+}
+
+const configuredModbusInstance = (this.state.native as unknown as SaxPowerNativeConfig)
+.strategyModbusInstance;
+if (
+!this.state.strategyCapabilities
+&& !this.state.strategyCapabilitiesLoading
+&& typeof configuredModbusInstance === "string"
+) {
+void this.loadStrategyCapabilities(configuredModbusInstance);
 }
 
 if (this.state.statusLoading) {
@@ -583,6 +601,30 @@ modbusInstancesLoaded: true,
 }
 };
 
+private readonly loadStrategyCapabilities = async (
+instance: string,
+): Promise<void> => {
+if (!/^modbus\.\d+$/.test(instance)) {
+this.setState({ strategyCapabilities: null, strategyCapabilitiesLoading: false });
+return;
+}
+
+this.setState({ strategyCapabilities: null, strategyCapabilitiesLoading: true });
+try {
+const capabilities = await this.socket.sendTo<StrategyCapabilities | null>(
+this.getNamespace(),
+"getStrategyCapabilities",
+{ instance },
+);
+this.setState({
+strategyCapabilities: capabilities?.instance === instance ? capabilities : null,
+strategyCapabilitiesLoading: false,
+});
+} catch {
+this.setState({ strategyCapabilities: null, strategyCapabilitiesLoading: false });
+}
+};
+
 private updateNativeField<
 Key extends keyof SaxPowerNativeConfig,
 >(
@@ -616,6 +658,10 @@ isConfigurationError: strategyError,
 SaxPowerAdminState,
 "native" | "changed" | "isConfigurationError"
 >);
+
+if (key === "strategyModbusInstance") {
+void this.loadStrategyCapabilities(typeof value === "string" ? value : "");
+}
 }
 
 private strategyConfigurationError(
@@ -645,6 +691,17 @@ case "error":
 return value;
 default:
 return "unknown";
+}
+}
+
+private strategyModeLabel(id: StrategyCapabilityModeId): string {
+switch (id) {
+case "chargingControl":
+return "Netzdienliches und akkuschonendes Laden";
+case "dayAvailability":
+return "Tagesfreigabe für externe Verbraucher";
+case "nightDischarge":
+return "Preisgesteuerte Nachtentladung";
 }
 }
 
@@ -1659,6 +1716,17 @@ divisor = 1,
 ): number | "" => typeof value === "number" && Number.isFinite(value)
 ? value / divisor
 : "";
+const capabilities = this.state.strategyCapabilities;
+const modeDescription: Record<StrategyCapabilityModeId, string> = {
+chargingControl: "Register 44 steuert die Ladeleistung. Die automatische netzdienliche Regelung wird auf dieser sicheren Schreibgrenze aufgebaut.",
+dayAvailability: "Veröffentlicht die nutzbare Batterieleistung für externe Verbraucher und schreibt niemals Register 43.",
+nightDischarge: "Aktive Entladung über Register 43; später zusätzlich mit Preisgrenze, Zeitfenster und Mindest-SOC.",
+};
+const modeConfigKey: Record<StrategyCapabilityModeId, keyof SaxPowerNativeConfig> = {
+chargingControl: "strategyChargingControlEnabled",
+dayAvailability: "strategyDayAvailabilityEnabled",
+nightDischarge: "strategyNightDischargeEnabled",
+};
 
 return (
 <Stack spacing={2}>
@@ -1693,7 +1761,7 @@ htmlInput: { min: 60, step: 10 },
 <Typography variant="h6" sx={{ fontWeight: 700 }}>Speicherstrategie</Typography>
 </Stack>
 <Typography variant="body2" sx={{ color: "text.secondary", marginBottom: 2 }}>
-Steuert die automatische Tagesentladung und den manuellen Ladeleistungsmodus. Die Strategie bleibt ausgeschaltet, bis alle Werte vollständig konfiguriert und gespeichert wurden.
+Steuert die Ladeleistungsgrenze und veröffentlicht eine sichere Tagesfreigabe für externe Verbraucher. Aktives Entladen bleibt ein davon getrennter Modus.
 </Typography>
 <Alert
 severity={strategyRuntimeStatus.severity}
@@ -1733,13 +1801,80 @@ label="Modbus-Instanz"
 value={typeof native.strategyModbusInstance === "string" ? native.strategyModbusInstance : ""}
 onChange={(event) => this.updateNativeField("strategyModbusInstance", event.target.value || undefined)}
 error={hasStrategyIssue("modbusInstance")}
-helperText="Die benötigten SAX-Register 43 bis 48 werden beim Adapterstart live geprüft"
+helperText="Die vorhandenen Register 43 bis 48 werden live erkannt; Register 43 ist nur für aktive Nachtentladung erforderlich"
 >
 <MenuItem value=""><em>Bitte Instanz auswählen</em></MenuItem>
 {this.state.modbusInstances.map(option => (
 <MenuItem key={option.value} value={option.value}>{option.label}</MenuItem>
 ))}
 </TextField>
+{this.state.strategyCapabilitiesLoading ? (
+<Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+<CircularProgress size={18} />
+<Typography variant="body2">Register und verfügbare Modi werden geprüft …</Typography>
+</Stack>
+) : capabilities ? (
+<Stack spacing={1.5}>
+<Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+Erkannte SAX-Fähigkeiten
+</Typography>
+<Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", gap: 1 }}>
+{capabilities.registers.map(register => (
+<Chip
+key={register.register}
+size="small"
+color={register.stateId ? "success" : "default"}
+variant={register.stateId ? "filled" : "outlined"}
+label={`R${register.register}: ${register.stateId
+? `${register.readable ? "lesen" : ""}${register.readable && register.writable ? "/" : ""}${register.writable ? "schreiben" : ""}`
+: "fehlt"}`}
+/>
+))}
+</Stack>
+{capabilities.modes.map(mode => {
+const configKey = modeConfigKey[mode.id];
+const checked = native[configKey] === undefined
+? mode.id !== "nightDischarge"
+: native[configKey] === true;
+const detail = mode.reason === "missing-registers"
+? `Nicht verfügbar: Register ${mode.missingRegisters.join(", ")} fehlt oder besitzt nicht den nötigen Zugriff.`
+: mode.reason === "not-implemented"
+? "Hardware geeignet, die separate Nachtlogik ist in dieser Beta noch nicht implementiert."
+: "Für diese Modbus-Instanz verfügbar.";
+return (
+<Card key={mode.id} variant="outlined" sx={{ borderRadius: 2 }}>
+<CardContent sx={{ paddingBottom: "16px !important" }}>
+<Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ justifyContent: "space-between" }}>
+<Box>
+<Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+{this.strategyModeLabel(mode.id)}
+</Typography>
+<Typography variant="body2" sx={{ color: "text.secondary" }}>
+{modeDescription[mode.id]}
+</Typography>
+<Typography variant="caption" sx={{ color: mode.selectable ? "success.main" : "text.secondary" }}>
+{detail}
+</Typography>
+</Box>
+<FormControlLabel
+control={(
+<Switch
+checked={checked && mode.selectable}
+disabled={!mode.selectable}
+onChange={(event) => this.updateNativeField(configKey, event.target.checked as never)}
+/>
+)}
+label={checked && mode.selectable ? "Aktiv" : "Inaktiv"}
+/>
+</Stack>
+</CardContent>
+</Card>
+);
+})}
+</Stack>
+) : typeof native.strategyModbusInstance === "string" && native.strategyModbusInstance ? (
+<Alert severity="warning">Für die ausgewählte Instanz konnten keine SAX-Register erkannt werden.</Alert>
+) : null}
 <TextField
 select
 fullWidth

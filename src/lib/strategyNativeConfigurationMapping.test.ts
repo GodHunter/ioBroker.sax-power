@@ -20,6 +20,9 @@ describe("strategy native configuration mapping", () => {
 			maximumForecastAgeMs: undefined,
 			requestedDischargePowerW: undefined,
 			intervalMs: undefined,
+			chargingControlEnabled: true,
+			dayAvailabilityEnabled: true,
+			nightDischargeEnabled: false,
 		});
 	});
 
@@ -36,6 +39,9 @@ describe("strategy native configuration mapping", () => {
 			strategyMaximumForecastAgeMs: 3_600_000,
 			strategyRequestedDischargePowerW: 2_000,
 			strategyIntervalMs: 30_000,
+			strategyChargingControlEnabled: false,
+			strategyDayAvailabilityEnabled: true,
+			strategyNightDischargeEnabled: false,
 		};
 
 		const result = strategyRuntimeConfigurationFromNative(native);
@@ -51,6 +57,9 @@ describe("strategy native configuration mapping", () => {
 			maximumForecastAgeMs: 3_600_000,
 			requestedDischargePowerW: 2_000,
 			intervalMs: 30_000,
+			chargingControlEnabled: false,
+			dayAvailabilityEnabled: true,
+			nightDischargeEnabled: false,
 		});
 		expect(Object.isFrozen(result)).to.equal(true);
 	});

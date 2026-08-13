@@ -15,6 +15,9 @@ strategyPvForecastReserveWh?: unknown;
 strategyMaximumForecastAgeMs?: unknown;
 strategyRequestedDischargePowerW?: unknown;
 strategyIntervalMs?: unknown;
+strategyChargingControlEnabled?: boolean;
+strategyDayAvailabilityEnabled?: boolean;
+strategyNightDischargeEnabled?: boolean;
 
 /*
  * Retained only for compatibility with development instances.

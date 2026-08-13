@@ -102,7 +102,7 @@ describe("strategy daylight window cycle preparation", () => {
 		expect(requestedTimestamp).to.equal(NOW);
 		expect(result?.createdAt).to.equal(NOW);
 		expect(result?.cyclePreparation.createdAt).to.equal(NOW);
-		expect(result?.cyclePreparation.cyclePlan.commandPlan.valueW).to.equal(
+		expect(result?.cyclePreparation.cyclePlan.evaluation.windowGate.targetDischargePowerW).to.equal(
 			2_000,
 		);
 		expect(
@@ -116,7 +116,7 @@ describe("strategy daylight window cycle preparation", () => {
 		expect(
 			result?.cyclePreparation.cyclePlan.evaluation.windowGate.reason,
 		).to.equal("before-daylight-window");
-		expect(result?.cyclePreparation.cyclePlan.commandPlan.valueW).to.equal(0);
+		expect(result?.cyclePreparation.cyclePlan.evaluation.windowGate.targetDischargePowerW).to.equal(0);
 	});
 
 	it("fails closed when the provider has no boundaries", async () => {

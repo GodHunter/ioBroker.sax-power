@@ -14,6 +14,9 @@ export interface StrategyNativeConfiguration {
 	readonly strategyMaximumForecastAgeMs?: unknown;
 	readonly strategyRequestedDischargePowerW?: unknown;
 	readonly strategyIntervalMs?: unknown;
+	readonly strategyChargingControlEnabled?: unknown;
+	readonly strategyDayAvailabilityEnabled?: unknown;
+	readonly strategyNightDischargeEnabled?: unknown;
 }
 
 export function strategyRuntimeConfigurationFromNative(
@@ -33,5 +36,8 @@ export function strategyRuntimeConfigurationFromNative(
 		maximumForecastAgeMs: native.strategyMaximumForecastAgeMs,
 		requestedDischargePowerW: native.strategyRequestedDischargePowerW,
 		intervalMs: native.strategyIntervalMs,
+		chargingControlEnabled: native.strategyChargingControlEnabled ?? true,
+		dayAvailabilityEnabled: native.strategyDayAvailabilityEnabled ?? true,
+		nightDischargeEnabled: native.strategyNightDischargeEnabled ?? false,
 	});
 }

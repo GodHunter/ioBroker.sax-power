@@ -58,7 +58,6 @@ export async function prepareStrategyDayDischargeCycle(
 		requestedDischargePowerW,
 		daylightWindowStartsAt,
 		daylightWindowEndsAt,
-		contract.modbus.dischargePowerCommand,
 	);
 
 	if (

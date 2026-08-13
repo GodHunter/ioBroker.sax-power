@@ -5,6 +5,7 @@ import {
 	type StrategyConfigurationIssue,
 	validateStrategyConfiguration,
 } from "./strategyConfiguration";
+import type { StrategyModes } from "./strategyModes";
 
 export interface StrategyRuntimeConfigurationInput
 	extends StrategyConfigurationInput {
@@ -13,6 +14,9 @@ export interface StrategyRuntimeConfigurationInput
 	readonly maximumForecastAgeMs: unknown;
 	readonly requestedDischargePowerW: unknown;
 	readonly intervalMs: unknown;
+	readonly chargingControlEnabled: unknown;
+	readonly dayAvailabilityEnabled: unknown;
+	readonly nightDischargeEnabled: unknown;
 }
 
 export type StrategyRuntimeConfiguration =
@@ -24,6 +28,7 @@ export type StrategyRuntimeConfiguration =
 		maximumForecastAgeMs: number;
 		requestedDischargePowerW: number;
 		intervalMs: number;
+		modes: StrategyModes;
 	}>;
 
 export type StrategyRuntimeConfigurationField =
@@ -32,11 +37,18 @@ export type StrategyRuntimeConfigurationField =
 	| StrategyConfigurationField
 	| "maximumForecastAgeMs"
 	| "requestedDischargePowerW"
-	| "intervalMs";
+	| "intervalMs"
+	| "chargingControlEnabled"
+	| "dayAvailabilityEnabled"
+	| "nightDischargeEnabled";
 
 export interface StrategyRuntimeConfigurationIssue {
 	readonly field: StrategyRuntimeConfigurationField;
-	readonly reason: StrategyConfigurationIssue["reason"] | "invalid-boolean" | "invalid-instance";
+	readonly reason: StrategyConfigurationIssue["reason"]
+		| "invalid-boolean"
+		| "invalid-instance"
+		| "unsupported-mode"
+		| "no-mode-enabled";
 }
 
 export type StrategyRuntimeConfigurationValidation =
@@ -104,6 +116,26 @@ export function validateStrategyRuntimeConfiguration(
 		}
 	}
 
+	for (const field of [
+		"chargingControlEnabled",
+		"dayAvailabilityEnabled",
+		"nightDischargeEnabled",
+	] as const) {
+		if (typeof input[field] !== "boolean") {
+			issues.push({ field, reason: "invalid-boolean" });
+		}
+	}
+	if (input.nightDischargeEnabled === true) {
+		issues.push({ field: "nightDischargeEnabled", reason: "unsupported-mode" });
+	}
+	if (
+		input.chargingControlEnabled === false
+		&& input.dayAvailabilityEnabled === false
+		&& input.nightDischargeEnabled === false
+	) {
+		issues.push({ field: "enabled", reason: "no-mode-enabled" });
+	}
+
 	if (!strategyValidation.valid || issues.length > 0) return invalid(issues);
 
 	return Object.freeze({
@@ -115,6 +147,11 @@ export function validateStrategyRuntimeConfiguration(
 			maximumForecastAgeMs: input.maximumForecastAgeMs as number,
 			requestedDischargePowerW: input.requestedDischargePowerW as number,
 			intervalMs: input.intervalMs as number,
+			modes: Object.freeze({
+				chargingControlEnabled: input.chargingControlEnabled as boolean,
+				dayAvailabilityEnabled: input.dayAvailabilityEnabled as boolean,
+				nightDischargeEnabled: false as const,
+			}),
 		}),
 		issues: Object.freeze([]) as readonly [],
 	});

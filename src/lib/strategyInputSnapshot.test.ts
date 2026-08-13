@@ -78,7 +78,7 @@ describe("strategy input snapshot", () => {
 		});
 	});
 
-	it("fails closed when the discharge command object is unavailable", () => {
+	it("does not require the night discharge command", () => {
 		const resolution = validResolution();
 		const command = resolution.modbus.dischargePowerCommand;
 
@@ -92,7 +92,7 @@ describe("strategy input snapshot", () => {
 					reason: "object-missing",
 				},
 			},
-		})).to.equal(null);
+		})).not.to.equal(null);
 	});
 
 	it("creates an immutable nested snapshot", () => {
@@ -104,16 +104,16 @@ describe("strategy input snapshot", () => {
 		expect(Object.isFrozen(snapshot?.pvForecast)).to.equal(true);
 	});
 
-	it("fails closed when readiness flags are inconsistent", () => {
+	it("uses the resolved observations instead of aggregate readiness flags", () => {
 		const resolution = validResolution();
 
 		expect(createStrategyInputSnapshot({
 			...resolution,
 			strategyInputsReady: false,
-		})).to.equal(null);
+		})).not.to.equal(null);
 	});
 
-	it("fails closed when the command object is unavailable", () => {
+	it("does not require the charge command for daytime availability", () => {
 		const resolution = validResolution();
 		const command = resolution.modbus.chargePowerCommand;
 
@@ -127,7 +127,7 @@ describe("strategy input snapshot", () => {
 					reason: "object-missing",
 				},
 			},
-		})).to.equal(null);
+		})).not.to.equal(null);
 	});
 
 	it("fails closed when an observation has no numeric value", () => {

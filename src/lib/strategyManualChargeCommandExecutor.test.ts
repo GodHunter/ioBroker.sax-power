@@ -1,5 +1,5 @@
 import { expect } from "chai";
-import type { StrategyCommandWriter } from "./strategyDayDischargeCommandExecutor";
+import type { StrategyCommandWriter } from "./strategyCommandWriter";
 import {
 	executeStrategyManualChargeCommand,
 } from "./strategyManualChargeCommandExecutor";

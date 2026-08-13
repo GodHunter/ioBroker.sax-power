@@ -51,7 +51,7 @@ function runtime(manualEnabled: boolean, validSoc = true) {
 				: state(1_800);
 		},
 		async setStateAsync(id, value) {
-			writes.push({ id, value: value.val });
+			writes.push({ id, value: value.val ?? null });
 		},
 		async getForeignObjectAsync(id) {
 			return {
@@ -86,10 +86,10 @@ describe("strategy ioBroker operating-mode cycle", () => {
 			undefined, { now: NOW },
 		);
 
-		expect(result?.manualCharge.control.operatingMode).to.equal("manual-charge");
+		expect(result?.manualCharge?.control.operatingMode).to.equal("manual-charge");
 		expect(result?.automatic).to.equal(null);
 		expect(run.astroCalls()).to.equal(0);
-		expect(run.writes).to.deep.equal([{
+		expect(run.writes.filter(({ id }) => id.startsWith("modbus."))).to.deep.equal([{
 			id: STRATEGY_INTEGRATION_CONTRACT.modbus.chargePowerCommand.stateId,
 			value: 1_800,
 		}]);
@@ -102,7 +102,7 @@ describe("strategy ioBroker operating-mode cycle", () => {
 			undefined, { now: NOW },
 		);
 
-		expect(result?.manualCharge.control.operatingMode).to.equal("automatic");
+		expect(result?.manualCharge?.control.operatingMode).to.equal("automatic");
 		expect(result?.automatic).not.to.equal(null);
 		expect(run.astroCalls()).to.equal(2);
 		expect(run.writes).to.deep.include({
@@ -124,5 +124,39 @@ describe("strategy ioBroker operating-mode cycle", () => {
 		expect(result).to.equal(null);
 		expect(run.astroCalls()).to.equal(0);
 		expect(run.writes).to.deep.equal([]);
+	});
+
+	it("runs daytime availability without enabling charging control", async () => {
+		const run = runtime(false);
+		const result = await executeStrategyIoBrokerStrategyCycle(
+			run.adapter, CONFIGURATION, 60 * 60 * 1_000, 2_000,
+			undefined, { now: NOW }, {
+				chargingControlEnabled: false,
+				dayAvailabilityEnabled: true,
+				nightDischargeEnabled: false,
+			},
+		);
+
+		expect(result?.manualCharge).to.equal(null);
+		expect(result?.automatic?.availability.availablePowerW).to.equal(2_000);
+		expect(run.writes.some(({ id }) => id ===
+			STRATEGY_INTEGRATION_CONTRACT.modbus.dischargePowerCommand.stateId,
+		)).to.equal(false);
+	});
+
+	it("runs charging control without evaluating daytime availability", async () => {
+		const run = runtime(false);
+		const result = await executeStrategyIoBrokerStrategyCycle(
+			run.adapter, CONFIGURATION, 60 * 60 * 1_000, 2_000,
+			undefined, { now: NOW }, {
+				chargingControlEnabled: true,
+				dayAvailabilityEnabled: false,
+				nightDischargeEnabled: false,
+			},
+		);
+
+		expect(result?.manualCharge?.control.operatingMode).to.equal("automatic");
+		expect(result?.automatic).to.equal(null);
+		expect(run.astroCalls()).to.equal(0);
 	});
 });

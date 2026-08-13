@@ -57,7 +57,7 @@ function recordingAdapter(manualEnabled = false) {
 				: state(1_800);
 		},
 		async setStateAsync(id, value) {
-			writes.push({ id, value: value.val });
+			writes.push({ id, value: value.val ?? null });
 		},
 		async getForeignObjectAsync(id) {
 			return {
@@ -146,7 +146,7 @@ describe("strategy ioBroker operating-mode cycle scheduler", () => {
 		instance?.start();
 		await run.timers[0]?.callback();
 
-		expect(run.writes).to.deep.equal([{
+		expect(run.writes.filter(({ id }) => id.startsWith("modbus."))).to.deep.equal([{
 			id: STRATEGY_INTEGRATION_CONTRACT.modbus.chargePowerCommand.stateId,
 			value: 1_800,
 		}]);

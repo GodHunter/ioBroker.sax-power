@@ -18,6 +18,9 @@ function validInput(): StrategyRuntimeConfigurationInput {
 		maximumForecastAgeMs: 3_600_000,
 		requestedDischargePowerW: 2_000,
 		intervalMs: 30_000,
+		chargingControlEnabled: true,
+		dayAvailabilityEnabled: true,
+		nightDischargeEnabled: false,
 	};
 }
 

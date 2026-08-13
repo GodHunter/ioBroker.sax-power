@@ -7,6 +7,10 @@ import {
 	type StrategyStateFailureReason,
 	type StrategyStateReader,
 } from "./strategyStateResolver";
+import {
+	DEFAULT_STRATEGY_MODES,
+	type StrategyModes,
+} from "./strategyModes";
 
 export interface StrategyUnavailableInput {
 	readonly stateId: string;
@@ -22,6 +26,7 @@ export async function assessStrategyIoBrokerReadiness(
 	reader: StrategyStateReader,
 	maximumForecastAgeMs: number,
 	contract: StrategyIntegrationContract = STRATEGY_INTEGRATION_CONTRACT,
+	modes: StrategyModes = DEFAULT_STRATEGY_MODES,
 ): Promise<StrategyIoBrokerReadiness> {
 	const resolution = await resolveStrategyStates(
 		reader,
@@ -29,12 +34,16 @@ export async function assessStrategyIoBrokerReadiness(
 		{ maximumTimestampAgeMs: maximumForecastAgeMs },
 	);
 	const resolvedStates = [
-		resolution.modbus.chargePowerCommand,
+		...(modes.chargingControlEnabled
+			? [resolution.modbus.chargePowerCommand]
+			: []),
 		resolution.modbus.operatingState,
 		resolution.modbus.stateOfCharge,
 		resolution.modbus.batteryPower,
 		resolution.modbus.smartMeterPower,
-		...Object.values(resolution.pvForecast),
+		...(modes.dayAvailabilityEnabled
+			? Object.values(resolution.pvForecast)
+			: []),
 	];
 	const unavailableInputs = resolvedStates
 		.filter((state) => !state.available && state.reason !== null)
@@ -44,7 +53,7 @@ export async function assessStrategyIoBrokerReadiness(
 		}));
 
 	return Object.freeze({
-		ready: resolution.strategyInputsReady,
+		ready: unavailableInputs.length === 0,
 		unavailableInputs: Object.freeze(unavailableInputs),
 	});
 }

@@ -42,12 +42,6 @@ export function createStrategyInputSnapshot(
 ): StrategyInputSnapshot | null {
 	if (
 		!Number.isFinite(createdAt)
-		|| !resolution.modbusReady
-		|| !resolution.pvForecastReady
-		|| !resolution.strategyInputsReady
-		|| resolution.unavailableStateIds.length > 0
-		|| !resolution.modbus.chargePowerCommand.available
-		|| resolution.modbus.chargePowerCommand.reason !== null
 	) {
 		return null;
 	}

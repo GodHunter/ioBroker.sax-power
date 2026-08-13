@@ -13,6 +13,9 @@ const STRATEGY_DETAIL_FIELDS = [
 	"strategyMaximumForecastAgeMs",
 	"strategyRequestedDischargePowerW",
 	"strategyIntervalMs",
+	"strategyChargingControlEnabled",
+	"strategyDayAvailabilityEnabled",
+	"strategyNightDischargeEnabled",
 ] as const;
 
 describe("strategy native configuration", () => {

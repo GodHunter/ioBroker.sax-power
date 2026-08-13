@@ -1,5 +1,5 @@
 import type { StrategyConfiguration } from "./strategyConfiguration";
-import type { StrategyCommandWriter } from "./strategyDayDischargeCommandExecutor";
+import type { StrategyCommandWriter } from "./strategyCommandWriter";
 import {
 	executeStrategyManualChargeCommand,
 	type StrategyManualChargeCommandExecution,

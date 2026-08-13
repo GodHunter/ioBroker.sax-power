@@ -2,7 +2,6 @@ import { expect } from "chai";
 import type { StrategyConfiguration } from "./strategyConfiguration";
 import { createStrategyDayDischargeCyclePlan } from "./strategyDayDischargeCyclePlan";
 import type { StrategyInputSnapshot } from "./strategyInputSnapshot";
-import type { StrategyStateContract } from "./strategyIntegrationContract";
 
 const CREATED_AT = 1_800_000;
 const CONFIGURATION: StrategyConfiguration = {
@@ -40,7 +39,6 @@ function plan(
 	requestedDischargePowerW = 2_000,
 	daylightWindowStartsAt = CREATED_AT - 1_000,
 	daylightWindowEndsAt = CREATED_AT + 10 * 60 * 60 * 1_000,
-	commandContract?: StrategyStateContract,
 ) {
 	return createStrategyDayDischargeCyclePlan(
 		inputSnapshot,
@@ -49,25 +47,18 @@ function plan(
 		requestedDischargePowerW,
 		daylightWindowStartsAt,
 		daylightWindowEndsAt,
-		commandContract,
 	);
 }
 
 describe("strategy day discharge cycle plan", () => {
-	it("composes an allowed evaluation and discharge command", () => {
+	it("composes an allowed daytime availability evaluation", () => {
 		const result = plan();
 
 		expect(result?.createdAt).to.equal(CREATED_AT);
 		expect(result?.evaluation.windowGate.targetDischargePowerW).to.equal(2_000);
-		expect(result?.commandPlan).to.deep.include({
-			register: 43,
-			valueW: 2_000,
-			reason: "apply-discharge-target",
-		});
-		expect(result?.commandPlan.evaluation).to.equal(result?.evaluation);
 	});
 
-	it("plans a safe stop outside the daylight window", () => {
+	it("publishes zero availability outside the daylight window", () => {
 		const result = plan(
 			snapshot(),
 			2_000,
@@ -78,10 +69,7 @@ describe("strategy day discharge cycle plan", () => {
 		expect(result?.evaluation.windowGate.reason).to.equal(
 			"before-daylight-window",
 		);
-		expect(result?.commandPlan).to.deep.include({
-			valueW: 0,
-			reason: "apply-safe-stop",
-		});
+		expect(result?.evaluation.windowGate.targetDischargePowerW).to.equal(0);
 	});
 
 	it("plans a safe stop for a forecast-based block", () => {
@@ -92,25 +80,7 @@ describe("strategy day discharge cycle plan", () => {
 		expect(result?.evaluation.decision.permission.reason).to.equal(
 			"forecast-stale",
 		);
-		expect(result?.commandPlan.valueW).to.equal(0);
-	});
-
-	it("preserves a valid command contract", () => {
-		const result = plan(
-			snapshot(),
-			2_000,
-			CREATED_AT - 1_000,
-			CREATED_AT + 1_000,
-			{
-				stateId: "modbus.2.command.43",
-				register: 43,
-				unit: "W",
-				access: "command",
-				confirmation: "transient-command",
-			},
-		);
-
-		expect(result?.commandPlan.stateId).to.equal("modbus.2.command.43");
+		expect(result?.evaluation.windowGate.targetDischargePowerW).to.equal(0);
 	});
 
 	it("fails closed when evaluation input is invalid", () => {
@@ -127,22 +97,6 @@ describe("strategy day discharge cycle plan", () => {
 			2_000,
 			CREATED_AT,
 			CREATED_AT,
-		)).to.equal(null);
-	});
-
-	it("fails closed for an unsuitable command contract", () => {
-		expect(plan(
-			snapshot(),
-			2_000,
-			CREATED_AT - 1_000,
-			CREATED_AT + 1_000,
-			{
-				stateId: "modbus.2.observation.43",
-				register: 43,
-				unit: "W",
-				access: "observation",
-				confirmation: "state-value",
-			},
 		)).to.equal(null);
 	});
 });

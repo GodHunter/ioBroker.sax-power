@@ -17,6 +17,9 @@ function validInput(): StrategyRuntimeConfigurationInput {
 		maximumForecastAgeMs: 60 * 60 * 1_000,
 		requestedDischargePowerW: 2_000,
 		intervalMs: 30_000,
+		chargingControlEnabled: true,
+		dayAvailabilityEnabled: true,
+		nightDischargeEnabled: false,
 	};
 }
 
@@ -68,10 +71,42 @@ describe("strategy runtime configuration", () => {
 		expect(result.configuration.maximumForecastAgeMs).to.equal(3_600_000);
 		expect(result.configuration.requestedDischargePowerW).to.equal(2_000);
 		expect(result.configuration.intervalMs).to.equal(30_000);
+		expect(result.configuration.modes).to.deep.equal({
+			chargingControlEnabled: true,
+			dayAvailabilityEnabled: true,
+			nightDischargeEnabled: false,
+		});
 		expect(Object.isFrozen(result)).to.equal(true);
 		expect(Object.isFrozen(result.configuration)).to.equal(true);
 		expect(Object.isFrozen(result.configuration.configuration)).to.equal(true);
 		expect(Object.isFrozen(result.issues)).to.equal(true);
+	});
+
+	it("rejects night discharge until its guarded execution exists", () => {
+		const result = validateStrategyRuntimeConfiguration({
+			...validInput(),
+			nightDischargeEnabled: true,
+		});
+
+		expect(result.valid).to.equal(false);
+		expect(result.issues).to.deep.include({
+			field: "nightDischargeEnabled",
+			reason: "unsupported-mode",
+		});
+	});
+
+	it("requires at least one implemented mode", () => {
+		const result = validateStrategyRuntimeConfiguration({
+			...validInput(),
+			chargingControlEnabled: false,
+			dayAvailabilityEnabled: false,
+		});
+
+		expect(result.valid).to.equal(false);
+		expect(result.issues).to.deep.include({
+			field: "enabled",
+			reason: "no-mode-enabled",
+		});
 	});
 
 	it("includes core strategy configuration issues when enabled", () => {

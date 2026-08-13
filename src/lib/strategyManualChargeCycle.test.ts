@@ -1,6 +1,6 @@
 import { expect } from "chai";
 import type { StrategyConfiguration } from "./strategyConfiguration";
-import type { StrategyCommandWriter } from "./strategyDayDischargeCommandExecutor";
+import type { StrategyCommandWriter } from "./strategyCommandWriter";
 import type { StrategyInputSnapshot } from "./strategyInputSnapshot";
 import { executeStrategyManualChargeCycle } from "./strategyManualChargeCycle";
 import {

@@ -1,4 +1,4 @@
-import type { StrategyCommandWriter } from "./strategyDayDischargeCommandExecutor";
+import type { StrategyCommandWriter } from "./strategyCommandWriter";
 import {
 	STRATEGY_INTEGRATION_CONTRACT,
 	type StrategyStateContract,

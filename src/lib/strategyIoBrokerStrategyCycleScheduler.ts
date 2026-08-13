@@ -9,6 +9,10 @@ import {
 	type StrategyIntegrationContract,
 } from "./strategyIntegrationContract";
 import type { StrategyStateResolverOptions } from "./strategyStateResolver";
+import {
+	DEFAULT_STRATEGY_MODES,
+	type StrategyModes,
+} from "./strategyModes";
 
 export interface StrategyIoBrokerStrategyTimerAdapter
 	extends StrategyIoBrokerStrategyCycleAdapter {
@@ -34,6 +38,7 @@ export function createStrategyIoBrokerStrategyCycleScheduler(
 	onError: (error: unknown) => void,
 	contract: StrategyIntegrationContract = STRATEGY_INTEGRATION_CONTRACT,
 	resolverOptions: StrategyStateResolverOptions = {},
+	modes: StrategyModes = DEFAULT_STRATEGY_MODES,
 ): StrategyIoBrokerStrategyCycleScheduler | null {
 	if (!Number.isFinite(intervalMs) || intervalMs <= 0) return null;
 
@@ -68,6 +73,7 @@ export function createStrategyIoBrokerStrategyCycleScheduler(
 				requestedDischargePowerW,
 				contract,
 				resolverOptions,
+				modes,
 			);
 		} finally {
 			running = false;

@@ -14,6 +14,10 @@ import {
 	type StrategyIntegrationContract,
 } from "./strategyIntegrationContract";
 import type { StrategyStateResolverOptions } from "./strategyStateResolver";
+import {
+	DEFAULT_STRATEGY_MODES,
+	type StrategyModes,
+} from "./strategyModes";
 
 export interface StrategyIoBrokerStrategyCycleAdapter
 	extends StrategyIoBrokerDaylightCycleAdapter,
@@ -21,7 +25,7 @@ export interface StrategyIoBrokerStrategyCycleAdapter
 
 export interface StrategyIoBrokerStrategyCycle {
 	readonly createdAt: number;
-	readonly manualCharge: StrategyManualChargeCycle;
+	readonly manualCharge: StrategyManualChargeCycle | null;
 	readonly automatic: StrategyDaylightWindowCycleExecution | null;
 }
 
@@ -32,19 +36,30 @@ export async function executeStrategyIoBrokerStrategyCycle(
 	requestedDischargePowerW: number,
 	contract: StrategyIntegrationContract = STRATEGY_INTEGRATION_CONTRACT,
 	resolverOptions: StrategyStateResolverOptions = {},
+	modes: StrategyModes = DEFAULT_STRATEGY_MODES,
 ): Promise<StrategyIoBrokerStrategyCycle | null> {
-	const manualCharge = await executeStrategyIoBrokerManualChargeCycle(
-		adapter,
-		configuration,
-		contract,
-		resolverOptions,
-	);
+	const manualCharge = modes.chargingControlEnabled
+		? await executeStrategyIoBrokerManualChargeCycle(
+			adapter,
+			configuration,
+			contract,
+			resolverOptions,
+		)
+		: null;
 
-	if (manualCharge === null) return null;
+	if (modes.chargingControlEnabled && manualCharge === null) return null;
 
-	if (!manualCharge.control.automaticStrategyAllowed) {
+	if (manualCharge !== null && !manualCharge.control.automaticStrategyAllowed) {
 		return Object.freeze({
 			createdAt: manualCharge.createdAt,
+			manualCharge,
+			automatic: null,
+		});
+	}
+
+	if (!modes.dayAvailabilityEnabled) {
+		return Object.freeze({
+			createdAt: manualCharge?.createdAt ?? resolverOptions.now ?? Date.now(),
 			manualCharge,
 			automatic: null,
 		});
@@ -59,12 +74,15 @@ export async function executeStrategyIoBrokerStrategyCycle(
 		resolverOptions,
 	);
 
-	if (automatic === null || automatic.createdAt !== manualCharge.createdAt) {
+	if (
+		automatic === null
+		|| (manualCharge !== null && automatic.createdAt !== manualCharge.createdAt)
+	) {
 		return null;
 	}
 
 	return Object.freeze({
-		createdAt: manualCharge.createdAt,
+		createdAt: automatic.createdAt,
 		manualCharge,
 		automatic,
 	});

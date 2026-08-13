@@ -48,6 +48,7 @@ import {
 	discoverModbusInstances,
 	discoverModbusStates,
 } from "./lib/modbusDiscovery";
+import { discoverStrategyCapabilities } from "./lib/strategyCapabilities";
 
 import {
 	SAX_POWER_API_URL,
@@ -307,6 +308,7 @@ new SaxPowerStateEngine(this);
 				this.strategyAdapter(),
 				binding.configuration.maximumForecastAgeMs,
 				contract,
+				binding.configuration.modes,
 			);
 		} catch (error) {
 			this.logStrategyError("readiness check", error);
@@ -756,6 +758,38 @@ error.statusCode !== undefined
 					`Unable to discover Modbus instances: ${this.formatError(error)}`,
 				);
 				this.sendTo(message.from, message.command, [], message.callback);
+			}
+			return;
+		}
+
+		if (message.command === "getStrategyCapabilities") {
+			const payload = typeof message.message === "object"
+				&& message.message !== null
+				? message.message as { instance?: unknown }
+				: {};
+			const instance = typeof payload.instance === "string"
+				? payload.instance
+				: "";
+			if (!/^modbus\.\d+$/.test(instance)) {
+				this.sendTo(message.from, message.command, null, message.callback);
+				return;
+			}
+			try {
+				const objects = await this.getForeignObjectsAsync(
+					`${instance}.*`,
+					"state",
+				);
+				this.sendTo(
+					message.from,
+					message.command,
+					discoverStrategyCapabilities(instance, objects) ?? null,
+					message.callback,
+				);
+			} catch (error) {
+				this.log.warn(
+					`Unable to discover strategy capabilities: ${this.formatError(error)}`,
+				);
+				this.sendTo(message.from, message.command, null, message.callback);
 			}
 			return;
 		}

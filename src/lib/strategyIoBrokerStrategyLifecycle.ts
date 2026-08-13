@@ -15,6 +15,10 @@ import {
 	ensureStrategyDayDischargeAvailabilityStates,
 } from "./strategyDayDischargeAvailabilityStates";
 import type { StrategyStateResolverOptions } from "./strategyStateResolver";
+import {
+	DEFAULT_STRATEGY_MODES,
+	type StrategyModes,
+} from "./strategyModes";
 
 export interface StrategyIoBrokerStrategyLifecycle {
 	readonly start: () => Promise<void>;
@@ -30,6 +34,7 @@ export function createStrategyIoBrokerStrategyLifecycle(
 	onError: (error: unknown) => void,
 	contract: StrategyIntegrationContract = STRATEGY_INTEGRATION_CONTRACT,
 	resolverOptions: StrategyStateResolverOptions = {},
+	modes: StrategyModes = DEFAULT_STRATEGY_MODES,
 ): StrategyIoBrokerStrategyLifecycle | null {
 	const scheduler: StrategyIoBrokerStrategyCycleScheduler | null =
 		createStrategyIoBrokerStrategyCycleScheduler(
@@ -41,6 +46,7 @@ export function createStrategyIoBrokerStrategyLifecycle(
 			onError,
 			contract,
 			resolverOptions,
+			modes,
 		);
 
 	if (scheduler === null) return null;
@@ -55,10 +61,12 @@ export function createStrategyIoBrokerStrategyLifecycle(
 
 		startPromise = (async () => {
 			try {
-				await Promise.all([
-					ensureStrategyManualChargeIoBrokerStates(adapter),
-					ensureStrategyDayDischargeAvailabilityStates(adapter),
-				]);
+				if (modes.chargingControlEnabled) {
+					await ensureStrategyManualChargeIoBrokerStates(adapter);
+				}
+				if (modes.dayAvailabilityEnabled) {
+					await ensureStrategyDayDischargeAvailabilityStates(adapter);
+				}
 				if (requested) scheduler.start();
 			} catch (error) {
 				requested = false;

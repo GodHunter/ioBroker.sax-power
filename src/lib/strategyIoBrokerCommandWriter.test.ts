@@ -24,7 +24,7 @@ function recordingAdapter(calls: ForeignStateCall[]): StrategyForeignStateAdapte
 }
 
 describe("strategy ioBroker command writer", () => {
-	it("forwards a positive discharge command unchanged", async () => {
+	it("forwards a positive Modbus command unchanged", async () => {
 		const calls: ForeignStateCall[] = [];
 		const writer = createStrategyIoBrokerCommandWriter(
 			recordingAdapter(calls),
