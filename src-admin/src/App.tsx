@@ -11,12 +11,14 @@ CardContent,
 Chip,
 CircularProgress,
 Divider,
+FormControlLabel,
 Grid,
 IconButton,
 InputAdornment,
 Link,
 MenuItem,
 Stack,
+Switch,
 Tab,
 Tabs,
 TextField,
@@ -542,6 +544,7 @@ SaxPowerNativeConfig = {
 ...currentNative,
 [key]: value,
 };
+const strategyError = this.strategyConfigurationError(nextNative);
 
 this.setState({
 native:
@@ -553,10 +556,26 @@ this.getIsChanged(
 nextNative as unknown as
 Record<string, unknown>,
 ),
+
+isConfigurationError: strategyError,
 } as unknown as Pick<
 SaxPowerAdminState,
-"native" | "changed"
+"native" | "changed" | "isConfigurationError"
 >);
+}
+
+private strategyConfigurationError(
+native: SaxPowerNativeConfig | Record<string, unknown>,
+): string {
+const validation = validateStrategyRuntimeConfiguration(
+strategyRuntimeConfigurationFromNative(native),
+);
+
+return validation.valid
+? ""
+: `Strategie-Konfiguration unvollständig: ${validation.issues
+.map(issue => `${issue.field}:${issue.reason}`)
+.join(", ")}`;
 }
 
 private updateBatteryModel(serialNumber: string, model: string): void {
@@ -567,17 +586,22 @@ this.updateNativeField("batteryModels", {
 });
 }
 
-public override onPrepareSave(settings: Record<string, unknown>): boolean {
-const validation = validateStrategyRuntimeConfiguration(
-strategyRuntimeConfigurationFromNative(settings),
+private updateOptionalNumberField(
+key: keyof SaxPowerNativeConfig,
+rawValue: string,
+multiplier = 1,
+): void {
+this.updateNativeField(
+key,
+(rawValue === "" ? undefined : Number(rawValue) * multiplier) as never,
 );
+}
 
-if (!validation.valid) {
-this.setConfigurationError(
-`Strategie-Konfiguration unvollständig: ${validation.issues
-.map(issue => `${issue.field}:${issue.reason}`)
-.join(", ")}`,
-);
+public override onPrepareSave(settings: Record<string, unknown>): boolean {
+const strategyError = this.strategyConfigurationError(settings);
+
+if (strategyError) {
+this.setConfigurationError(strategyError);
 return false;
 }
 
@@ -1537,6 +1561,20 @@ return (
 
 private renderSettingsTab(native: SaxPowerNativeConfig): React.JSX.Element {
 const batteries = this.state.runtimeStatus.batteries;
+const strategyValidation = validateStrategyRuntimeConfiguration(
+strategyRuntimeConfigurationFromNative(native),
+);
+const strategyIssues = strategyValidation.valid
+? []
+: strategyValidation.issues;
+const hasStrategyIssue = (field: string): boolean =>
+strategyIssues.some(issue => issue.field === field);
+const strategyNumber = (
+value: unknown,
+divisor = 1,
+): number | "" => typeof value === "number" && Number.isFinite(value)
+? value / divisor
+: "";
 
 return (
 <Stack spacing={2}>
@@ -1561,6 +1599,151 @@ input: { endAdornment: <InputAdornment position="end">Sekunden</InputAdornment> 
 htmlInput: { min: 60, step: 10 },
 }}
 />
+</CardContent>
+</Card>
+
+<Card elevation={0} sx={{ border: 1, borderColor: "divider", borderRadius: 3 }}>
+<CardContent>
+<Stack direction="row" spacing={1} sx={{ alignItems: "center", marginBottom: 1 }}>
+<EnergySavingsLeaf color="primary" />
+<Typography variant="h6" sx={{ fontWeight: 700 }}>Speicherstrategie</Typography>
+</Stack>
+<Typography variant="body2" sx={{ color: "text.secondary", marginBottom: 2 }}>
+Steuert die automatische Tagesentladung und den manuellen Ladeleistungsmodus. Die Strategie bleibt ausgeschaltet, bis alle Werte vollständig konfiguriert und gespeichert wurden.
+</Typography>
+<FormControlLabel
+control={(
+<Switch
+checked={native.strategyEnabled === true}
+onChange={(event) => this.updateNativeField("strategyEnabled", event.target.checked)}
+/>
+)}
+label="Speicherstrategie aktivieren"
+/>
+{native.strategyEnabled === true ? (
+<Stack spacing={2} sx={{ marginTop: 2 }}>
+<Alert severity={strategyValidation.valid ? "success" : "warning"}>
+{strategyValidation.valid
+? "Die Strategie-Konfiguration ist vollständig und kann gespeichert werden."
+: "Bitte alle markierten Pflichtfelder vollständig und gültig ausfüllen."}
+</Alert>
+<TextField
+select
+fullWidth
+label="Batteriemodell"
+value={typeof native.strategyBatteryModelId === "string" ? native.strategyBatteryModelId : ""}
+onChange={(event) => this.updateNativeField("strategyBatteryModelId", event.target.value || undefined)}
+error={hasStrategyIssue("batteryModelId")}
+helperText="Technische Leistungs- und Kapazitätsgrenzen des Speichers"
+>
+<MenuItem value=""><em>Bitte Modell auswählen</em></MenuItem>
+<MenuItem value="home-5.8">SAX Power Home 5,8 kWh</MenuItem>
+<MenuItem value="home-plus-7.7">SAX Power Home Plus 7,7 kWh</MenuItem>
+</TextField>
+<Grid container spacing={2}>
+{[
+{
+key: "strategyMinimumStateOfChargePercent" as const,
+field: "minimumStateOfChargePercent",
+label: "Minimaler SOC",
+unit: "%",
+min: 0,
+max: 100,
+},
+{
+key: "strategyMaximumStateOfChargePercent" as const,
+field: "maximumStateOfChargePercent",
+label: "Maximaler SOC",
+unit: "%",
+min: 0,
+max: 100,
+},
+{
+key: "strategyMaximumChargePowerW" as const,
+field: "maximumChargePowerW",
+label: "Maximale Ladeleistung",
+unit: "W",
+min: 0,
+},
+{
+key: "strategyMaximumDischargePowerW" as const,
+field: "maximumDischargePowerW",
+label: "Maximale Entladeleistung",
+unit: "W",
+min: 0,
+},
+{
+key: "strategyPvForecastReserveWh" as const,
+field: "pvForecastReserveWh",
+label: "PV-Prognosereserve",
+unit: "Wh",
+min: 0,
+},
+{
+key: "strategyRequestedDischargePowerW" as const,
+field: "requestedDischargePowerW",
+label: "Entladeleistungsziel Tag",
+unit: "W",
+min: 0,
+},
+].map(item => (
+<Grid key={item.key} size={{ xs: 12, md: 6 }}>
+<TextField
+fullWidth
+required
+type="number"
+label={item.label}
+value={strategyNumber(native[item.key])}
+onChange={(event) => this.updateOptionalNumberField(item.key, event.target.value)}
+error={hasStrategyIssue(item.field)}
+slotProps={{
+input: { endAdornment: <InputAdornment position="end">{item.unit}</InputAdornment> },
+htmlInput: { min: item.min, max: item.max, step: 1 },
+}}
+/>
+</Grid>
+))}
+<Grid size={{ xs: 12, md: 6 }}>
+<TextField
+fullWidth
+required
+type="number"
+label="Maximales Prognosealter"
+value={strategyNumber(native.strategyMaximumForecastAgeMs, 60_000)}
+onChange={(event) => this.updateOptionalNumberField(
+"strategyMaximumForecastAgeMs", event.target.value, 60_000,
+)}
+error={hasStrategyIssue("maximumForecastAgeMs")}
+slotProps={{
+input: { endAdornment: <InputAdornment position="end">Minuten</InputAdornment> },
+htmlInput: { min: 0, step: 1 },
+}}
+/>
+</Grid>
+<Grid size={{ xs: 12, md: 6 }}>
+<TextField
+fullWidth
+required
+type="number"
+label="Strategieintervall"
+value={strategyNumber(native.strategyIntervalMs, 1_000)}
+onChange={(event) => this.updateOptionalNumberField(
+"strategyIntervalMs", event.target.value, 1_000,
+)}
+error={hasStrategyIssue("intervalMs")}
+slotProps={{
+input: { endAdornment: <InputAdornment position="end">Sekunden</InputAdornment> },
+htmlInput: { min: 1, step: 1 },
+}}
+/>
+</Grid>
+</Grid>
+</Stack>
+) : (
+<Alert severity="info" sx={{ marginTop: 2 }}>
+Im deaktivierten Zustand werden keine Strategieobjekte angelegt, keine Timer gestartet und keine Modbus-Register beschrieben.
+</Alert>
+)}
 </CardContent>
 </Card>
 
