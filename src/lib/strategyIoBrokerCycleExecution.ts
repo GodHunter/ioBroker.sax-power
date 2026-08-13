@@ -13,9 +13,14 @@ import {
 	type StrategyIoBrokerRuntimeAdapter,
 } from "./strategyIoBrokerRuntime";
 import type { StrategyStateResolverOptions } from "./strategyStateResolver";
+import type { StrategyDayDischargeAvailabilityAdapter } from "./strategyDayDischargeAvailabilityStates";
+
+export interface StrategyIoBrokerDayDischargeCycleAdapter
+	extends StrategyIoBrokerRuntimeAdapter,
+		StrategyDayDischargeAvailabilityAdapter {}
 
 export async function executeStrategyIoBrokerDayDischargeCycle(
-	adapter: StrategyIoBrokerRuntimeAdapter,
+	adapter: StrategyIoBrokerDayDischargeCycleAdapter,
 	daylightWindowProvider: StrategyDaylightWindowProvider,
 	configuration: StrategyConfiguration,
 	maximumForecastAgeMs: number,
@@ -28,7 +33,7 @@ export async function executeStrategyIoBrokerDayDischargeCycle(
 	return executeStrategyDayDischargeCycleWithDaylightWindow(
 		runtime.reader,
 		daylightWindowProvider,
-		runtime.writer,
+		adapter,
 		configuration,
 		maximumForecastAgeMs,
 		requestedDischargePowerW,

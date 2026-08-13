@@ -67,6 +67,20 @@ describe("strategy ioBroker readiness", () => {
 			.to.equal(`${stateId}:object-missing`);
 	});
 
+	it("accepts charging and daytime availability without register 43", async () => {
+		const result = await assessStrategyIoBrokerReadiness(
+			readerWith(
+				STRATEGY_INTEGRATION_CONTRACT.modbus.dischargePowerCommand.stateId,
+			),
+			3_600_000,
+		);
+
+		expect(result).to.deep.equal({
+			ready: true,
+			unavailableInputs: [],
+		});
+	});
+
 	it("uses the configured maximum forecast age", async () => {
 		const reader = readerWith();
 		const original = reader.getForeignStateAsync.bind(reader);

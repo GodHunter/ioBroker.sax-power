@@ -11,6 +11,9 @@ import {
 import {
 	ensureStrategyManualChargeIoBrokerStates,
 } from "./strategyManualChargeStates";
+import {
+	ensureStrategyDayDischargeAvailabilityStates,
+} from "./strategyDayDischargeAvailabilityStates";
 import type { StrategyStateResolverOptions } from "./strategyStateResolver";
 
 export interface StrategyIoBrokerStrategyLifecycle {
@@ -52,7 +55,10 @@ export function createStrategyIoBrokerStrategyLifecycle(
 
 		startPromise = (async () => {
 			try {
-				await ensureStrategyManualChargeIoBrokerStates(adapter);
+				await Promise.all([
+					ensureStrategyManualChargeIoBrokerStates(adapter),
+					ensureStrategyDayDischargeAvailabilityStates(adapter),
+				]);
 				if (requested) scheduler.start();
 			} catch (error) {
 				requested = false;

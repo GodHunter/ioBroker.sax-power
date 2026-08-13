@@ -259,12 +259,19 @@ export async function resolveStrategyStates(
 		lastUpdated,
 	};
 
+	const requiredModbusStates = [
+		chargePowerCommand,
+		operatingState,
+		stateOfCharge,
+		batteryPower,
+		smartMeterPower,
+	];
 	const requiredStates = [
-		...Object.values(modbus),
+		...requiredModbusStates,
 		...Object.values(pvForecast),
 	];
 
-	const modbusReady = Object.values(modbus).every(
+	const modbusReady = requiredModbusStates.every(
 		({ available: stateAvailable }) => stateAvailable,
 	);
 	const pvForecastReady = Object.values(pvForecast).every(

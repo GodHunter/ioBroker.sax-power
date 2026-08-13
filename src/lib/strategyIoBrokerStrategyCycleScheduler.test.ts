@@ -56,7 +56,9 @@ function recordingAdapter(manualEnabled = false) {
 				? state(manualEnabled)
 				: state(1_800);
 		},
-		async setStateAsync() {},
+		async setStateAsync(id, value) {
+			writes.push({ id, value: value.val });
+		},
 		async getForeignObjectAsync(id) {
 			return {
 				_id: id,
@@ -128,10 +130,13 @@ describe("strategy ioBroker operating-mode cycle scheduler", () => {
 		instance?.start();
 		await run.timers[0]?.callback();
 
-		expect(run.writes).to.deep.equal([{
-			id: STRATEGY_INTEGRATION_CONTRACT.modbus.dischargePowerCommand.stateId,
+		expect(run.writes).to.deep.include({
+			id: "strategy.dayDischarge.availablePowerW",
 			value: 2_000,
-		}]);
+		});
+		expect(run.writes.some(({ id }) => id ===
+			STRATEGY_INTEGRATION_CONTRACT.modbus.dischargePowerCommand.stateId,
+		)).to.equal(false);
 		expect(run.timers).to.have.length(2);
 	});
 

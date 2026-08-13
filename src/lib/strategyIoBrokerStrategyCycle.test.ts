@@ -50,7 +50,9 @@ function runtime(manualEnabled: boolean, validSoc = true) {
 				? state(manualEnabled)
 				: state(1_800);
 		},
-		async setStateAsync() {},
+		async setStateAsync(id, value) {
+			writes.push({ id, value: value.val });
+		},
 		async getForeignObjectAsync(id) {
 			return {
 				_id: id,
@@ -103,10 +105,13 @@ describe("strategy ioBroker operating-mode cycle", () => {
 		expect(result?.manualCharge.control.operatingMode).to.equal("automatic");
 		expect(result?.automatic).not.to.equal(null);
 		expect(run.astroCalls()).to.equal(2);
-		expect(run.writes).to.deep.equal([{
-			id: STRATEGY_INTEGRATION_CONTRACT.modbus.dischargePowerCommand.stateId,
+		expect(run.writes).to.deep.include({
+			id: "strategy.dayDischarge.availablePowerW",
 			value: 2_000,
-		}]);
+		});
+		expect(run.writes.some(({ id }) => id ===
+			STRATEGY_INTEGRATION_CONTRACT.modbus.dischargePowerCommand.stateId,
+		)).to.equal(false);
 	});
 
 	it("fails closed before automatic execution when manual inputs are unsafe", async () => {

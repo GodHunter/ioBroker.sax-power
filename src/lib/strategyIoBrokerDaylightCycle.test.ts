@@ -78,11 +78,15 @@ function adapter(
 		async setForeignStateAsync(stateId, value, acknowledged) {
 			writes.push([stateId, value, acknowledged]);
 		},
+		async extendObjectAsync() {},
+		async setStateAsync(stateId, value) {
+			writes.push([stateId, value.val, value.ack]);
+		},
 	};
 }
 
 describe("strategy ioBroker daylight cycle runtime execution", () => {
-	it("uses one adapter for astro data, state reads, and one command write", async () => {
+	it("uses one adapter for astro data, state reads, and availability output", async () => {
 		const writes: Array<readonly unknown[]> = [];
 		const astroCalls: Array<readonly unknown[]> = [];
 
@@ -100,11 +104,12 @@ describe("strategy ioBroker daylight cycle runtime execution", () => {
 			["sunrise", NOW, undefined],
 			["sunset", NOW, undefined],
 		]);
-		expect(writes).to.deep.equal([[
+		expect(writes).to.deep.include([
+			"strategy.dayDischarge.availablePowerW", 2_000, true,
+		]);
+		expect(writes.some(([id]) => id ===
 			STRATEGY_INTEGRATION_CONTRACT.modbus.dischargePowerCommand.stateId,
-			2_000,
-			false,
-		]]);
+		)).to.equal(false);
 	});
 
 	it("fails closed without writing when astro boundaries are invalid", async () => {
@@ -173,10 +178,10 @@ describe("strategy ioBroker daylight cycle runtime execution", () => {
 		expect(actualError).to.equal(expectedError);
 	});
 
-	it("propagates command writer failures unchanged", async () => {
+	it("propagates status writer failures unchanged", async () => {
 		const expectedError = new Error("ioBroker write failed");
 		const failingAdapter = adapter([], []);
-		failingAdapter.setForeignStateAsync = async () => {
+		failingAdapter.setStateAsync = async () => {
 			throw expectedError;
 		};
 		let actualError: unknown;

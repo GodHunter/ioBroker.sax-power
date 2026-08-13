@@ -1,6 +1,6 @@
 import { expect } from "chai";
 import type { StrategyConfiguration } from "./strategyConfiguration";
-import type { StrategyCommandWriter } from "./strategyDayDischargeCommandExecutor";
+import type { StrategyDayDischargeAvailabilityAdapter } from "./strategyDayDischargeAvailabilityStates";
 import { executeStrategyDayDischargeCycleWithDaylightWindow } from "./strategyDaylightWindowCycleExecution";
 import type { StrategyDaylightWindowProvider } from "./strategyDaylightWindowCyclePreparation";
 import { STRATEGY_INTEGRATION_CONTRACT } from "./strategyIntegrationContract";
@@ -71,29 +71,26 @@ function provider(
 	};
 }
 
-function writer() {
-	const writes: Array<{
-		stateId: string;
-		value: number;
-		acknowledged: false;
-	}> = [];
-	const commandWriter: StrategyCommandWriter = {
-		async setForeignState(stateId, value, acknowledged) {
-			writes.push({ stateId, value, acknowledged });
+function statusAdapter() {
+	const states: Array<readonly unknown[]> = [];
+	const adapter: StrategyDayDischargeAvailabilityAdapter = {
+		async extendObjectAsync() {},
+		async setStateAsync(stateId, value) {
+			states.push([stateId, value.val, value.ack]);
 		},
 	};
 
-	return { commandWriter, writes };
+	return { adapter, states };
 }
 
 function execute(
 	daylightWindowProvider: StrategyDaylightWindowProvider = provider(),
-	commandWriter: StrategyCommandWriter = writer().commandWriter,
+	adapter: StrategyDayDischargeAvailabilityAdapter = statusAdapter().adapter,
 ) {
 	return executeStrategyDayDischargeCycleWithDaylightWindow(
 		reader(),
 		daylightWindowProvider,
-		commandWriter,
+		adapter,
 		CONFIGURATION,
 		60_000,
 		2_000,
@@ -103,50 +100,46 @@ function execute(
 }
 
 describe("strategy daylight window cycle execution", () => {
-	it("executes one validated discharge command for an allowed cycle", async () => {
-		const { commandWriter, writes } = writer();
-		const result = await execute(provider(), commandWriter);
+	it("publishes available day power without a Modbus discharge write", async () => {
+		const { adapter, states } = statusAdapter();
+		const result = await execute(provider(), adapter);
 
-		expect(writes).to.deep.equal([{
-			stateId:
-				"modbus.1.holdingRegisters.43_Leistungsgrenzwert_für_Entladung",
-			value: 2_000,
-			acknowledged: false,
-		}]);
+		expect(states).to.deep.include([
+			"strategy.dayDischarge.availablePowerW", 2_000, true,
+		]);
 		expect(result?.createdAt).to.equal(NOW);
-		expect(result?.commandExecution.valueW).to.equal(2_000);
-		expect(result?.commandExecution.commandPlan).to.equal(
-			result?.preparation.cyclePreparation.cyclePlan.commandPlan,
-		);
+		expect(result?.availability.allowed).to.equal(true);
+		expect(result?.availability.availablePowerW).to.equal(2_000);
 	});
 
-	it("executes one explicit safe stop outside the daylight window", async () => {
-		const { commandWriter, writes } = writer();
+	it("publishes zero availability outside the daylight window", async () => {
+		const { adapter, states } = statusAdapter();
 		const result = await execute(
 			provider(NOW + 1, NOW + 2_000),
-			commandWriter,
+			adapter,
 		);
 
-		expect(writes).to.have.length(1);
-		expect(writes[0]?.value).to.equal(0);
-		expect(result?.commandExecution.reason).to.equal("apply-safe-stop");
+		expect(states).to.deep.include([
+			"strategy.dayDischarge.availablePowerW", 0, true,
+		]);
+		expect(result?.availability.reason).to.equal("before-daylight-window");
 	});
 
 	it("fails closed without writing when cycle preparation is unavailable", async () => {
-		const { commandWriter, writes } = writer();
+		const { adapter, states } = statusAdapter();
 		const result = await execute({
 			async getDaylightWindow() {
 				return null;
 			},
-		}, commandWriter);
+		}, adapter);
 
 		expect(result).to.equal(null);
-		expect(writes).to.deep.equal([]);
+		expect(states).to.deep.equal([]);
 	});
 
 	it("propagates technical daylight provider failures without writing", async () => {
 		const expectedError = new Error("daylight provider failed");
-		const { commandWriter, writes } = writer();
+		const { adapter, states } = statusAdapter();
 		let actualError: unknown;
 
 		try {
@@ -154,18 +147,18 @@ describe("strategy daylight window cycle execution", () => {
 				async getDaylightWindow() {
 					throw expectedError;
 				},
-			}, commandWriter);
+			}, adapter);
 		} catch (error) {
 			actualError = error;
 		}
 
 		expect(actualError).to.equal(expectedError);
-		expect(writes).to.deep.equal([]);
+		expect(states).to.deep.equal([]);
 	});
 
 	it("propagates technical reader failures without writing", async () => {
 		const expectedError = new Error("state reader failed");
-		const { commandWriter, writes } = writer();
+		const { adapter, states } = statusAdapter();
 		let actualError: unknown;
 
 		try {
@@ -179,7 +172,7 @@ describe("strategy daylight window cycle execution", () => {
 					},
 				},
 				provider(),
-				commandWriter,
+				adapter,
 				CONFIGURATION,
 				60_000,
 				2_000,
@@ -191,16 +184,17 @@ describe("strategy daylight window cycle execution", () => {
 		}
 
 		expect(actualError).to.equal(expectedError);
-		expect(writes).to.deep.equal([]);
+		expect(states).to.deep.equal([]);
 	});
 
-	it("propagates technical writer failures", async () => {
-		const expectedError = new Error("modbus write failed");
+	it("propagates technical status publishing failures", async () => {
+		const expectedError = new Error("status write failed");
 		let actualError: unknown;
 
 		try {
 			await execute(provider(), {
-				async setForeignState() {
+				async extendObjectAsync() {},
+				async setStateAsync() {
 					throw expectedError;
 				},
 			});

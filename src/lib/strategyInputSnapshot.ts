@@ -46,8 +46,6 @@ export function createStrategyInputSnapshot(
 		|| !resolution.pvForecastReady
 		|| !resolution.strategyInputsReady
 		|| resolution.unavailableStateIds.length > 0
-		|| !resolution.modbus.dischargePowerCommand.available
-		|| resolution.modbus.dischargePowerCommand.reason !== null
 		|| !resolution.modbus.chargePowerCommand.available
 		|| resolution.modbus.chargePowerCommand.reason !== null
 	) {

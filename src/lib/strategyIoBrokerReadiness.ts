@@ -29,7 +29,11 @@ export async function assessStrategyIoBrokerReadiness(
 		{ maximumTimestampAgeMs: maximumForecastAgeMs },
 	);
 	const resolvedStates = [
-		...Object.values(resolution.modbus),
+		resolution.modbus.chargePowerCommand,
+		resolution.modbus.operatingState,
+		resolution.modbus.stateOfCharge,
+		resolution.modbus.batteryPower,
+		resolution.modbus.smartMeterPower,
 		...Object.values(resolution.pvForecast),
 	];
 	const unavailableInputs = resolvedStates

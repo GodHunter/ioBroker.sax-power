@@ -84,6 +84,10 @@ function recordingAdapter(): AdapterRecording {
 		async setForeignStateAsync(stateId, value, acknowledged) {
 			writes.push([stateId, value, acknowledged]);
 		},
+		async extendObjectAsync() {},
+		async setStateAsync(stateId, value) {
+			writes.push([stateId, value.val, value.ack]);
+		},
 		setTimeout(callback, delay) {
 			const handle = nextHandle++ as unknown as ioBroker.Timeout;
 			timers.push({ callback, delay, handle });
@@ -148,11 +152,12 @@ describe("strategy ioBroker daylight cycle scheduler", () => {
 
 		await recording.timers[0]?.callback();
 
-		expect(recording.writes).to.deep.equal([[
+		expect(recording.writes).to.deep.include([
+			"strategy.dayDischarge.availablePowerW", 2_000, true,
+		]);
+		expect(recording.writes.some(([id]) => id ===
 			STRATEGY_INTEGRATION_CONTRACT.modbus.dischargePowerCommand.stateId,
-			2_000,
-			false,
-		]]);
+		)).to.equal(false);
 		expect(recording.timers).to.have.length(2);
 	});
 

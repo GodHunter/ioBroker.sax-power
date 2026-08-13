@@ -8,6 +8,7 @@ import {
 	type StrategyIoBrokerAstroAdapter,
 } from "./strategyIoBrokerDaylightWindow";
 import type { StrategyIoBrokerRuntimeAdapter } from "./strategyIoBrokerRuntime";
+import type { StrategyDayDischargeAvailabilityAdapter } from "./strategyDayDischargeAvailabilityStates";
 import {
 	STRATEGY_INTEGRATION_CONTRACT,
 	type StrategyIntegrationContract,
@@ -15,7 +16,9 @@ import {
 import type { StrategyStateResolverOptions } from "./strategyStateResolver";
 
 export interface StrategyIoBrokerDaylightCycleAdapter
-	extends StrategyIoBrokerRuntimeAdapter, StrategyIoBrokerAstroAdapter {}
+	extends StrategyIoBrokerRuntimeAdapter,
+		StrategyIoBrokerAstroAdapter,
+		StrategyDayDischargeAvailabilityAdapter {}
 
 export async function executeStrategyIoBrokerDaylightCycle(
 	adapter: StrategyIoBrokerDaylightCycleAdapter,

@@ -4,8 +4,8 @@ import type { StrategyDaylightWindowProvider } from "./strategyDaylightWindowCyc
 import { STRATEGY_INTEGRATION_CONTRACT } from "./strategyIntegrationContract";
 import {
 	executeStrategyIoBrokerDayDischargeCycle,
+	type StrategyIoBrokerDayDischargeCycleAdapter,
 } from "./strategyIoBrokerCycleExecution";
-import type { StrategyIoBrokerRuntimeAdapter } from "./strategyIoBrokerRuntime";
 
 const NOW = Date.UTC(2026, 5, 21, 12);
 const MAXIMUM_FORECAST_AGE_MS = 60 * 60 * 1_000;
@@ -63,7 +63,7 @@ function provider(active = true): StrategyDaylightWindowProvider {
 
 function adapter(
 	writes: Array<readonly unknown[]>,
-): StrategyIoBrokerRuntimeAdapter {
+): StrategyIoBrokerDayDischargeCycleAdapter {
 	const values = new Map<string, ioBroker.State>([
 		[STRATEGY_INTEGRATION_CONTRACT.modbus.dischargePowerCommand.stateId, state(0)],
 		[STRATEGY_INTEGRATION_CONTRACT.modbus.chargePowerCommand.stateId, state(0)],
@@ -90,11 +90,15 @@ function adapter(
 		async setForeignStateAsync(stateId, value, acknowledged) {
 			writes.push([stateId, value, acknowledged]);
 		},
+		async extendObjectAsync() {},
+		async setStateAsync(stateId, value) {
+			writes.push([stateId, value.val, value.ack]);
+		},
 	};
 }
 
 describe("strategy ioBroker daylight window cycle execution", () => {
-	it("executes one discharge command through one adapter boundary", async () => {
+	it("publishes day discharge availability through one adapter boundary", async () => {
 		const writes: Array<readonly unknown[]> = [];
 
 		const result = await executeStrategyIoBrokerDayDischargeCycle(
@@ -108,14 +112,15 @@ describe("strategy ioBroker daylight window cycle execution", () => {
 		);
 
 		expect(result?.createdAt).to.equal(NOW);
-		expect(writes).to.deep.equal([[
+		expect(writes).to.deep.include([
+			"strategy.dayDischarge.availablePowerW", 2_000, true,
+		]);
+		expect(writes.some(([id]) => id ===
 			STRATEGY_INTEGRATION_CONTRACT.modbus.dischargePowerCommand.stateId,
-			2_000,
-			false,
-		]]);
+		)).to.equal(false);
 	});
 
-	it("writes a safe zero target outside the daylight window", async () => {
+	it("publishes zero availability outside the daylight window", async () => {
 		const writes: Array<readonly unknown[]> = [];
 
 		const result = await executeStrategyIoBrokerDayDischargeCycle(
@@ -128,8 +133,10 @@ describe("strategy ioBroker daylight window cycle execution", () => {
 			{ now: NOW },
 		);
 
-		expect(result?.commandExecution.valueW).to.equal(0);
-		expect(writes[0]?.[1]).to.equal(0);
+		expect(result?.availability.availablePowerW).to.equal(0);
+		expect(writes).to.deep.include([
+			"strategy.dayDischarge.availablePowerW", 0, true,
+		]);
 	});
 
 	it("does not write when cycle preparation fails closed", async () => {
@@ -176,10 +183,10 @@ describe("strategy ioBroker daylight window cycle execution", () => {
 		expect(actualError).to.equal(expectedError);
 	});
 
-	it("propagates writer failures unchanged", async () => {
+	it("propagates status writer failures unchanged", async () => {
 		const expectedError = new Error("ioBroker write failed");
 		const failingAdapter = adapter([]);
-		failingAdapter.setForeignStateAsync = async () => {
+		failingAdapter.setStateAsync = async () => {
 			throw expectedError;
 		};
 		let actualError: unknown;

@@ -1,9 +1,10 @@
 import type { StrategyConfiguration } from "./strategyConfiguration";
 import {
-	executeStrategyDayDischargeCommand,
-	type StrategyCommandWriter,
-	type StrategyDayDischargeCommandExecution,
-} from "./strategyDayDischargeCommandExecutor";
+	createStrategyDayDischargeAvailability,
+	publishStrategyDayDischargeAvailability,
+	type StrategyDayDischargeAvailability,
+	type StrategyDayDischargeAvailabilityAdapter,
+} from "./strategyDayDischargeAvailabilityStates";
 import {
 	prepareStrategyDayDischargeCycleWithDaylightWindow,
 	type StrategyDaylightWindowCyclePreparation,
@@ -21,13 +22,13 @@ import type {
 export interface StrategyDaylightWindowCycleExecution {
 	readonly createdAt: number;
 	readonly preparation: StrategyDaylightWindowCyclePreparation;
-	readonly commandExecution: StrategyDayDischargeCommandExecution;
+	readonly availability: StrategyDayDischargeAvailability;
 }
 
 export async function executeStrategyDayDischargeCycleWithDaylightWindow(
 	reader: StrategyStateReader,
 	daylightWindowProvider: StrategyDaylightWindowProvider,
-	writer: StrategyCommandWriter,
+	statusAdapter: StrategyDayDischargeAvailabilityAdapter,
 	configuration: StrategyConfiguration,
 	maximumForecastAgeMs: number,
 	requestedDischargePowerW: number,
@@ -49,24 +50,12 @@ export async function executeStrategyDayDischargeCycleWithDaylightWindow(
 		return null;
 	}
 
-	const commandPlan = preparation.cyclePreparation.cyclePlan.commandPlan;
-	const commandExecution = await executeStrategyDayDischargeCommand(
-		writer,
-		commandPlan,
-		contract.modbus.dischargePowerCommand,
-	);
-
-	if (
-		commandExecution === null
-		|| commandExecution.commandPlan !== commandPlan
-		|| commandExecution.commandPlan.createdAt !== preparation.createdAt
-	) {
-		return null;
-	}
+	const availability = createStrategyDayDischargeAvailability(preparation);
+	await publishStrategyDayDischargeAvailability(statusAdapter, availability);
 
 	return Object.freeze({
 		createdAt: preparation.createdAt,
 		preparation,
-		commandExecution,
+		availability,
 	});
 }
