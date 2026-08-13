@@ -74,6 +74,10 @@ import type {
 	StrategyIoBrokerStrategyTimerAdapter,
 } from "./lib/strategyIoBrokerStrategyCycleScheduler";
 
+import {
+	publishStrategyRuntimeStatus,
+} from "./lib/strategyRuntimeStatus";
+
 interface SaxPowerAdapterConfig extends StrategyNativeConfiguration {
 username: string;
 password: string;
@@ -201,31 +205,60 @@ new SaxPowerStateEngine(this);
 		const binding = createStrategyIoBrokerStrategyBinding(
 			this.strategyAdapter(),
 			strategyRuntimeConfigurationFromNative(this.saxConfig),
-			error => this.logStrategyError("cycle", error),
+			error => {
+				this.logStrategyError("cycle", error);
+				void this.publishStrategyErrorStatus("cycle", error);
+			},
 		);
 
 		this.strategyBinding = binding;
 
 		if (binding.status === "disabled") {
+			await publishStrategyRuntimeStatus(this, "disabled");
 			this.log.debug("SAX Power strategy is disabled.");
 			return;
 		}
 
 		if (binding.status === "invalid-configuration") {
+			const detail = binding.issues
+				.map(issue => `${issue.field}:${issue.reason}`)
+				.join(", ");
+
+			await publishStrategyRuntimeStatus(
+				this,
+				"invalid-configuration",
+				detail,
+			);
 			this.log.error(
-				`SAX Power strategy configuration is invalid: ${binding.issues
-					.map(issue => `${issue.field}:${issue.reason}`)
-					.join(", ")}`,
+				`SAX Power strategy configuration is invalid: ${detail}`,
 			);
 			return;
 		}
 
 		try {
+			await publishStrategyRuntimeStatus(this, "starting");
 			await binding.lifecycle.start();
+			await publishStrategyRuntimeStatus(this, "running");
 			this.log.info("SAX Power strategy scheduler started.");
 		} catch (error) {
 			binding.lifecycle.stop();
 			this.logStrategyError("initialization", error);
+			await this.publishStrategyErrorStatus("initialization", error);
+		}
+	}
+
+	private async publishStrategyErrorStatus(
+		context: string,
+		error: unknown,
+	): Promise<void> {
+		try {
+			await publishStrategyRuntimeStatus(
+				this,
+				"error",
+				`${context}: ${error instanceof Error ? error.message : String(error)}`,
+			);
+		} catch (statusError) {
+			this.logStrategyError("status publication", statusError);
 		}
 	}
 

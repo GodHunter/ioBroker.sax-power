@@ -259,6 +259,39 @@
       "native": {}
     },
     {
+      "_id": "info.strategyState",
+      "type": "state",
+      "common": {
+        "name": "SAX Power strategy runtime state",
+        "type": "string",
+        "role": "text",
+        "read": true,
+        "write": false,
+        "def": "disabled",
+        "states": {
+          "disabled": "Disabled",
+          "invalid-configuration": "Invalid configuration",
+          "starting": "Starting",
+          "running": "Running",
+          "error": "Error"
+        }
+      },
+      "native": {}
+    },
+    {
+      "_id": "info.strategyDetail",
+      "type": "state",
+      "common": {
+        "name": "SAX Power strategy runtime detail",
+        "type": "string",
+        "role": "text",
+        "read": true,
+        "write": false,
+        "def": ""
+      },
+      "native": {}
+    },
+    {
       "_id": "diagnostics",
       "type": "channel",
       "common": {
