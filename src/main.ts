@@ -52,6 +52,27 @@ import {
 	SAX_POWER_API_URL,
 } from "./lib/saxPowerConstants";
 
+import {
+	createStrategyIoBrokerStrategyBinding,
+	type StrategyIoBrokerStrategyBinding,
+} from "./lib/strategyIoBrokerStrategyBinding";
+
+import type {
+	StrategyRuntimeConfigurationInput,
+} from "./lib/strategyRuntimeConfiguration";
+
+import {
+	resolveStrategyAstroDate,
+} from "./lib/strategyAstroDate";
+
+import type {
+	StrategyIoBrokerAstroEvent,
+} from "./lib/strategyIoBrokerDaylightWindow";
+
+import type {
+	StrategyIoBrokerStrategyTimerAdapter,
+} from "./lib/strategyIoBrokerStrategyCycleScheduler";
+
 interface SaxPowerAdapterConfig {
 username: string;
 password: string;
@@ -62,6 +83,17 @@ modbusControlEnabled: boolean;
 modbusInstance: string;
 modbusChargePowerStateId: string;
 modbusDischargePowerStateId: string;
+
+strategyEnabled?: unknown;
+strategyBatteryModelId?: unknown;
+strategyMinimumStateOfChargePercent?: unknown;
+strategyMaximumStateOfChargePercent?: unknown;
+strategyMaximumChargePowerW?: unknown;
+strategyMaximumDischargePowerW?: unknown;
+strategyPvForecastReserveWh?: unknown;
+strategyMaximumForecastAgeMs?: unknown;
+strategyRequestedDischargePowerW?: unknown;
+strategyIntervalMs?: unknown;
 }
 
 class SaxPower extends utils.Adapter {
@@ -69,6 +101,7 @@ class SaxPower extends utils.Adapter {
 	private stateEngine: SaxPowerStateEngine | undefined;
 	private pollTimer: ioBroker.Timeout | undefined;
 	private historyTimer: ioBroker.Timeout | undefined;
+	private strategyBinding: StrategyIoBrokerStrategyBinding | undefined;
 
 	private pollRunning = false;
 	private historyPollRunning = false;
@@ -85,6 +118,7 @@ readonly SaxPowerDevice[] = [];
 		super({
 			...options,
 			name: "sax-power",
+			useFormatDate: true,
 		});
 
 		this.on("ready", this.onReady.bind(this));
@@ -103,6 +137,8 @@ readonly SaxPowerDevice[] = [];
 		await this.applyConnectionResult(
 			SaxPowerErrorClassifier.connecting(),
 		);
+
+		await this.startStrategy();
 
 		const validationError =
 this.validateConfiguration();
@@ -131,6 +167,102 @@ new SaxPowerStateEngine(this);
 		await this.pollLiveData();
 
 		this.scheduleNextPoll();
+	}
+
+	private strategyRuntimeConfiguration(): StrategyRuntimeConfigurationInput {
+		return {
+			enabled: this.saxConfig.strategyEnabled ?? false,
+			batteryModelId: this.saxConfig.strategyBatteryModelId,
+			minimumStateOfChargePercent:
+				this.saxConfig.strategyMinimumStateOfChargePercent,
+			maximumStateOfChargePercent:
+				this.saxConfig.strategyMaximumStateOfChargePercent,
+			maximumChargePowerW: this.saxConfig.strategyMaximumChargePowerW,
+			maximumDischargePowerW:
+				this.saxConfig.strategyMaximumDischargePowerW,
+			pvForecastReserveWh: this.saxConfig.strategyPvForecastReserveWh,
+			maximumForecastAgeMs: this.saxConfig.strategyMaximumForecastAgeMs,
+			requestedDischargePowerW:
+				this.saxConfig.strategyRequestedDischargePowerW,
+			intervalMs: this.saxConfig.strategyIntervalMs,
+		};
+	}
+
+	public getAstroDate(
+		event: StrategyIoBrokerAstroEvent,
+		date = new Date(),
+		offsetMinutes = 0,
+	): Date {
+		return resolveStrategyAstroDate(
+			event,
+			date,
+			this.latitude,
+			this.longitude,
+			offsetMinutes,
+		);
+	}
+
+	private strategyAdapter(): StrategyIoBrokerStrategyTimerAdapter {
+		return {
+			getAstroDate: (event, date, offsetMinutes) =>
+				this.getAstroDate(event, date, offsetMinutes),
+			extendObjectAsync: (id, object) =>
+				this.extendObjectAsync(id, object),
+			getStateAsync: id => this.getStateAsync(id),
+			setStateAsync: (id, state) => this.setStateAsync(id, state),
+			getForeignObjectAsync: id => this.getForeignObjectAsync(id),
+			getForeignStateAsync: id => this.getForeignStateAsync(id),
+			setForeignStateAsync: (id, value, acknowledged) =>
+				this.setForeignStateAsync(id, value, acknowledged),
+			setTimeout: (callback, delay) => {
+				const timeout = this.setTimeout(callback, delay);
+				if (timeout === undefined) {
+					throw new Error("ioBroker did not create the strategy timer.");
+				}
+				return timeout;
+			},
+			clearTimeout: timeout => this.clearTimeout(timeout),
+		};
+	}
+
+	private async startStrategy(): Promise<void> {
+		const binding = createStrategyIoBrokerStrategyBinding(
+			this.strategyAdapter(),
+			this.strategyRuntimeConfiguration(),
+			error => this.logStrategyError("cycle", error),
+		);
+
+		this.strategyBinding = binding;
+
+		if (binding.status === "disabled") {
+			this.log.debug("SAX Power strategy is disabled.");
+			return;
+		}
+
+		if (binding.status === "invalid-configuration") {
+			this.log.error(
+				`SAX Power strategy configuration is invalid: ${binding.issues
+					.map(issue => `${issue.field}:${issue.reason}`)
+					.join(", ")}`,
+			);
+			return;
+		}
+
+		try {
+			await binding.lifecycle.start();
+			this.log.info("SAX Power strategy scheduler started.");
+		} catch (error) {
+			binding.lifecycle.stop();
+			this.logStrategyError("initialization", error);
+		}
+	}
+
+	private logStrategyError(context: string, error: unknown): void {
+		this.log.error(
+			`SAX Power strategy ${context} failed: ${
+				error instanceof Error ? error.message : String(error)
+			}`,
+		);
 	}
 
 	private validateConfiguration(): string | undefined {
@@ -581,6 +713,9 @@ Record<string, unknown>;
 
 	private onUnload(callback: () => void): void {
 		try {
+			this.strategyBinding?.lifecycle?.stop();
+			this.strategyBinding = undefined;
+
 			if (this.pollTimer) {
 				this.clearTimeout(this.pollTimer);
 				this.pollTimer = undefined;
