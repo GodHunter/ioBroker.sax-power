@@ -86,6 +86,11 @@ import {
 } from "./lib/strategyIoBrokerReadiness";
 
 import {
+	createStrategyReadinessRetry,
+	type StrategyReadinessRetry,
+} from "./lib/strategyIoBrokerReadinessRetry";
+
+import {
 	createStrategyIntegrationContract,
 	STRATEGY_INTEGRATION_CONTRACT,
 } from "./lib/strategyIntegrationContract";
@@ -109,6 +114,7 @@ class SaxPower extends utils.Adapter {
 	private pollTimer: ioBroker.Timeout | undefined;
 	private historyTimer: ioBroker.Timeout | undefined;
 	private strategyBinding: StrategyIoBrokerStrategyBinding | undefined;
+	private strategyReadinessRetry: StrategyReadinessRetry | undefined;
 
 	private pollRunning = false;
 	private historyPollRunning = false;
@@ -119,6 +125,8 @@ readonly SaxPowerDevice[] = [];
 
 	private static readonly HISTORY_INTERVAL_MS =
 		300_000;
+	private static readonly STRATEGY_READINESS_RETRY_INTERVAL_MS =
+		30_000;
 	public constructor(
 		options: Partial<utils.AdapterOptions> = {},
 	) {
@@ -231,6 +239,8 @@ new SaxPowerStateEngine(this);
 		);
 
 		this.strategyBinding = binding;
+		this.strategyReadinessRetry?.stop();
+		this.strategyReadinessRetry = undefined;
 
 		if (binding.status === "disabled") {
 			await publishStrategyRuntimeStatus(this, "disabled");
@@ -263,6 +273,34 @@ new SaxPowerStateEngine(this);
 			return;
 		}
 
+		const readinessRetry = createStrategyReadinessRetry(
+			this.strategyAdapter(),
+			SaxPower.STRATEGY_READINESS_RETRY_INTERVAL_MS,
+			async () => this.startReadyStrategy(binding, contract),
+			error => {
+				this.logStrategyError("readiness retry", error);
+				void this.publishStrategyErrorStatus("readiness retry", error);
+			},
+		);
+
+		if (readinessRetry === null) {
+			await this.publishStrategyErrorStatus(
+				"readiness retry",
+				new Error("Invalid readiness retry interval."),
+			);
+			return;
+		}
+
+		this.strategyReadinessRetry = readinessRetry;
+		await this.startReadyStrategy(binding, contract);
+	}
+
+	private async startReadyStrategy(
+		binding: Extract<StrategyIoBrokerStrategyBinding, { status: "ready" }>,
+		contract: NonNullable<ReturnType<typeof createStrategyIntegrationContract>>,
+	): Promise<void> {
+		if (this.strategyBinding !== binding) return;
+
 		let readiness: StrategyIoBrokerReadiness;
 		try {
 			readiness = await assessStrategyIoBrokerReadiness(
@@ -273,6 +311,7 @@ new SaxPowerStateEngine(this);
 		} catch (error) {
 			this.logStrategyError("readiness check", error);
 			await this.publishStrategyErrorStatus("readiness check", error);
+			this.strategyReadinessRetry?.schedule();
 			return;
 		}
 
@@ -288,10 +327,13 @@ new SaxPowerStateEngine(this);
 			this.log.warn(
 				`SAX Power strategy is waiting for required inputs: ${detail}`,
 			);
+			this.strategyReadinessRetry?.schedule();
 			return;
 		}
 
 		try {
+			this.strategyReadinessRetry?.stop();
+			this.strategyReadinessRetry = undefined;
 			await publishStrategyRuntimeStatus(this, "starting");
 			await binding.lifecycle.start();
 			await publishStrategyRuntimeStatus(this, "running");
@@ -790,6 +832,8 @@ Record<string, unknown>;
 
 	private onUnload(callback: () => void): void {
 		try {
+			this.strategyReadinessRetry?.stop();
+			this.strategyReadinessRetry = undefined;
 			this.strategyBinding?.lifecycle?.stop();
 			this.strategyBinding = undefined;
 
