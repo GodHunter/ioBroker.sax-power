@@ -1,8 +1,21 @@
 {
   "common": {
     "name": "sax-power",
-    "version": "1.2.3",
+    "version": "1.2.4",
     "news": {
+      "1.2.4": {
+        "en": "Resolved repository inclusion checks for installation guidance, admin language, polling safety, state roles and inactive Modbus settings.",
+        "de": "Prüfungen für die Repository-Aufnahme zu Installationshinweisen, Admin-Sprache, Polling-Sicherheit, State-Rollen und inaktiven Modbus-Einstellungen behoben.",
+        "ru": "Устранены замечания проверки для включения в репозиторий: инструкции по установке, язык интерфейса, безопасность опроса, роли состояний и неактивные настройки Modbus.",
+        "pt": "Resolvidas as verificações de inclusão no repositório relativas às instruções de instalação, idioma da administração, segurança da consulta, funções dos estados e definições Modbus inativas.",
+        "nl": "Controles voor repository-opname opgelost voor installatie-instructies, beheertaal, veilige polling, statusrollen en inactieve Modbus-instellingen.",
+        "fr": "Correction des contrôles d’inclusion au dépôt concernant les instructions d’installation, la langue de l’administration, la sécurité de l’interrogation, les rôles d’état et les paramètres Modbus inactifs.",
+        "it": "Risolti i controlli per l’inclusione nel repository relativi alle istruzioni di installazione, alla lingua dell’interfaccia, alla sicurezza del polling, ai ruoli degli stati e alle impostazioni Modbus inattive.",
+        "es": "Resueltas las comprobaciones de inclusión en el repositorio relativas a las instrucciones de instalación, el idioma de administración, la seguridad del sondeo, los roles de estado y los ajustes Modbus inactivos.",
+        "pl": "Usunięto problemy kontroli włączenia do repozytorium dotyczące instrukcji instalacji, języka panelu, bezpieczeństwa odpytywania, ról stanów i nieaktywnych ustawień Modbus.",
+        "uk": "Усунуто зауваження перевірки для включення до репозиторію щодо інструкцій зі встановлення, мови інтерфейсу, безпеки опитування, ролей станів і неактивних налаштувань Modbus.",
+        "zh-cn": "解决了仓库收录检查中有关安装说明、管理界面语言、轮询安全、状态角色和未启用 Modbus 设置的问题。"
+      },
       "1.2.3": {
         "en": "Corrected the ioBroker object hierarchy for instance information and SAX Power devices.",
         "de": "Die ioBroker-Objekthierarchie für Instanzinformationen und SAX-Power-Geräte wurde korrigiert.",
@@ -80,19 +93,6 @@
         "pl": "Poprawiono niezawodność i zgodność dzięki obsłudze Node.js 22, bezpieczniejszej obsłudze haseł, uporządkowanym zasobom panelu administracyjnego i czytelniejszej diagnostyce przekroczeń czasu SAX Power Cloud.",
         "uk": "Підвищено надійність і сумісність: підтримка Node.js 22, безпечніша обробка паролів, очищені ресурси інтерфейсу адміністратора та зрозуміліша діагностика тайм-аутів SAX Power Cloud.",
         "zh-cn": "提升了可靠性和兼容性：支持 Node.js 22、更安全的密码处理、清理后的管理界面资源，以及更清晰的 SAX Power Cloud 超时诊断。"
-      },
-      "1.1.0": {
-        "en": "Modernized the TypeScript configuration for Node.js 22, versioned the compiled backend for GitHub installations and optimized the administration build workflow.",
-        "de": "TypeScript-Konfiguration auf Node.js 22 modernisiert, kompiliertes Backend für GitHub-Installationen versioniert und den Build-Ablauf der Administrationsoberfläche optimiert.",
-        "ru": "Конфигурация TypeScript обновлена для Node.js 22, скомпилированный серверный код добавлен для установки из GitHub, а процесс сборки интерфейса администратора оптимизирован.",
-        "pt": "Configuração TypeScript modernizada para Node.js 22, backend compilado versionado para instalações via GitHub e fluxo de compilação da administração otimizado.",
-        "nl": "TypeScript-configuratie gemoderniseerd voor Node.js 22, gecompileerde backend opgenomen voor GitHub-installaties en de admin-buildworkflow geoptimaliseerd.",
-        "fr": "Configuration TypeScript modernisée pour Node.js 22, backend compilé versionné pour les installations GitHub et processus de construction de l'administration optimisé.",
-        "it": "Configurazione TypeScript modernizzata per Node.js 22, backend compilato versionato per le installazioni GitHub e flusso di build dell'amministrazione ottimizzato.",
-        "es": "Configuración TypeScript modernizada para Node.js 22, backend compilado versionado para instalaciones desde GitHub y flujo de compilación de administración optimizado.",
-        "pl": "Zmodernizowano konfigurację TypeScript dla Node.js 22, dodano skompilowany backend dla instalacji z GitHub i zoptymalizowano proces budowania panelu administracyjnego.",
-        "uk": "Конфігурацію TypeScript оновлено для Node.js 22, скомпільований серверний код додано для встановлення з GitHub, а процес збірки адміністративного інтерфейсу оптимізовано.",
-        "zh-cn": "将 TypeScript 配置更新为 Node.js 22，提交编译后的后端以支持 GitHub 安装，并优化管理界面的构建流程。"
       }
     },
     "titleLang": {

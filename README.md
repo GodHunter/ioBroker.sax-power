@@ -176,6 +176,15 @@ npm run test:package
 
 ## Changelog
 
+### 1.2.4 (2026-08-20)
+
+- Removed direct GitHub installation guidance in favor of installation from the official ioBroker repository.
+- Standardized the custom administration interface on English until full ioBroker i18n support is implemented.
+- Added a safe upper bound of 2,147,483 seconds for the polling interval to prevent Node.js timer overflow.
+- Replaced deprecated directional power roles with `value.power.consumed` and `value.power.produced`.
+- Removed inactive Modbus configuration fields that had no runtime effect.
+- Added regression tests for the repository inclusion requirements and polling interval boundaries.
+
 ### 1.2.3 (2026-08-11)
 
 - Added the missing `info` channel required by the instance information states.
