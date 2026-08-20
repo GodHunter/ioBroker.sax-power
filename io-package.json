@@ -164,11 +164,7 @@
     "username": "",
     "password": "",
     "pollInterval": 60,
-    "batteryModels": {},
-    "modbusControlEnabled": false,
-    "modbusInstance": "",
-    "modbusChargePowerStateId": "",
-    "modbusDischargePowerStateId": ""
+    "batteryModels": {}
   },
   "objects": [],
   "instanceObjects": [

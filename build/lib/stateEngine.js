@@ -295,14 +295,14 @@ class SaxPowerStateEngine {
         name: "PV power",
         desc: "Current photovoltaic production power.",
         type: "number",
-        role: "value.power.production",
+        role: "value.power.produced",
         unit: "W"
       },
       houseConsumptionPower: {
         name: "House consumption power",
         desc: "Calculated current house consumption.",
         type: "number",
-        role: "value.power.consumption",
+        role: "value.power.consumed",
         unit: "W"
       },
       gridPower: {

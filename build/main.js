@@ -30,6 +30,7 @@ var import_saxPowerHistoryParser = require("./lib/saxPowerHistoryParser");
 var import_stateEngine = require("./lib/stateEngine");
 var import_modbusDiscovery = require("./lib/modbusDiscovery");
 var import_saxPowerConstants = require("./lib/saxPowerConstants");
+var import_pollInterval = require("./lib/pollInterval");
 class SaxPower extends utils.Adapter {
   apiClient;
   stateEngine;
@@ -86,8 +87,8 @@ class SaxPower extends utils.Adapter {
     if (!this.saxConfig.password) {
       return "The SAX Power password is not configured.";
     }
-    if (!Number.isFinite(this.saxConfig.pollInterval) || this.saxConfig.pollInterval < 60) {
-      return "The polling interval must be at least 60 seconds.";
+    if (!(0, import_pollInterval.isValidPollIntervalSeconds)(this.saxConfig.pollInterval)) {
+      return `The polling interval must be between ${import_pollInterval.MIN_POLL_INTERVAL_SECONDS} and ${import_pollInterval.MAX_POLL_INTERVAL_SECONDS.toLocaleString("en-US")} seconds.`;
     }
     return void 0;
   }

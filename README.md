@@ -36,11 +36,7 @@ Product and manufacturer information: [SAX Power GmbH](https://sax-power.net/)
 
 ## Installation
 
-Install the adapter through the ioBroker Admin interface. During the testing phase, use the expert installation dialog and select the GitHub option with:
-
-```text
-https://github.com/GodHunter/ioBroker.sax-power
-```
+Install the adapter from the official ioBroker repository through the ioBroker Admin interface.
 
 ## Configuration
 
