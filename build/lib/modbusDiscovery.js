@@ -18,6 +18,7 @@ var __copyProps = (to, from, except, desc) => {
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 var modbusDiscovery_exports = {};
 __export(modbusDiscovery_exports, {
+  discoverModbusInstances: () => discoverModbusInstances,
   discoverModbusStates: () => discoverModbusStates
 });
 module.exports = __toCommonJS(modbusDiscovery_exports);
@@ -34,6 +35,20 @@ function normalizeInstance(value) {
     /^system\.adapter\.(modbus\.\d+)$/
   );
   return (_a = longMatch == null ? void 0 : longMatch[1]) != null ? _a : "";
+}
+function discoverModbusInstances(objects) {
+  return Object.entries(objects).map(([id, rawObject]) => {
+    var _a;
+    const instance = normalizeInstance(id);
+    if (!instance || typeof rawObject !== "object" || rawObject === null) {
+      return null;
+    }
+    const object = rawObject;
+    const name = readDisplayName((_a = object.common) == null ? void 0 : _a.name, instance);
+    return { value: instance, label: `${name} \u2014 ${instance}` };
+  }).filter((option) => option !== null).sort((left, right) => left.value.localeCompare(right.value, "en", {
+    numeric: true
+  }));
 }
 function readDisplayName(value, fallback) {
   if (typeof value === "string") {
@@ -149,6 +164,7 @@ async function discoverModbusStates(readObjects, options) {
 }
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
+  discoverModbusInstances,
   discoverModbusStates
 });
 //# sourceMappingURL=modbusDiscovery.js.map

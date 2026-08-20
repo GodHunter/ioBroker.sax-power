@@ -29,21 +29,34 @@ var import_saxPowerParser = require("./lib/saxPowerParser");
 var import_saxPowerHistoryParser = require("./lib/saxPowerHistoryParser");
 var import_stateEngine = require("./lib/stateEngine");
 var import_modbusDiscovery = require("./lib/modbusDiscovery");
+var import_strategyCapabilities = require("./lib/strategyCapabilities");
 var import_saxPowerConstants = require("./lib/saxPowerConstants");
+var import_strategyIoBrokerStrategyBinding = require("./lib/strategyIoBrokerStrategyBinding");
+var import_strategyNativeConfiguration = require("./lib/strategyNativeConfiguration");
+var import_strategyAstroDate = require("./lib/strategyAstroDate");
+var import_strategyRuntimeStatus = require("./lib/strategyRuntimeStatus");
+var import_strategyIoBrokerReadiness = require("./lib/strategyIoBrokerReadiness");
+var import_strategyIoBrokerReadinessRetry = require("./lib/strategyIoBrokerReadinessRetry");
+var import_strategyIntegrationContract = require("./lib/strategyIntegrationContract");
+var import_pollInterval = require("./lib/pollInterval");
 class SaxPower extends utils.Adapter {
   apiClient;
   stateEngine;
   pollTimer;
   historyTimer;
+  strategyBinding;
+  strategyReadinessRetry;
   pollRunning = false;
   historyPollRunning = false;
   historyInitialized = false;
   latestDevices = [];
   static HISTORY_INTERVAL_MS = 3e5;
+  static STRATEGY_READINESS_RETRY_INTERVAL_MS = 3e4;
   constructor(options = {}) {
     super({
       ...options,
-      name: "sax-power"
+      name: "sax-power",
+      useFormatDate: true
     });
     this.on("ready", this.onReady.bind(this));
     this.on("unload", this.onUnload.bind(this));
@@ -59,6 +72,7 @@ class SaxPower extends utils.Adapter {
     await this.applyConnectionResult(
       import_saxPowerErrorClassifier.SaxPowerErrorClassifier.connecting()
     );
+    await this.startStrategy();
     const validationError = this.validateConfiguration();
     if (validationError) {
       this.log.warn(validationError);
@@ -78,6 +92,157 @@ class SaxPower extends utils.Adapter {
     await this.pollLiveData();
     this.scheduleNextPoll();
   }
+  getAstroDate(event, date = /* @__PURE__ */ new Date(), offsetMinutes = 0) {
+    return (0, import_strategyAstroDate.resolveStrategyAstroDate)(
+      event,
+      date,
+      this.latitude,
+      this.longitude,
+      offsetMinutes
+    );
+  }
+  strategyAdapter() {
+    return {
+      getAstroDate: (event, date, offsetMinutes) => this.getAstroDate(event, date, offsetMinutes),
+      extendObjectAsync: (id, object) => this.extendObjectAsync(id, object),
+      getStateAsync: (id) => this.getStateAsync(id),
+      setStateAsync: (id, state) => this.setStateAsync(id, state),
+      getForeignObjectAsync: (id) => this.getForeignObjectAsync(id),
+      getForeignStateAsync: (id) => this.getForeignStateAsync(id),
+      setForeignStateAsync: (id, value, acknowledged) => this.setForeignStateAsync(id, value, acknowledged),
+      setTimeout: (callback, delay) => {
+        const timeout = this.setTimeout(callback, delay);
+        if (timeout === void 0) {
+          throw new Error("ioBroker did not create the strategy timer.");
+        }
+        return timeout;
+      },
+      clearTimeout: (timeout) => this.clearTimeout(timeout)
+    };
+  }
+  async startStrategy() {
+    var _a;
+    const runtimeConfiguration = (0, import_strategyNativeConfiguration.strategyRuntimeConfigurationFromNative)(
+      this.saxConfig
+    );
+    const contract = typeof runtimeConfiguration.modbusInstance === "string" ? (0, import_strategyIntegrationContract.createStrategyIntegrationContract)(runtimeConfiguration.modbusInstance) : null;
+    const binding = (0, import_strategyIoBrokerStrategyBinding.createStrategyIoBrokerStrategyBinding)(
+      this.strategyAdapter(),
+      runtimeConfiguration,
+      (error) => {
+        this.logStrategyError("cycle", error);
+        void this.publishStrategyErrorStatus("cycle", error);
+      },
+      contract != null ? contract : import_strategyIntegrationContract.STRATEGY_INTEGRATION_CONTRACT
+    );
+    this.strategyBinding = binding;
+    (_a = this.strategyReadinessRetry) == null ? void 0 : _a.stop();
+    this.strategyReadinessRetry = void 0;
+    if (binding.status === "disabled") {
+      await (0, import_strategyRuntimeStatus.publishStrategyRuntimeStatus)(this, "disabled");
+      this.log.debug("SAX Power strategy is disabled.");
+      return;
+    }
+    if (binding.status === "invalid-configuration") {
+      const detail = binding.issues.map((issue) => `${issue.field}:${issue.reason}`).join(", ");
+      await (0, import_strategyRuntimeStatus.publishStrategyRuntimeStatus)(
+        this,
+        "invalid-configuration",
+        detail
+      );
+      this.log.error(
+        `SAX Power strategy configuration is invalid: ${detail}`
+      );
+      return;
+    }
+    if (contract === null) {
+      await (0, import_strategyRuntimeStatus.publishStrategyRuntimeStatus)(
+        this,
+        "invalid-configuration",
+        "modbusInstance:invalid-instance"
+      );
+      return;
+    }
+    const readinessRetry = (0, import_strategyIoBrokerReadinessRetry.createStrategyReadinessRetry)(
+      this.strategyAdapter(),
+      SaxPower.STRATEGY_READINESS_RETRY_INTERVAL_MS,
+      async () => this.startReadyStrategy(binding, contract),
+      (error) => {
+        this.logStrategyError("readiness retry", error);
+        void this.publishStrategyErrorStatus("readiness retry", error);
+      }
+    );
+    if (readinessRetry === null) {
+      await this.publishStrategyErrorStatus(
+        "readiness retry",
+        new Error("Invalid readiness retry interval.")
+      );
+      return;
+    }
+    this.strategyReadinessRetry = readinessRetry;
+    await this.startReadyStrategy(binding, contract);
+  }
+  async startReadyStrategy(binding, contract) {
+    var _a, _b, _c;
+    if (this.strategyBinding !== binding) return;
+    let readiness;
+    try {
+      readiness = await (0, import_strategyIoBrokerReadiness.assessStrategyIoBrokerReadiness)(
+        this.strategyAdapter(),
+        binding.configuration.maximumForecastAgeMs,
+        contract,
+        binding.configuration.modes
+      );
+    } catch (error) {
+      this.logStrategyError("readiness check", error);
+      await this.publishStrategyErrorStatus("readiness check", error);
+      (_a = this.strategyReadinessRetry) == null ? void 0 : _a.schedule();
+      return;
+    }
+    if (!readiness.ready) {
+      const detail = (0, import_strategyIoBrokerReadiness.formatStrategyUnavailableInputs)(
+        readiness.unavailableInputs
+      );
+      await (0, import_strategyRuntimeStatus.publishStrategyRuntimeStatus)(
+        this,
+        "waiting-for-inputs",
+        detail
+      );
+      this.log.warn(
+        `SAX Power strategy is waiting for required inputs: ${detail}`
+      );
+      (_b = this.strategyReadinessRetry) == null ? void 0 : _b.schedule();
+      return;
+    }
+    try {
+      (_c = this.strategyReadinessRetry) == null ? void 0 : _c.stop();
+      this.strategyReadinessRetry = void 0;
+      await (0, import_strategyRuntimeStatus.publishStrategyRuntimeStatus)(this, "starting");
+      await binding.lifecycle.start();
+      await (0, import_strategyRuntimeStatus.publishStrategyRuntimeStatus)(this, "running");
+      this.log.info("SAX Power strategy scheduler started.");
+    } catch (error) {
+      binding.lifecycle.stop();
+      this.logStrategyError("initialization", error);
+      await this.publishStrategyErrorStatus("initialization", error);
+    }
+  }
+  async publishStrategyErrorStatus(context, error) {
+    try {
+      await (0, import_strategyRuntimeStatus.publishStrategyRuntimeStatus)(
+        this,
+        "error",
+        `${context}: ${error instanceof Error ? error.message : String(error)}`
+      );
+    } catch (statusError) {
+      this.logStrategyError("status publication", statusError);
+    }
+  }
+  logStrategyError(context, error) {
+    this.log.error(
+      `SAX Power strategy ${context} failed: ${error instanceof Error ? error.message : String(error)}`
+    );
+  }
   validateConfiguration() {
     var _a;
     if (!((_a = this.saxConfig.username) == null ? void 0 : _a.trim())) {
@@ -86,8 +251,8 @@ class SaxPower extends utils.Adapter {
     if (!this.saxConfig.password) {
       return "The SAX Power password is not configured.";
     }
-    if (!Number.isFinite(this.saxConfig.pollInterval) || this.saxConfig.pollInterval < 60) {
-      return "The polling interval must be at least 60 seconds.";
+    if (!(0, import_pollInterval.isValidPollIntervalSeconds)(this.saxConfig.pollInterval)) {
+      return `The polling interval must be between ${import_pollInterval.MIN_POLL_INTERVAL_SECONDS} and ${import_pollInterval.MAX_POLL_INTERVAL_SECONDS.toLocaleString("en-US")} seconds.`;
     }
     return void 0;
   }
@@ -322,12 +487,57 @@ class SaxPower extends utils.Adapter {
     return String(error);
   }
   async onMessage(message) {
+    var _a;
     if (!message.callback || !message.from) {
       return;
     }
-    if (message.command !== "getModbusStates") {
+    if (message.command === "getModbusInstances") {
+      try {
+        const objects = await this.getForeignObjectsAsync(
+          "system.adapter.modbus.*",
+          "instance"
+        );
+        this.sendTo(
+          message.from,
+          message.command,
+          (0, import_modbusDiscovery.discoverModbusInstances)(objects),
+          message.callback
+        );
+      } catch (error) {
+        this.log.warn(
+          `Unable to discover Modbus instances: ${this.formatError(error)}`
+        );
+        this.sendTo(message.from, message.command, [], message.callback);
+      }
       return;
     }
+    if (message.command === "getStrategyCapabilities") {
+      const payload = typeof message.message === "object" && message.message !== null ? message.message : {};
+      const instance = typeof payload.instance === "string" ? payload.instance : "";
+      if (!/^modbus\.\d+$/.test(instance)) {
+        this.sendTo(message.from, message.command, null, message.callback);
+        return;
+      }
+      try {
+        const objects = await this.getForeignObjectsAsync(
+          `${instance}.*`,
+          "state"
+        );
+        this.sendTo(
+          message.from,
+          message.command,
+          (_a = (0, import_strategyCapabilities.discoverStrategyCapabilities)(instance, objects)) != null ? _a : null,
+          message.callback
+        );
+      } catch (error) {
+        this.log.warn(
+          `Unable to discover strategy capabilities: ${this.formatError(error)}`
+        );
+        this.sendTo(message.from, message.command, null, message.callback);
+      }
+      return;
+    }
+    if (message.command !== "getModbusStates") return;
     try {
       const payload = typeof message.message === "object" && message.message !== null ? message.message : {};
       const instance = typeof payload.instance === "string" ? payload.instance : "";
@@ -365,8 +575,12 @@ class SaxPower extends utils.Adapter {
     }
   }
   onUnload(callback) {
-    var _a;
+    var _a, _b, _c, _d;
     try {
+      (_a = this.strategyReadinessRetry) == null ? void 0 : _a.stop();
+      this.strategyReadinessRetry = void 0;
+      (_c = (_b = this.strategyBinding) == null ? void 0 : _b.lifecycle) == null ? void 0 : _c.stop();
+      this.strategyBinding = void 0;
       if (this.pollTimer) {
         this.clearTimeout(this.pollTimer);
         this.pollTimer = void 0;
@@ -377,7 +591,7 @@ class SaxPower extends utils.Adapter {
         );
         this.historyTimer = void 0;
       }
-      (_a = this.apiClient) == null ? void 0 : _a.clearTokens();
+      (_d = this.apiClient) == null ? void 0 : _d.clearTokens();
       callback();
     } catch {
       callback();

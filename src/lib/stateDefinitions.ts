@@ -149,7 +149,7 @@ readonly SaxPowerStateDefinition[] = [
 		id: "live.gridImportPower",
 		modelPath: "live.gridImportPower",
 		type: "number",
-		role: "value.power.consumption",
+		role: "value.power.consumed",
 		unit: "W",
 		name: "Grid import power",
 		description:
@@ -165,7 +165,7 @@ readonly SaxPowerStateDefinition[] = [
 		id: "live.gridExportPower",
 		modelPath: "live.gridExportPower",
 		type: "number",
-		role: "value.power.production",
+		role: "value.power.produced",
 		unit: "W",
 		name: "Grid export power",
 		description:
@@ -213,7 +213,7 @@ readonly SaxPowerStateDefinition[] = [
 		id: "live.batteryChargePower",
 		modelPath: "live.batteryChargePower",
 		type: "number",
-		role: "value.power.consumption",
+		role: "value.power.consumed",
 		unit: "W",
 		name: "Battery charge power",
 		description:
@@ -230,7 +230,7 @@ readonly SaxPowerStateDefinition[] = [
 		modelPath:
 "live.batteryDischargePower",
 		type: "number",
-		role: "value.power.production",
+		role: "value.power.produced",
 		unit: "W",
 		name: "Battery discharge power",
 		description:
@@ -264,7 +264,7 @@ readonly SaxPowerStateDefinition[] = [
 		modelPath: "live.pvPower",
 		apiField: "PV_power",
 		type: "number",
-		role: "value.power.production",
+		role: "value.power.produced",
 		unit: "W",
 		name: "PV power",
 		description:

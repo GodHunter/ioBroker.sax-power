@@ -96,17 +96,17 @@ import {
 	STRATEGY_INTEGRATION_CONTRACT,
 } from "./lib/strategyIntegrationContract";
 
+import {
+	isValidPollIntervalSeconds,
+	MAX_POLL_INTERVAL_SECONDS,
+	MIN_POLL_INTERVAL_SECONDS,
+} from "./lib/pollInterval";
+
 interface SaxPowerAdapterConfig extends StrategyNativeConfiguration {
-username: string;
-password: string;
-pollInterval: number;
-batteryModels?: Record<string, string>;
-
-modbusControlEnabled: boolean;
-modbusInstance: string;
-modbusChargePowerStateId: string;
-modbusDischargePowerStateId: string;
-
+	username: string;
+	password: string;
+	pollInterval: number;
+	batteryModels?: Record<string, string>;
 }
 
 class SaxPower extends utils.Adapter {
@@ -379,18 +379,9 @@ new SaxPowerStateEngine(this);
 			return "The SAX Power password is not configured.";
 		}
 
-		if (
-			!Number.isFinite(this.saxConfig.pollInterval) ||
-this.saxConfig.pollInterval < 60
-		) {
-			return "The polling interval must be at least 60 seconds.";
+		if (!isValidPollIntervalSeconds(this.saxConfig.pollInterval)) {
+			return `The polling interval must be between ${MIN_POLL_INTERVAL_SECONDS} and ${MAX_POLL_INTERVAL_SECONDS.toLocaleString("en-US")} seconds.`;
 		}
-
-		/*
- * Modbus control is an optional feature. The SAX Power cloud
- * connection and all read-only device states work independently
- * when Modbus control is disabled.
- */
 
 		return undefined;
 	}

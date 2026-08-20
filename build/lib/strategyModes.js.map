@@ -1,0 +1,7 @@
+{
+  "version": 3,
+  "sources": ["../../src/lib/strategyModes.ts"],
+  "sourcesContent": ["export interface StrategyModes {\n\treadonly chargingControlEnabled: boolean;\n\treadonly dayAvailabilityEnabled: boolean;\n\treadonly nightDischargeEnabled: false;\n}\n\nexport const DEFAULT_STRATEGY_MODES: StrategyModes = Object.freeze({\n\tchargingControlEnabled: true,\n\tdayAvailabilityEnabled: true,\n\tnightDischargeEnabled: false,\n});\n"],
+  "mappings": ";;;;;;;;;;;;;;;;;;AAAA;AAAA;AAAA;AAAA;AAAA;AAMO,MAAM,yBAAwC,OAAO,OAAO;AAAA,EAClE,wBAAwB;AAAA,EACxB,wBAAwB;AAAA,EACxB,uBAAuB;AACxB,CAAC;",
+  "names": []
+}

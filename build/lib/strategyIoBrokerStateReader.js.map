@@ -1,0 +1,7 @@
+{
+  "version": 3,
+  "sources": ["../../src/lib/strategyIoBrokerStateReader.ts"],
+  "sourcesContent": ["import type { StrategyStateReader } from \"./strategyStateResolver\";\n\nexport interface StrategyForeignStateReaderAdapter {\n\tgetForeignObjectAsync(\n\t\tstateId: string,\n\t): Promise<ioBroker.Object | null | undefined>;\n\n\tgetForeignStateAsync(\n\t\tstateId: string,\n\t): Promise<ioBroker.State | null | undefined>;\n}\n\nexport function createStrategyIoBrokerStateReader(\n\tadapter: StrategyForeignStateReaderAdapter,\n): StrategyStateReader {\n\treturn Object.freeze({\n\t\tasync getForeignObjectAsync(stateId: string) {\n\t\t\treturn await adapter.getForeignObjectAsync(stateId);\n\t\t},\n\t\tasync getForeignStateAsync(stateId: string) {\n\t\t\treturn await adapter.getForeignStateAsync(stateId);\n\t\t},\n\t});\n}\n"],
+  "mappings": ";;;;;;;;;;;;;;;;;;AAAA;AAAA;AAAA;AAAA;AAAA;AAYO,SAAS,kCACf,SACsB;AACtB,SAAO,OAAO,OAAO;AAAA,IACpB,MAAM,sBAAsB,SAAiB;AAC5C,aAAO,MAAM,QAAQ,sBAAsB,OAAO;AAAA,IACnD;AAAA,IACA,MAAM,qBAAqB,SAAiB;AAC3C,aAAO,MAAM,QAAQ,qBAAqB,OAAO;AAAA,IAClD;AAAA,EACD,CAAC;AACF;",
+  "names": []
+}

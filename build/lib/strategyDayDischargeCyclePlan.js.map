@@ -1,0 +1,7 @@
+{
+  "version": 3,
+  "sources": ["../../src/lib/strategyDayDischargeCyclePlan.ts"],
+  "sourcesContent": ["import type { StrategyConfiguration } from \"./strategyConfiguration\";\nimport {\n\tcreateStrategyDayDischargeEvaluation,\n\ttype StrategyDayDischargeEvaluation,\n} from \"./strategyDayDischargeEvaluation\";\nimport type { StrategyInputSnapshot } from \"./strategyInputSnapshot\";\n\nexport interface StrategyDayDischargeCyclePlan {\n\treadonly createdAt: number;\n\treadonly evaluation: StrategyDayDischargeEvaluation;\n}\n\nexport function createStrategyDayDischargeCyclePlan(\n\tsnapshot: StrategyInputSnapshot,\n\tconfiguration: StrategyConfiguration,\n\tmaximumForecastAgeMs: number,\n\trequestedDischargePowerW: number,\n\tdaylightWindowStartsAt: number,\n\tdaylightWindowEndsAt: number,\n): StrategyDayDischargeCyclePlan | null {\n\tconst evaluation = createStrategyDayDischargeEvaluation(\n\t\tsnapshot,\n\t\tconfiguration,\n\t\tmaximumForecastAgeMs,\n\t\trequestedDischargePowerW,\n\t\tdaylightWindowStartsAt,\n\t\tdaylightWindowEndsAt,\n\t);\n\tif (evaluation === null) {\n\t\treturn null;\n\t}\n\n\treturn Object.freeze({\n\t\tcreatedAt: evaluation.createdAt,\n\t\tevaluation,\n\t});\n}\n"],
+  "mappings": ";;;;;;;;;;;;;;;;;;AAAA;AAAA;AAAA;AAAA;AAAA;AACA,4CAGO;AAQA,SAAS,oCACf,UACA,eACA,sBACA,0BACA,wBACA,sBACuC;AACvC,QAAM,iBAAa;AAAA,IAClB;AAAA,IACA;AAAA,IACA;AAAA,IACA;AAAA,IACA;AAAA,IACA;AAAA,EACD;AACA,MAAI,eAAe,MAAM;AACxB,WAAO;AAAA,EACR;AAEA,SAAO,OAAO,OAAO;AAAA,IACpB,WAAW,WAAW;AAAA,IACtB;AAAA,EACD,CAAC;AACF;",
+  "names": []
+}

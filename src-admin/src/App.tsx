@@ -79,6 +79,8 @@ StrategyCapabilities,
 StrategyCapabilityModeId,
 } from "../../src/lib/strategyCapabilities";
 
+import { LocalizedContent } from "./localization";
+
 interface SaxPowerAdminState
 extends GenericAppState {
 selectedTab: AdminTab;
@@ -673,7 +675,7 @@ strategyRuntimeConfigurationFromNative(native),
 
 return validation.valid
 ? ""
-: `Strategie-Konfiguration unvollständig: ${validation.issues
+: `Strategy configuration incomplete: ${validation.issues
 .map(issue => `${issue.field}:${issue.reason}`)
 .join(", ")}`;
 }
@@ -697,11 +699,11 @@ return "unknown";
 private strategyModeLabel(id: StrategyCapabilityModeId): string {
 switch (id) {
 case "chargingControl":
-return "Netzdienliches und akkuschonendes Laden";
+return "Grid-friendly and battery-friendly charging";
 case "dayAvailability":
-return "Tagesfreigabe für externe Verbraucher";
+return "Daytime availability for external consumers";
 case "nightDischarge":
-return "Preisgesteuerte Nachtentladung";
+return "Price-controlled night discharge";
 }
 }
 
@@ -740,7 +742,7 @@ private formatDate(
 value: string,
 ): string {
 if (!value) {
-return "Noch nicht verfügbar";
+return "Not yet available";
 }
 
 const numeric =
@@ -767,7 +769,7 @@ private formatPower(
 value: number | null,
 ): string {
 if (value === null) {
-return "Nicht verfügbar";
+return "Not available";
 }
 
 const absolute =
@@ -794,7 +796,7 @@ private formatSoc(
 value: number | null,
 ): string {
 if (value === null) {
-return "Nicht verfügbar";
+return "Not available";
 }
 
 return `${value.toLocaleString(
@@ -810,28 +812,28 @@ private getGridLabel(
 direction: string,
 ): string {
 if (direction === "import") {
-return "Netzbezug";
+return "Grid import";
 }
 
 if (direction === "export") {
-return "Einspeisung";
+return "Grid export";
 }
 
-return "Kein Austausch";
+return "No grid flow";
 }
 
 private getBatteryLabel(
 direction: string,
 ): string {
 if (direction === "charging") {
-return "Wird geladen";
+return "Charging";
 }
 
 if (direction === "discharging") {
-return "Wird entladen";
+return "Discharging";
 }
 
-return "Bereit";
+return "Idle";
 }
 
 private renderLiveDashboard():
@@ -841,20 +843,20 @@ this.state.runtimeStatus;
 
 const cards = [
 {
-title: "PV-Leistung",
+title: "PV power",
 value:
 this.formatPower(
 status.pvPower,
 ),
 subtitle:
 status.pvPower === null
-? "Kein PV-Wert gemeldet"
-: "Aktuelle Erzeugung",
+? "No PV value reported"
+: "Current production",
 icon: <SolarPower />,
 color: "warning.main",
 },
 {
-title: "Hausverbrauch",
+title: "House consumption",
 value:
 this.formatPower(
 status.houseConsumptionPower,
@@ -862,20 +864,20 @@ status.houseConsumptionPower,
 subtitle:
 status.houseConsumptionPower ===
 null
-? "Nicht berechenbar"
-: "Aktueller Verbrauch",
+? "Cannot be calculated"
+: "Current consumption",
 icon: <Home />,
 color: "primary.main",
 },
 {
-title: "Netz",
+title: "Grid",
 value:
 this.formatPower(
 status.gridPower,
 ),
 subtitle:
 status.gridPower === null
-? "Nicht verfügbar"
+? "Not available"
 : this.getGridLabel(
 status.gridDirection,
 ),
@@ -890,14 +892,14 @@ status.gridDirection ===
 : "text.secondary",
 },
 {
-title: "Batterie",
+title: "Battery",
 value:
 this.formatPower(
 status.batteryPower,
 ),
 subtitle:
 status.batteryPower === null
-? "Nicht verfügbar"
+? "Not available"
 : this.getBatteryLabel(
 status.batteryDirection,
 ),
@@ -916,18 +918,18 @@ status.batteryDirection ===
 : "text.secondary",
 },
 {
-title: "Ladezustand",
+title: "State of charge",
 value:
 this.formatSoc(
 status.soc,
 ),
 subtitle:
 status.soc === null
-? "Nicht verfügbar"
+? "Not available"
 : status.deviceCount &&
 status.deviceCount > 1
-? `Durchschnitt aus ${status.deviceCount} Speichern`
-: "Aktueller Speicherstand",
+? `Average across ${status.deviceCount} storage systems`
+: "Current battery level",
 icon: <BatteryFull />,
 color:
 status.soc !== null &&
@@ -973,7 +975,7 @@ return (
             fontWeight: 700
         }}
         >
-        Live-Energie
+        Live energy
         </Typography>
 
         <Typography
@@ -982,8 +984,7 @@ return (
             color: "text.secondary"
         }}
         >
-        Aktuelle Leistungswerte aus den
-        ioBroker-Objekten
+        Current power values from the ioBroker objects
         </Typography>
         </Box>
 
@@ -993,7 +994,7 @@ return (
             color: "text.secondary"
         }}
         >
-        Stand:{" "}
+        Updated:{" "}
         {
         this.formatDate(
         status.liveLastUpdate,
@@ -1017,7 +1018,7 @@ return (
                 md: 4,
 
                 lg: card.title ===
-                "PV-Leistung"
+                "PV power"
                 ? 12
                 : 3
             }}>
@@ -1054,7 +1055,7 @@ return (
         <Typography
             variant={
             card.title ===
-            "PV-Leistung"
+            "PV power"
             ? "h3"
             : "h4"
             }
@@ -1159,92 +1160,92 @@ status.lastHttpStatus > 0
 switch (status.connectionState) {
 case "connected":
 return {
-label: "Verbunden",
+label: "Connected",
 description:
-"Die SAX-Power-Cloud ist erreichbar.",
+"The SAX Power cloud is reachable.",
 color: "success",
 severity: "success",
 };
 
 case "connecting":
 return {
-label: "Verbindung wird aufgebaut",
+label: "Establishing connection",
 description:
-"Der Adapter meldet sich gerade an der SAX-Power-Cloud an.",
+"The adapter is currently signing in to the SAX Power cloud.",
 color: "info",
 severity: "info",
 };
 
 case "authentication_failed":
 return {
-label: "Anmeldung fehlgeschlagen",
+label: "Login failed",
 description:
-"Bitte Benutzername und Kennwort prüfen. Nach einem Update von einer älteren Adapterversion muss das Kennwort möglicherweise einmal neu eingegeben und gespeichert werden.",
+"Check the username and password. After updating from an older adapter version, you may need to enter and save the password again.",
 color: "warning",
 severity: "warning",
 };
 
 case "unauthorized":
 return {
-label: "Zugriff verweigert",
+label: "Access denied",
 description:
-`Die SAX-Power-Cloud hat den Zugriff verweigert${httpSuffix}.`,
+`The SAX Power cloud denied access${httpSuffix}.`,
 color: "error",
 severity: "error",
 };
 
 case "network_error":
 return {
-label: "Cloud nicht erreichbar",
+label: "Cloud unreachable",
 description:
-"Die SAX-Power-Cloud konnte nicht erreicht werden. Bitte Internet-, DNS- und Firewall-Verbindung prüfen.",
+"The SAX Power cloud could not be reached. Check the internet, DNS and firewall connection.",
 color: "error",
 severity: "error",
 };
 
 case "timeout":
 return {
-label: "Zeitüberschreitung",
+label: "Connection timed out",
 description:
-"Die SAX-Power-Cloud hat nicht rechtzeitig geantwortet.",
+"The SAX Power cloud did not respond in time.",
 color: "warning",
 severity: "warning",
 };
 
 case "server_error":
 return {
-label: "Cloud-Serverfehler",
+label: "Cloud server error",
 description:
-`Die SAX-Power-Cloud meldet einen Serverfehler${httpSuffix}.`,
+`The SAX Power cloud reported a server error${httpSuffix}.`,
 color: "error",
 severity: "error",
 };
 
 case "invalid_response":
 return {
-label: "Ungültige Cloud-Antwort",
+label: "Invalid cloud response",
 description:
-"Die SAX-Power-Cloud hat eine unerwartete oder ungültige Antwort geliefert.",
+"The SAX Power cloud returned an unexpected or invalid response.",
 color: "warning",
 severity: "warning",
 };
 
 case "configuration_error":
 return {
-label: "Konfiguration unvollständig",
+label: "Configuration incomplete",
 description:
 status.lastError ||
-"Bitte die Cloud-Konfiguration prüfen.",
+"Check the cloud configuration.",
 color: "warning",
 severity: "warning",
 };
 
 case "unknown_error":
 return {
-label: "Unbekannter Fehler",
+label: "Unknown error",
 description:
 status.lastError ||
-"Es ist ein unbekannter Verbindungsfehler aufgetreten.",
+"An unknown connection error occurred.",
 color: "error",
 severity: "error",
 };
@@ -1253,13 +1254,13 @@ default:
 return {
 label:
 status.connection === true
-? "Verbunden"
+? "Connected"
 : status.connection === false
-? "Nicht verbunden"
-: "Status unbekannt",
+? "Not connected"
+: "Status unknown",
 description:
 status.lastError ||
-"Noch kein detaillierter Cloud-Status verfügbar.",
+"No detailed cloud status is available yet.",
 color:
 status.connection === true
 ? "success"
@@ -1402,7 +1403,7 @@ return (
         />
 
 
-        <Tooltip title="Status aktualisieren">
+        <Tooltip title="Refresh status">
         <span>
         <IconButton
         onClick={
@@ -1476,14 +1477,14 @@ return (
             fontWeight: 700
         }}
         >
-        Anmeldung
+        Login
         </Typography>
         </Stack>
 
         <Stack spacing={2.5}>
         <TextField
         fullWidth
-        label="Benutzername / E-Mail"
+        label="Username / email"
         value={
         native.username ??
         ""
@@ -1500,7 +1501,7 @@ return (
 
         <TextField
         fullWidth
-        label="Passwort"
+        label="Password"
         type={
         this.state
         .showPassword
@@ -1544,7 +1545,7 @@ return (
         .showPassword,
         })
         }
-        aria-label="Passwort anzeigen"
+        aria-label="Show password"
         >
         {
         this.state
@@ -1586,7 +1587,7 @@ return (
             color: "text.secondary"
         }}
         >
-        Verbindung
+        Connection
         </Typography>
 
         <Typography
@@ -1605,7 +1606,7 @@ return (
         .runtimeStatus
         .connection ===
         null
-        ? "Unbekannt"
+        ? "Unknown"
         : "Offline"
         }
         </Typography>
@@ -1616,7 +1617,7 @@ return (
                 color: "text.secondary",
                 marginTop: 1
             }}>
-        Letzte Aktualisierung:
+        Last update:
         </Typography>
 
         <Typography
@@ -1660,7 +1661,7 @@ return (
             fontWeight: 700
         }}
         >
-        Erkannte Speicher
+        Detected storage systems
         </Typography>
         </Stack>
 
@@ -1693,13 +1694,13 @@ const strategyRuntimePresentation: Record<StrategyRuntimeState, {
 label: string;
 severity: "success" | "info" | "warning" | "error";
 }> = {
-disabled: { label: "Deaktiviert", severity: "info" },
-"invalid-configuration": { label: "Konfiguration fehlerhaft", severity: "warning" },
-"waiting-for-inputs": { label: "Wartet auf Eingänge", severity: "warning" },
-starting: { label: "Wird gestartet", severity: "info" },
-running: { label: "Aktiv", severity: "success" },
-error: { label: "Laufzeitfehler", severity: "error" },
-unknown: { label: "Noch nicht verfügbar", severity: "info" },
+disabled: { label: "Disabled", severity: "info" },
+"invalid-configuration": { label: "Invalid configuration", severity: "warning" },
+"waiting-for-inputs": { label: "Waiting for inputs", severity: "warning" },
+starting: { label: "Starting", severity: "info" },
+running: { label: "Active", severity: "success" },
+error: { label: "Runtime error", severity: "error" },
+unknown: { label: "Not yet available", severity: "info" },
 };
 const strategyRuntimeStatus = strategyRuntimePresentation[strategyRuntime];
 const strategyValidation = validateStrategyRuntimeConfiguration(
@@ -1718,9 +1719,9 @@ divisor = 1,
 : "";
 const capabilities = this.state.strategyCapabilities;
 const modeDescription: Record<StrategyCapabilityModeId, string> = {
-chargingControl: "Register 44 steuert die Ladeleistung. Die automatische netzdienliche Regelung wird auf dieser sicheren Schreibgrenze aufgebaut.",
-dayAvailability: "Veröffentlicht die nutzbare Batterieleistung für externe Verbraucher und schreibt niemals Register 43.",
-nightDischarge: "Aktive Entladung über Register 43; später zusätzlich mit Preisgrenze, Zeitfenster und Mindest-SOC.",
+chargingControl: "Register 44 controls charging power. Automatic grid-friendly control is built on this safe write limit.",
+dayAvailability: "Publishes usable battery power for external consumers and never writes register 43.",
+nightDischarge: "Active discharge via register 43; later additionally controlled by a price threshold, time window and minimum SOC.",
 };
 const modeConfigKey: Record<StrategyCapabilityModeId, keyof SaxPowerNativeConfig> = {
 chargingControl: "strategyChargingControlEnabled",
@@ -1734,21 +1735,21 @@ return (
 <CardContent>
 <Stack direction="row" spacing={1} sx={{ alignItems: "center", marginBottom: 2 }}>
 <Settings color="primary" />
-<Typography variant="h6" sx={{ fontWeight: 700 }}>Einstellungen</Typography>
+<Typography variant="h6" sx={{ fontWeight: 700 }}>Settings</Typography>
 </Stack>
 <TextField
 fullWidth
-label="Aktualisierungsintervall"
+label="Update interval"
 type="number"
 value={native.pollInterval ?? 60}
 onChange={(event) => this.updateNativeField(
 "pollInterval",
-Math.max(60, Number(event.target.value) || 60),
+Math.min(2_147_483, Math.max(60, Number(event.target.value) || 60)),
 )}
-helperText="Mindestens 60 Sekunden"
+helperText="Between 60 and 2,147,483 seconds"
 slotProps={{
-input: { endAdornment: <InputAdornment position="end">Sekunden</InputAdornment> },
-htmlInput: { min: 60, step: 10 },
+input: { endAdornment: <InputAdornment position="end">seconds</InputAdornment> },
+htmlInput: { min: 60, max: 2_147_483, step: 10 },
 }}
 />
 </CardContent>
@@ -1758,10 +1759,10 @@ htmlInput: { min: 60, step: 10 },
 <CardContent>
 <Stack direction="row" spacing={1} sx={{ alignItems: "center", marginBottom: 1 }}>
 <EnergySavingsLeaf color="primary" />
-<Typography variant="h6" sx={{ fontWeight: 700 }}>Speicherstrategie</Typography>
+<Typography variant="h6" sx={{ fontWeight: 700 }}>Storage strategy</Typography>
 </Stack>
 <Typography variant="body2" sx={{ color: "text.secondary", marginBottom: 2 }}>
-Steuert die Ladeleistungsgrenze und veröffentlicht eine sichere Tagesfreigabe für externe Verbraucher. Aktives Entladen bleibt ein davon getrennter Modus.
+Controls the charging-power limit and publishes safe daytime availability for external consumers. Active discharge remains a separate mode.
 </Typography>
 <Alert
 severity={strategyRuntimeStatus.severity}
@@ -1769,7 +1770,7 @@ sx={{ marginBottom: 2 }}
 action={<Chip size="small" label={strategyRuntimeStatus.label} />}
 >
 <Typography variant="body2" sx={{ fontWeight: 700 }}>
-Laufzeitstatus
+Runtime status
 </Typography>
 {this.state.runtimeStatus.strategyDetail ? (
 <Typography variant="caption" sx={{ overflowWrap: "anywhere" }}>
@@ -1784,26 +1785,26 @@ checked={native.strategyEnabled === true}
 onChange={(event) => this.updateNativeField("strategyEnabled", event.target.checked)}
 />
 )}
-label="Speicherstrategie aktivieren"
+label="Enable storage strategy"
 />
 {native.strategyEnabled === true ? (
 <Stack spacing={2} sx={{ marginTop: 2 }}>
 <Alert severity={strategyValidation.valid ? "success" : "warning"}>
 {strategyValidation.valid
-? "Die Strategie-Konfiguration ist vollständig und kann gespeichert werden."
-: "Bitte alle markierten Pflichtfelder vollständig und gültig ausfüllen."}
+? "The strategy configuration is complete and can be saved."
+: "Complete all marked required fields with valid values."}
 </Alert>
 <TextField
 select
 fullWidth
 required
-label="Modbus-Instanz"
+label="Modbus instance"
 value={typeof native.strategyModbusInstance === "string" ? native.strategyModbusInstance : ""}
 onChange={(event) => this.updateNativeField("strategyModbusInstance", event.target.value || undefined)}
 error={hasStrategyIssue("modbusInstance")}
-helperText="Die vorhandenen Register 43 bis 48 werden live erkannt; Register 43 ist nur für aktive Nachtentladung erforderlich"
+helperText="Registers 43 to 48 are detected live; register 43 is required only for active night discharge"
 >
-<MenuItem value=""><em>Bitte Instanz auswählen</em></MenuItem>
+<MenuItem value=""><em>Select an instance</em></MenuItem>
 {this.state.modbusInstances.map(option => (
 <MenuItem key={option.value} value={option.value}>{option.label}</MenuItem>
 ))}
@@ -1811,12 +1812,12 @@ helperText="Die vorhandenen Register 43 bis 48 werden live erkannt; Register 43 
 {this.state.strategyCapabilitiesLoading ? (
 <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
 <CircularProgress size={18} />
-<Typography variant="body2">Register und verfügbare Modi werden geprüft …</Typography>
+<Typography variant="body2">Checking registers and available modes…</Typography>
 </Stack>
 ) : capabilities ? (
 <Stack spacing={1.5}>
 <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-Erkannte SAX-Fähigkeiten
+Detected SAX capabilities
 </Typography>
 <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", gap: 1 }}>
 {capabilities.registers.map(register => (
@@ -1826,8 +1827,8 @@ size="small"
 color={register.stateId ? "success" : "default"}
 variant={register.stateId ? "filled" : "outlined"}
 label={`R${register.register}: ${register.stateId
-? `${register.readable ? "lesen" : ""}${register.readable && register.writable ? "/" : ""}${register.writable ? "schreiben" : ""}`
-: "fehlt"}`}
+? `${register.readable ? "read" : ""}${register.readable && register.writable ? "/" : ""}${register.writable ? "write" : ""}`
+: "missing"}`}
 />
 ))}
 </Stack>
@@ -1837,10 +1838,10 @@ const checked = native[configKey] === undefined
 ? mode.id !== "nightDischarge"
 : native[configKey] === true;
 const detail = mode.reason === "missing-registers"
-? `Nicht verfügbar: Register ${mode.missingRegisters.join(", ")} fehlt oder besitzt nicht den nötigen Zugriff.`
+? `Not available: register ${mode.missingRegisters.join(", ")} is missing or does not provide the required access.`
 : mode.reason === "not-implemented"
-? "Hardware geeignet, die separate Nachtlogik ist in dieser Beta noch nicht implementiert."
-: "Für diese Modbus-Instanz verfügbar.";
+? "Hardware supported; the separate night logic is not implemented in this beta yet."
+: "Available for this Modbus instance.";
 return (
 <Card key={mode.id} variant="outlined" sx={{ borderRadius: 2 }}>
 <CardContent sx={{ paddingBottom: "16px !important" }}>
@@ -1864,7 +1865,7 @@ disabled={!mode.selectable}
 onChange={(event) => this.updateNativeField(configKey, event.target.checked as never)}
 />
 )}
-label={checked && mode.selectable ? "Aktiv" : "Inaktiv"}
+label={checked && mode.selectable ? "Active" : "Inactive"}
 />
 </Stack>
 </CardContent>
@@ -1873,27 +1874,27 @@ label={checked && mode.selectable ? "Aktiv" : "Inaktiv"}
 })}
 </Stack>
 ) : typeof native.strategyModbusInstance === "string" && native.strategyModbusInstance ? (
-<Alert severity="warning">Für die ausgewählte Instanz konnten keine SAX-Register erkannt werden.</Alert>
+<Alert severity="warning">No SAX registers could be detected for the selected instance.</Alert>
 ) : null}
 <TextField
 select
 fullWidth
-label="Batteriemodell"
+label="Battery model"
 value={typeof native.strategyBatteryModelId === "string" ? native.strategyBatteryModelId : ""}
 onChange={(event) => this.updateNativeField("strategyBatteryModelId", event.target.value || undefined)}
 error={hasStrategyIssue("batteryModelId")}
-helperText="Technische Leistungs- und Kapazitätsgrenzen des Speichers"
+helperText="Technical power and capacity limits of the storage system"
 >
-<MenuItem value=""><em>Bitte Modell auswählen</em></MenuItem>
-<MenuItem value="home-5.8">SAX Power Home 5,8 kWh</MenuItem>
-<MenuItem value="home-plus-7.7">SAX Power Home Plus 7,7 kWh</MenuItem>
+<MenuItem value=""><em>Select a model</em></MenuItem>
+<MenuItem value="home-5.8">SAX Power Home 5.8 kWh</MenuItem>
+<MenuItem value="home-plus-7.7">SAX Power Home Plus 7.7 kWh</MenuItem>
 </TextField>
 <Grid container spacing={2}>
 {[
 {
 key: "strategyMinimumStateOfChargePercent" as const,
 field: "minimumStateOfChargePercent",
-label: "Minimaler SOC",
+label: "Minimum SOC",
 unit: "%",
 min: 0,
 max: 100,
@@ -1901,7 +1902,7 @@ max: 100,
 {
 key: "strategyMaximumStateOfChargePercent" as const,
 field: "maximumStateOfChargePercent",
-label: "Maximaler SOC",
+label: "Maximum SOC",
 unit: "%",
 min: 0,
 max: 100,
@@ -1909,28 +1910,28 @@ max: 100,
 {
 key: "strategyMaximumChargePowerW" as const,
 field: "maximumChargePowerW",
-label: "Maximale Ladeleistung",
+label: "Maximum charging power",
 unit: "W",
 min: 0,
 },
 {
 key: "strategyMaximumDischargePowerW" as const,
 field: "maximumDischargePowerW",
-label: "Maximale Entladeleistung",
+label: "Maximum discharge power",
 unit: "W",
 min: 0,
 },
 {
 key: "strategyPvForecastReserveWh" as const,
 field: "pvForecastReserveWh",
-label: "PV-Prognosereserve",
+label: "PV forecast reserve",
 unit: "Wh",
 min: 0,
 },
 {
 key: "strategyRequestedDischargePowerW" as const,
 field: "requestedDischargePowerW",
-label: "Entladeleistungsziel Tag",
+label: "Daytime discharge power target",
 unit: "W",
 min: 0,
 },
@@ -1956,14 +1957,14 @@ htmlInput: { min: item.min, max: item.max, step: 1 },
 fullWidth
 required
 type="number"
-label="Maximales Prognosealter"
+label="Maximum forecast age"
 value={strategyNumber(native.strategyMaximumForecastAgeMs, 60_000)}
 onChange={(event) => this.updateOptionalNumberField(
 "strategyMaximumForecastAgeMs", event.target.value, 60_000,
 )}
 error={hasStrategyIssue("maximumForecastAgeMs")}
 slotProps={{
-input: { endAdornment: <InputAdornment position="end">Minuten</InputAdornment> },
+input: { endAdornment: <InputAdornment position="end">minutes</InputAdornment> },
 htmlInput: { min: 0, step: 1 },
 }}
 />
@@ -1973,14 +1974,14 @@ htmlInput: { min: 0, step: 1 },
 fullWidth
 required
 type="number"
-label="Strategieintervall"
+label="Strategy interval"
 value={strategyNumber(native.strategyIntervalMs, 1_000)}
 onChange={(event) => this.updateOptionalNumberField(
 "strategyIntervalMs", event.target.value, 1_000,
 )}
 error={hasStrategyIssue("intervalMs")}
 slotProps={{
-input: { endAdornment: <InputAdornment position="end">Sekunden</InputAdornment> },
+input: { endAdornment: <InputAdornment position="end">seconds</InputAdornment> },
 htmlInput: { min: 1, step: 1 },
 }}
 />
@@ -1989,7 +1990,7 @@ htmlInput: { min: 1, step: 1 },
 </Stack>
 ) : (
 <Alert severity="info" sx={{ marginTop: 2 }}>
-Im deaktivierten Zustand werden keine Strategieobjekte angelegt, keine Timer gestartet und keine Modbus-Register beschrieben.
+When disabled, no strategy objects are created, no timers are started and no Modbus registers are written.
 </Alert>
 )}
 </CardContent>
@@ -1999,35 +2000,35 @@ Im deaktivierten Zustand werden keine Strategieobjekte angelegt, keine Timer ges
 <CardContent>
 <Stack direction="row" spacing={1} sx={{ alignItems: "center", marginBottom: 1 }}>
 <BatteryFull color="primary" />
-<Typography variant="h6" sx={{ fontWeight: 700 }}>Speicher konfigurieren</Typography>
+<Typography variant="h6" sx={{ fontWeight: 700 }}>Configure storage systems</Typography>
 </Stack>
 <Typography variant="body2" sx={{ color: "text.secondary", marginBottom: 2 }}>
-Wähle für jeden automatisch erkannten Speicher das passende Modell. Die hinterlegte Nennkapazität bildet die Grundlage der dokumentierten Vollzyklenberechnung.
+Select the appropriate model for each automatically detected storage system. The configured nominal capacity is the basis for the documented full-cycle calculation.
 </Typography>
 <Stack spacing={2}>
 {batteries.length === 0 ? (
-<Alert severity="info">Noch kein Speicher erkannt. Nach einer erfolgreichen Anmeldung erscheint der Speicher automatisch hier.</Alert>
+<Alert severity="info">No storage system has been detected yet. After a successful login, it will appear here automatically.</Alert>
 ) : batteries.map((battery, index) => (
 <Card key={battery.serialNumber} variant="outlined" sx={{ borderRadius: 2 }}>
 <CardContent>
 <Typography variant="subtitle1" sx={{ fontWeight: 700, marginBottom: 1.5 }}>
-Speicher {index + 1}
+Storage system {index + 1}
 </Typography>
 <TextField
 select
 fullWidth
-label="Modell"
+label="Model"
 value={native.batteryModels?.[battery.serialNumber] ?? ""}
 onChange={(event) => this.updateBatteryModel(battery.serialNumber, event.target.value)}
 >
-<MenuItem value=""><em>Bitte Modell auswählen</em></MenuItem>
-<MenuItem value="home-5.8">SAX Power Home 5,8 kWh — 5,76 kWh nominal / 5,20 kWh nutzbar</MenuItem>
-<MenuItem value="home-plus-7.7">SAX Power Home Plus 7,7 kWh — 7,68 kWh nominal / 7,00 kWh nutzbar</MenuItem>
+<MenuItem value=""><em>Select a model</em></MenuItem>
+<MenuItem value="home-5.8">SAX Power Home 5.8 kWh — 5.76 kWh nominal / 5.20 kWh usable</MenuItem>
+<MenuItem value="home-plus-7.7">SAX Power Home Plus 7.7 kWh — 7.68 kWh nominal / 7.00 kWh usable</MenuItem>
 </TextField>
 </CardContent>
 </Card>
 ))}
-<Alert severity="info">Geschätzte Batteriegesundheit: Noch nicht verfügbar. Der Adapter sammelt zunächst eine belastbare Datenbasis; es wird kein ungesicherter Prozentwert erzeugt.</Alert>
+<Alert severity="info">Estimated battery health: Not yet available. The adapter first collects a reliable data set and does not produce an unverified percentage.</Alert>
 </Stack>
 </CardContent>
 </Card>
@@ -2036,30 +2037,30 @@ onChange={(event) => this.updateBatteryModel(battery.serialNumber, event.target.
 }
 
 private formatCycles(value: number | null): string {
-return value === null ? "Nicht verfügbar" : value.toLocaleString("de-DE", { maximumFractionDigits: 3 });
+return value === null ? "Not available" : value.toLocaleString(undefined, { maximumFractionDigits: 3 });
 }
 
 private formatBatteryHealth(status: string): string {
 const labels: Record<string, string> = {
-notAvailable: "Noch nicht verfügbar",
-collectingData: "Datenbasis wird aufgebaut",
-insufficientData: "Noch keine belastbaren Messungen",
-available: "Verfügbar",
+notAvailable: "Not yet available",
+collectingData: "Collecting baseline data",
+insufficientData: "No reliable measurements yet",
+available: "Available",
 };
 return labels[status] ?? status;
 }
 
 private formatHealthValue(value: number | null, status: string): string {
-return value === null ? this.formatBatteryHealth(status) : `${value.toLocaleString("de-DE", { maximumFractionDigits: 1 })} % (geschätzt)`;
+return value === null ? this.formatBatteryHealth(status) : `${value.toLocaleString(undefined, { maximumFractionDigits: 1 })}% (estimated)`;
 }
 
 private renderBatteryStatus(): React.JSX.Element {
 const { batteries, aggregateBattery } = this.state.runtimeStatus;
 const cycleRows = [
-{ label: "Heute", key: "dayCycles" as const },
-{ label: "Monat", key: "monthCycles" as const },
-{ label: "Jahr", key: "yearCycles" as const },
-{ label: "Gesamt", key: "totalCycles" as const },
+{ label: "Today", key: "dayCycles" as const },
+{ label: "Month", key: "monthCycles" as const },
+{ label: "Year", key: "yearCycles" as const },
+{ label: "Total", key: "totalCycles" as const },
 ];
 
 return (
@@ -2067,10 +2068,10 @@ return (
 <CardContent>
 <Stack direction="row" spacing={1} sx={{ alignItems: "center", marginBottom: 2 }}>
 <BatteryFull color="primary" />
-<Typography variant="h6" sx={{ fontWeight: 700 }}>Batteriezustand & Vollzyklen</Typography>
+<Typography variant="h6" sx={{ fontWeight: 700 }}>Battery health & full cycles</Typography>
 </Stack>
 {batteries.length === 0 ? (
-<Alert severity="info">Noch keine Batteriedaten verfügbar.</Alert>
+<Alert severity="info">No battery data is available yet.</Alert>
 ) : (
 <Grid container spacing={2}>
 {batteries.map((battery, index) => (
@@ -2078,28 +2079,28 @@ return (
 <Card variant="outlined" sx={{ height: "100%", borderRadius: 2 }}>
 <CardContent>
 <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-Speicher {index + 1}: {battery.serialNumber}
+Storage system {index + 1}: {battery.serialNumber}
 </Typography>
 <Typography variant="body2" sx={{ color: "text.secondary", marginBottom: 2 }}>
-{battery.model === "notConfigured" ? "Modell noch nicht ausgewählt" : battery.model}
+{battery.model === "notConfigured" ? "Model not selected yet" : battery.model}
 </Typography>
 <Grid container spacing={1.5}>
 <Grid size={{ xs: 12, sm: 6 }}>
-<Typography variant="caption" color="text.secondary">Vom Speicher gemeldet</Typography>
-<Typography variant="h6">{this.formatCycles(battery.reportedCycles)} Zyklen</Typography>
+<Typography variant="caption" color="text.secondary">Reported by the storage system</Typography>
+<Typography variant="h6">{this.formatCycles(battery.reportedCycles)} cycles</Typography>
 </Grid>
 <Grid size={{ xs: 12, sm: 6 }}>
-<Typography variant="caption" color="text.secondary">Batteriegesundheit</Typography>
+<Typography variant="caption" color="text.secondary">Battery health</Typography>
 <Typography variant="h6">{this.formatHealthValue(battery.healthValue, battery.healthStatus)}</Typography>
 <Typography variant="body2" color="text.secondary">
-Valide Messläufe: {battery.validRuns} von {battery.requiredRuns} · Verworfen: {battery.rejectedRuns}
+Valid measurement runs: {battery.validRuns} of {battery.requiredRuns} · Rejected: {battery.rejectedRuns}
 </Typography>
 {battery.activeRun === "active" ? (
 <Typography variant="body2" color="text.secondary">
-Aktuell: {battery.activeRunDirection === "discharging" ? "Entladung" : "Ladung"} · SOC {battery.activeRunSocStart ?? "–"} % → {battery.activeRunSocCurrent ?? "–"} % · {battery.activeRunEnergy?.toLocaleString("de-DE", { maximumFractionDigits: 3 }) ?? "–"} kWh
+Current: {battery.activeRunDirection === "discharging" ? "Discharging" : "Charging"} · SOC {battery.activeRunSocStart ?? "–"}% → {battery.activeRunSocCurrent ?? "–"}% · {battery.activeRunEnergy?.toLocaleString(undefined, { maximumFractionDigits: 3 }) ?? "–"} kWh
 </Typography>
 ) : (
-<Typography variant="body2" color="text.secondary">Aktueller Messlauf: keiner</Typography>
+<Typography variant="body2" color="text.secondary">Current measurement run: none</Typography>
 )}
 </Grid>
 {cycleRows.map((row) => (
@@ -2117,7 +2118,7 @@ Aktuell: {battery.activeRunDirection === "discharging" ? "Entladung" : "Ladung"}
 <Grid size={{ xs: 12 }}>
 <Card variant="outlined" sx={{ borderRadius: 2 }}>
 <CardContent>
-<Typography variant="subtitle1" sx={{ fontWeight: 700, marginBottom: 1.5 }}>Gesamtsystem</Typography>
+<Typography variant="subtitle1" sx={{ fontWeight: 700, marginBottom: 1.5 }}>Combined system</Typography>
 <Grid container spacing={1.5}>
 {cycleRows.map((row) => (
 <Grid key={row.key} size={{ xs: 6, sm: 2.4 }}>
@@ -2126,9 +2127,9 @@ Aktuell: {battery.activeRunDirection === "discharging" ? "Entladung" : "Ladung"}
 </Grid>
 ))}
 <Grid size={{ xs: 12, sm: 2.4 }}>
-<Typography variant="caption" color="text.secondary">Batteriegesundheit</Typography>
+<Typography variant="caption" color="text.secondary">Battery health</Typography>
 <Typography sx={{ fontWeight: 700 }}>{this.formatHealthValue(aggregateBattery.healthValue, aggregateBattery.healthStatus)}</Typography>
-<Typography variant="body2" color="text.secondary">{aggregateBattery.validRuns} von {aggregateBattery.requiredRuns} valide · {aggregateBattery.rejectedRuns} verworfen</Typography>
+<Typography variant="body2" color="text.secondary">{aggregateBattery.validRuns} of {aggregateBattery.requiredRuns} valid · {aggregateBattery.rejectedRuns} rejected</Typography>
 </Grid>
 </Grid>
 </CardContent>
@@ -2180,7 +2181,7 @@ return (
         [
         {
         title:
-        "Cloud-Verbindung",
+        "Cloud connection",
         value:
         connection.label,
         icon:
@@ -2199,7 +2200,7 @@ return (
         },
         {
         title:
-        "Speicher",
+        "Storage systems",
         value:
         status.deviceCount ??
         "–",
@@ -2209,10 +2210,10 @@ return (
         },
         {
         title:
-        "Statistikquelle",
+        "Statistics source",
         value:
         pending
-        ? "Noch nicht aktiv"
+        ? "Not active yet"
         : status.statisticsSource,
         icon: <Timeline />,
         color:
@@ -2222,7 +2223,7 @@ return (
         },
         {
         title:
-        "Letzter Abruf",
+        "Last poll",
         value:
         this.formatDate(
         status.lastUpdate,
@@ -2325,7 +2326,7 @@ return (
             fontWeight: 700
         }}
         >
-        Historische Statistik
+        Historical statistics
         </Typography>
         </Stack>
 
@@ -2349,7 +2350,7 @@ return (
             fontWeight: 700
         }}
         >
-        Historischer Abruf noch nicht implementiert
+        Historical retrieval is not implemented yet
         </Typography>
 
         <Typography
@@ -2358,21 +2359,20 @@ return (
         marginTop: 0.5,
         }}
         >
-        Die Statistikobjekte sind bereits vorbereitet. Der Wert
+        The statistics objects have already been prepared. The value
         {" "}
         <strong>
         pending-history-discovery
         </strong>
         {" "}
-        bedeutet nicht, dass ein automatischer Prozess wartet.
-        Die Dashboard- beziehungsweise CSV-History wird in der
-        nächsten Entwicklungsphase implementiert.
+        does not mean that an automated process is waiting.
+        Dashboard or CSV history will be implemented in a future development phase.
         </Typography>
         </Alert>
         )
         : (
         <Alert severity="success">
-        Die historische Statistik ist aktiv.
+        Historical statistics are active.
         </Alert>
         )
         }
@@ -2395,7 +2395,7 @@ return (
             color: "text.secondary"
         }}
         >
-        Erste Messung
+        First measurement
         </Typography>
 
         <Typography>
@@ -2418,7 +2418,7 @@ return (
             color: "text.secondary"
         }}
         >
-        Letzte Statistikaktualisierung
+        Last statistics update
         </Typography>
 
         <Typography>
@@ -2438,7 +2438,7 @@ return (
         ? (
         <Alert severity="warning">
         <strong>
-        Letzter Adapterfehler:
+        Last adapter error:
         </strong>
         {" "}
         {status.lastError}
@@ -2456,16 +2456,16 @@ const links = [
 title:
 "GitHub Repository",
 description:
-"Quellcode und Projektentwicklung",
+"Source code and project development",
 url:
 "https://github.com/GodHunter/ioBroker.sax-power",
 icon: <GitHub />,
 },
 {
 title:
-"Dokumentation",
+"Documentation",
 description:
-"Objekte, API, Architektur und Statistik",
+"Objects, API, architecture and statistics",
 url:
 "https://github.com/GodHunter/ioBroker.sax-power/tree/main/docs",
 icon:
@@ -2473,9 +2473,9 @@ icon:
 },
 {
 title:
-"Issue melden",
+"Report an issue",
 description:
-"Fehler melden oder Funktion vorschlagen",
+"Report a bug or suggest a feature",
 url:
 "https://github.com/GodHunter/ioBroker.sax-power/issues",
 icon:
@@ -2483,9 +2483,9 @@ icon:
 },
 {
 title:
-"MIT-Lizenz",
+"MIT license",
 description:
-"Lizenzbedingungen des Projekts",
+"Project license terms",
 url:
 "https://github.com/GodHunter/ioBroker.sax-power/blob/main/LICENSE",
 icon: <Code />,
@@ -2517,7 +2517,7 @@ return (
             fontWeight: 700
         }}
         >
-        Projekt & Hilfe
+        Project & help
         </Typography>
 
         <Typography
@@ -2527,8 +2527,7 @@ return (
                 marginTop: 0.5,
                 marginBottom: 2
             }}>
-        Der SAX-Power-Adapter ist ein unabhängiges
-        Open-Source-Community-Projekt.
+        The SAX Power adapter is an independent open-source community project.
         </Typography>
 
         <Grid
@@ -2607,10 +2606,7 @@ return (
         marginTop: 2,
         }}
         >
-        SAX Power und das SAX-Power-Logo sind geschützte
-        Marken beziehungsweise Markenbestandteile der
-        SAX Power GmbH. Dieses Projekt ist nicht offiziell
-        mit der SAX Power GmbH verbunden.
+        SAX Power and the SAX Power logo are protected trademarks or trademark elements of SAX Power GmbH. This project is not officially affiliated with SAX Power GmbH.
         </Alert>
         </CardContent>
         </Card>
@@ -2649,7 +2645,7 @@ return (
             fontWeight: 700
         }}
         >
-        Entwicklung unterstützen
+        Support development
         </Typography>
         </Stack>
 
@@ -2660,7 +2656,7 @@ return (
                 marginTop: 1,
                 marginBottom: 2
             }}>
-        Der SAX Power Adapter entsteht vollständig in meiner Freizeit. Wenn er dir gefällt und dir im Alltag hilft, kannst du seine Weiterentwicklung mit einer freiwilligen Spende unterstützen. Vielen Dank!
+        The SAX Power adapter is developed entirely in my spare time. If you like it and find it useful, you can support its continued development with a voluntary donation. Thank you!
         </Typography>
 
         <Button
@@ -2680,7 +2676,7 @@ return (
         paddingY: 1.2,
         }}
         >
-        Mit PayPal spenden
+        Donate with PayPal
         </Button>
         </CardContent>
         </Card>
@@ -2701,7 +2697,7 @@ return (
             fontWeight: 700
         }}
         >
-        Geplante Features
+        Planned features
         </Typography>
 
         <Stack
@@ -2712,8 +2708,8 @@ return (
         >
         {
         [
-        "Intelligente Ladealgorithmen",
-        "Benutzerdefinierte Zeiträume",
+        "Smart charging algorithms",
+        "Custom time periods",
         ].map(
         (item) => (
         <Stack
@@ -2789,6 +2785,7 @@ unknown as SaxPowerNativeConfig;
 
 return (
     <ThemeProvider theme={theme}>
+        <LocalizedContent>
         <RuntimeLoader
         enabled={this.state.loaded}
         onLoad={this.loadRuntimeStatus}
@@ -2856,7 +2853,7 @@ return (
         <CloudDone />
         }
         iconPosition="start"
-	label="Anmeldung"
+	label="Login"
         />
 
         <Tab
@@ -2865,7 +2862,7 @@ return (
         <Settings />
         }
         iconPosition="start"
-	label="Einstellungen"
+	label="Settings"
         />
 
         <Tab
@@ -2874,7 +2871,7 @@ return (
         <Timeline />
         }
         iconPosition="start"
-        label="Status & Statistik"
+        label="Status & statistics"
         />
 
         <Tab
@@ -2937,6 +2934,7 @@ return (
 
         </Box>
         </Box>
+        </LocalizedContent>
     </ThemeProvider>
 );
 }

@@ -1,0 +1,7 @@
+{
+  "version": 3,
+  "sources": ["../../src/lib/strategyIoBrokerCommandWriter.ts"],
+  "sourcesContent": ["import type { StrategyCommandWriter } from \"./strategyCommandWriter\";\n\nexport interface StrategyForeignStateAdapter {\n\tsetForeignStateAsync(\n\t\tstateId: string,\n\t\tvalue: number,\n\t\tacknowledged: false,\n\t): Promise<unknown>;\n}\n\nexport function createStrategyIoBrokerCommandWriter(\n\tadapter: StrategyForeignStateAdapter,\n): StrategyCommandWriter {\n\treturn Object.freeze({\n\t\tasync setForeignState(\n\t\t\tstateId: string,\n\t\t\tvalue: number,\n\t\t\tacknowledged: false,\n\t\t) {\n\t\t\tawait adapter.setForeignStateAsync(\n\t\t\t\tstateId,\n\t\t\t\tvalue,\n\t\t\t\tacknowledged,\n\t\t\t);\n\t\t},\n\t});\n}\n"],
+  "mappings": ";;;;;;;;;;;;;;;;;;AAAA;AAAA;AAAA;AAAA;AAAA;AAUO,SAAS,oCACf,SACwB;AACxB,SAAO,OAAO,OAAO;AAAA,IACpB,MAAM,gBACL,SACA,OACA,cACC;AACD,YAAM,QAAQ;AAAA,QACb;AAAA,QACA;AAAA,QACA;AAAA,MACD;AAAA,IACD;AAAA,EACD,CAAC;AACF;",
+  "names": []
+}

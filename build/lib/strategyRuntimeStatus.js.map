@@ -1,0 +1,7 @@
+{
+  "version": 3,
+  "sources": ["../../src/lib/strategyRuntimeStatus.ts"],
+  "sourcesContent": ["export const STRATEGY_RUNTIME_STATUS_STATE_IDS = Object.freeze({\n\tstate: \"info.strategyState\",\n\tdetail: \"info.strategyDetail\",\n});\n\nexport type StrategyRuntimeState =\n\t| \"disabled\"\n\t| \"invalid-configuration\"\n\t| \"waiting-for-inputs\"\n\t| \"starting\"\n\t| \"running\"\n\t| \"error\";\n\nexport interface StrategyRuntimeStatusAdapter {\n\tsetStateAsync(\n\t\tstateId: string,\n\t\tstate: ioBroker.SettableState,\n\t): Promise<unknown>;\n}\n\nexport async function publishStrategyRuntimeStatus(\n\tadapter: StrategyRuntimeStatusAdapter,\n\tstate: StrategyRuntimeState,\n\tdetail = \"\",\n): Promise<void> {\n\tawait Promise.all([\n\t\tadapter.setStateAsync(\n\t\t\tSTRATEGY_RUNTIME_STATUS_STATE_IDS.state,\n\t\t\t{ val: state, ack: true },\n\t\t),\n\t\tadapter.setStateAsync(\n\t\t\tSTRATEGY_RUNTIME_STATUS_STATE_IDS.detail,\n\t\t\t{ val: detail, ack: true },\n\t\t),\n\t]);\n}\n"],
+  "mappings": ";;;;;;;;;;;;;;;;;;AAAA;AAAA;AAAA;AAAA;AAAA;AAAA;AAAO,MAAM,oCAAoC,OAAO,OAAO;AAAA,EAC9D,OAAO;AAAA,EACP,QAAQ;AACT,CAAC;AAiBD,eAAsB,6BACrB,SACA,OACA,SAAS,IACO;AAChB,QAAM,QAAQ,IAAI;AAAA,IACjB,QAAQ;AAAA,MACP,kCAAkC;AAAA,MAClC,EAAE,KAAK,OAAO,KAAK,KAAK;AAAA,IACzB;AAAA,IACA,QAAQ;AAAA,MACP,kCAAkC;AAAA,MAClC,EAAE,KAAK,QAAQ,KAAK,KAAK;AAAA,IAC1B;AAAA,EACD,CAAC;AACF;",
+  "names": []
+}

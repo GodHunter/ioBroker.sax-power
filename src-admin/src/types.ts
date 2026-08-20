@@ -18,15 +18,6 @@ strategyIntervalMs?: unknown;
 strategyChargingControlEnabled?: boolean;
 strategyDayAvailabilityEnabled?: boolean;
 strategyNightDischargeEnabled?: boolean;
-
-/*
- * Retained only for compatibility with development instances.
- * Modbus control is intentionally not exposed in V1.0.
- */
-modbusControlEnabled?: boolean;
-modbusInstance?: string;
-modbusChargePowerStateId?: string;
-modbusDischargePowerStateId?: string;
 }
 
 export type SaxPowerConnectionState =

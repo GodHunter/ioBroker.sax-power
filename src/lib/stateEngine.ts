@@ -487,7 +487,7 @@ Promise<void> {
 "Current photovoltaic production power.",
 				type: "number",
 				role:
-"value.power.production",
+"value.power.produced",
 				unit: "W",
 			},
 
@@ -498,7 +498,7 @@ Promise<void> {
 "Calculated current house consumption.",
 				type: "number",
 				role:
-"value.power.consumption",
+"value.power.consumed",
 				unit: "W",
 			},
 

@@ -1,0 +1,7 @@
+{
+  "version": 3,
+  "sources": ["../../src/lib/strategyPvForecastFreshness.ts"],
+  "sourcesContent": ["import type { StrategyInputSnapshot } from \"./strategyInputSnapshot\";\n\nexport interface StrategyPvForecastFreshness {\n\treadonly createdAt: number;\n\treadonly lastUpdatedTimestamp: number;\n\treadonly ageMs: number;\n\treadonly maximumAgeMs: number;\n\treadonly fresh: boolean;\n}\n\nexport function assessStrategyPvForecastFreshness(\n\tsnapshot: StrategyInputSnapshot,\n\tmaximumAgeMs: number,\n): StrategyPvForecastFreshness | null {\n\tconst { createdAt } = snapshot;\n\tconst { lastUpdatedTimestamp } = snapshot.pvForecast;\n\n\tif (\n\t\t!Number.isFinite(createdAt)\n\t\t|| !Number.isFinite(lastUpdatedTimestamp)\n\t\t|| lastUpdatedTimestamp > createdAt\n\t\t|| !Number.isFinite(maximumAgeMs)\n\t\t|| maximumAgeMs < 0\n\t) {\n\t\treturn null;\n\t}\n\n\tconst ageMs = createdAt - lastUpdatedTimestamp;\n\n\treturn Object.freeze({\n\t\tcreatedAt,\n\t\tlastUpdatedTimestamp,\n\t\tageMs,\n\t\tmaximumAgeMs,\n\t\tfresh: ageMs <= maximumAgeMs,\n\t});\n}\n"],
+  "mappings": ";;;;;;;;;;;;;;;;;;AAAA;AAAA;AAAA;AAAA;AAAA;AAUO,SAAS,kCACf,UACA,cACqC;AACrC,QAAM,EAAE,UAAU,IAAI;AACtB,QAAM,EAAE,qBAAqB,IAAI,SAAS;AAE1C,MACC,CAAC,OAAO,SAAS,SAAS,KACvB,CAAC,OAAO,SAAS,oBAAoB,KACrC,uBAAuB,aACvB,CAAC,OAAO,SAAS,YAAY,KAC7B,eAAe,GACjB;AACD,WAAO;AAAA,EACR;AAEA,QAAM,QAAQ,YAAY;AAE1B,SAAO,OAAO,OAAO;AAAA,IACpB;AAAA,IACA;AAAA,IACA;AAAA,IACA;AAAA,IACA,OAAO,SAAS;AAAA,EACjB,CAAC;AACF;",
+  "names": []
+}

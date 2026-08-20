@@ -1,0 +1,7 @@
+{
+  "version": 3,
+  "sources": ["../../src/lib/strategyCommandWriter.ts"],
+  "sourcesContent": ["export interface StrategyCommandWriter {\n\tsetForeignState(\n\t\tstateId: string,\n\t\tvalue: number,\n\t\tacknowledged: false,\n\t): Promise<void>;\n}\n"],
+  "mappings": ";;;;;;;;;;;;;;AAAA;AAAA;",
+  "names": []
+}

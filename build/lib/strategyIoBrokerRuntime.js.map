@@ -1,0 +1,7 @@
+{
+  "version": 3,
+  "sources": ["../../src/lib/strategyIoBrokerRuntime.ts"],
+  "sourcesContent": ["import type { StrategyCommandWriter } from \"./strategyCommandWriter\";\nimport {\n\tcreateStrategyIoBrokerCommandWriter,\n\ttype StrategyForeignStateAdapter,\n} from \"./strategyIoBrokerCommandWriter\";\nimport {\n\tcreateStrategyIoBrokerStateReader,\n\ttype StrategyForeignStateReaderAdapter,\n} from \"./strategyIoBrokerStateReader\";\nimport type { StrategyStateReader } from \"./strategyStateResolver\";\n\nexport interface StrategyIoBrokerRuntimeAdapter\n\textends StrategyForeignStateAdapter, StrategyForeignStateReaderAdapter {}\n\nexport interface StrategyIoBrokerRuntime {\n\treadonly reader: StrategyStateReader;\n\treadonly writer: StrategyCommandWriter;\n}\n\nexport function createStrategyIoBrokerRuntime(\n\tadapter: StrategyIoBrokerRuntimeAdapter,\n): StrategyIoBrokerRuntime {\n\treturn Object.freeze({\n\t\treader: createStrategyIoBrokerStateReader(adapter),\n\t\twriter: createStrategyIoBrokerCommandWriter(adapter),\n\t});\n}\n"],
+  "mappings": ";;;;;;;;;;;;;;;;;;AAAA;AAAA;AAAA;AAAA;AAAA;AACA,2CAGO;AACP,yCAGO;AAWA,SAAS,8BACf,SAC0B;AAC1B,SAAO,OAAO,OAAO;AAAA,IACpB,YAAQ,sEAAkC,OAAO;AAAA,IACjD,YAAQ,0EAAoC,OAAO;AAAA,EACpD,CAAC;AACF;",
+  "names": []
+}

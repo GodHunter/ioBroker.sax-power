@@ -1,0 +1,7 @@
+{
+  "version": 3,
+  "sources": ["../../src/lib/pollInterval.ts"],
+  "sourcesContent": ["export const MIN_POLL_INTERVAL_SECONDS = 60;\nexport const MAX_POLL_INTERVAL_SECONDS = Math.floor(2_147_483_647 / 1_000);\n\nexport function isValidPollIntervalSeconds(value: number): boolean {\n\treturn Number.isFinite(value)\n\t\t&& value >= MIN_POLL_INTERVAL_SECONDS\n\t\t&& value <= MAX_POLL_INTERVAL_SECONDS;\n}\n"],
+  "mappings": ";;;;;;;;;;;;;;;;;;AAAA;AAAA;AAAA;AAAA;AAAA;AAAA;AAAA;AAAO,MAAM,4BAA4B;AAClC,MAAM,4BAA4B,KAAK,MAAM,aAAgB,GAAK;AAElE,SAAS,2BAA2B,OAAwB;AAClE,SAAO,OAAO,SAAS,KAAK,KACxB,SAAS,6BACT,SAAS;AACd;",
+  "names": []
+}
