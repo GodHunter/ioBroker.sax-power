@@ -263,6 +263,8 @@ npm run test:package
 - Optional Modbus configuration
 - Comprehensive project documentation
 
+[Older changelogs can be found there](CHANGELOG_OLD.md)
+
 ## License
 
 Copyright (c) 2026 GodHunter godhunter@posteo.de
