@@ -800,7 +800,6 @@ error.statusCode !== undefined
 			try {
 				const objects = await this.getForeignObjectsAsync(
 					"system.adapter.modbus.*",
-					"instance",
 				);
 				this.sendTo(
 					message.from,
