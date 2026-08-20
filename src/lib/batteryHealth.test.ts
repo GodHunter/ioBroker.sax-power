@@ -59,21 +59,46 @@ describe("battery health tracker", () => {
 		delete legacy.schemaVersion;
 		legacy.validRuns = 9;
 		legacy.rejectedRuns = 401;
+		legacy.estimates = [90, 91, 92, 93, 94, 95, 96, 97, 98];
 		const migrated = normalizeBatteryHealthProgress(legacy);
 		expect(migrated.schemaVersion).to.equal(BATTERY_HEALTH_SCHEMA_VERSION);
-		expect(migrated.validRuns).to.equal(9);
+		expect(migrated.validRuns).to.equal(0);
 		expect(migrated.rejectedRuns).to.equal(0);
+		expect(migrated.publishedValue).to.equal(96);
 		expect(normalizeBatteryHealthProgress(migrated)).to.equal(migrated);
 	});
 
-	it("publishes the median after five valid discharges", () => {
-		const progress = createBatteryHealthProgress("2026-08-10T10:00:00.000Z");
-		progress.validRuns = 5;
-		progress.estimates = [95, 97, 96, 80, 98];
-		const result = observeBatteryHealth(progress, {
-			timestamp: "2026-08-10T10:01:00.000Z", soc: null, batteryPower: null, direction: "idle",
+	it("publishes one stable mean for each block of five valid discharges", () => {
+		let progress = createBatteryHealthProgress("2026-08-10T00:00:00.000Z");
+		let result = observeBatteryHealth(progress, {
+			timestamp: "2026-08-10T00:00:00.000Z", soc: null, batteryPower: null, direction: "idle",
 		}, 5.2);
+		const completeRun = (estimate: number, day: number): void => {
+			const startedAt = `2026-08-${String(10 + day).padStart(2, "0")}T10:00:00.000Z`;
+			for (let minute = 0; minute <= 60; minute += 10) {
+				result = observeBatteryHealth(minute === 0 ? progress : result.progress, {
+					timestamp: new Date(Date.parse(startedAt) + minute * 60_000).toISOString(),
+					soc: 90 - minute * 2 / 3,
+					batteryPower: estimate * 20.8,
+					direction: "discharging",
+				}, 5.2);
+			}
+			result = observeBatteryHealth(result.progress, {
+				timestamp: new Date(Date.parse(startedAt) + 61 * 60_000).toISOString(),
+				soc: 50,
+				batteryPower: 0,
+				direction: "idle",
+			}, 5.2);
+			progress = result.progress;
+		};
+
+		[95, 97, 96, 80, 98].forEach(completeRun);
 		expect(result.status).to.equal("available");
-		expect(result.value).to.equal(96);
+		expect(result.value).to.equal(93.2);
+		expect(result.progress.validRuns).to.equal(0);
+
+		completeRun(110, 5);
+		expect(result.value).to.equal(93.2);
+		expect(result.progress.validRuns).to.equal(1);
 	});
 });

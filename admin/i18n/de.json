@@ -130,6 +130,8 @@
   "of": "von",
   "Rejected:": "Verworfen:",
   "Qualified measurement runs: %s · Minimum required: %s · Rejected: %s": "Qualifizierte Messläufe: %s · Benötigtes Minimum: %s · Verworfen: %s",
+  "Battery health calculated · Next update: %s of %s qualified runs": "Batteriezustand berechnet · Nächste Aktualisierung: %s von %s qualifizierten Messläufen",
+  "Battery health is being calculated · %s of %s qualified runs collected": "Batteriezustand wird berechnet · %s von %s qualifizierten Messläufen erfasst",
   "Current:": "Aktuell:",
   "Current measurement run: none": "Aktueller Messlauf: keiner",
   "Combined system": "Gesamtsystem",

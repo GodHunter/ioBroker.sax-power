@@ -485,9 +485,7 @@ value
 			.map((device) => this.healthProgress.get(this.sanitizeObjectId(device.info.serialNumber)))
 			.filter((progress): progress is BatteryHealthProgress => Boolean(progress));
 		if (progresses.length === 0) return;
-		const values = progresses.map((progress) => progress.validRuns >= progress.requiredRuns && progress.estimates.length > 0
-			? progress.estimates.slice(-progress.requiredRuns).sort((a, b) => a - b)[Math.floor(progress.requiredRuns / 2)]
-			: null);
+		const values = progresses.map((progress) => progress.publishedValue);
 		const available = values.every((value): value is number => value !== null);
 		const root = "summary.battery.health";
 		await this.writeCachedState(`${root}.value`, available ? Math.round(values.reduce((sum, value) => sum + value, 0) / values.length * 10) / 10 : null);

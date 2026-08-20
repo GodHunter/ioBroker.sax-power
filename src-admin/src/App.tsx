@@ -79,7 +79,7 @@ StrategyCapabilities,
 StrategyCapabilityModeId,
 } from "../../src/lib/strategyCapabilities";
 
-import { LocalizedContent } from "./localization";
+import { LocalizedContent, translate } from "./localization";
 
 import de from "../../admin/i18n/de.json";
 import en from "../../admin/i18n/en.json";
@@ -2118,7 +2118,17 @@ Storage system {index + 1}: {battery.serialNumber}
 <Typography variant="caption" color="text.secondary">Battery health</Typography>
 <Typography variant="h6">{this.formatHealthValue(battery.healthValue, battery.healthStatus)}</Typography>
 <Typography variant="body2" color="text.secondary">
-Qualified measurement runs: {battery.validRuns} · Minimum required: {battery.requiredRuns} · Rejected: {battery.rejectedRuns}
+{battery.healthStatus === "available"
+? translate(
+"Battery health calculated · Next update: %s of %s qualified runs",
+battery.validRuns,
+battery.requiredRuns,
+)
+: translate(
+"Battery health is being calculated · %s of %s qualified runs collected",
+battery.validRuns,
+battery.requiredRuns,
+)}
 </Typography>
 {battery.activeRun === "active" ? (
 <Typography variant="body2" color="text.secondary">

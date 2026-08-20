@@ -28,7 +28,7 @@ __export(batteryHealth_exports, {
 module.exports = __toCommonJS(batteryHealth_exports);
 const REQUIRED_HEALTH_RUNS = 5;
 const MIN_HEALTH_SOC_SPAN = 40;
-const BATTERY_HEALTH_SCHEMA_VERSION = 2;
+const BATTERY_HEALTH_SCHEMA_VERSION = 3;
 const MIN_REJECTED_RUN_SOC_SPAN = 5;
 const MIN_POWER_W = 100;
 const MAX_GAP_MS = 15 * 60 * 1e3;
@@ -38,6 +38,7 @@ function createBatteryHealthProgress(timestamp) {
     validRuns: 0,
     requiredRuns: REQUIRED_HEALTH_RUNS,
     rejectedRuns: 0,
+    publishedValue: null,
     dataCollectionStartedAt: timestamp,
     lastEvaluation: "",
     estimates: [],
@@ -46,13 +47,16 @@ function createBatteryHealthProgress(timestamp) {
 }
 function normalizeBatteryHealthProgress(progress) {
   if (progress.schemaVersion === BATTERY_HEALTH_SCHEMA_VERSION) return progress;
+  const legacyValue = progress.validRuns >= progress.requiredRuns ? median(progress.estimates.slice(-progress.requiredRuns)) : null;
   return {
     ...progress,
     schemaVersion: BATTERY_HEALTH_SCHEMA_VERSION,
-    // Version 1 counted charging phases and tiny power fluctuations as
-    // rejected discharge measurements. The historical value cannot be
-    // corrected reliably, so reset this diagnostic counter during migration.
-    rejectedRuns: 0
+    validRuns: 0,
+    estimates: [],
+    publishedValue: legacyValue === null ? null : round(Math.max(0, Math.min(110, legacyValue)), 1),
+    // Version 1 counted charging phases and tiny power fluctuations as rejected
+    // measurements. Version 2 already reset the affected diagnostic counter.
+    rejectedRuns: progress.schemaVersion === 2 ? progress.rejectedRuns : 0
   };
 }
 function round(value, digits = 3) {
@@ -66,9 +70,7 @@ function median(values) {
   return sorted.length % 2 === 0 ? (sorted[middle - 1] + sorted[middle]) / 2 : sorted[middle];
 }
 function healthValue(progress) {
-  if (progress.validRuns < progress.requiredRuns) return null;
-  const value = median(progress.estimates.slice(-progress.requiredRuns));
-  return value === null ? null : round(Math.max(0, Math.min(110, value)), 1);
+  return progress.publishedValue === null ? null : round(Math.max(0, Math.min(110, progress.publishedValue)), 1);
 }
 function result(progress) {
   const value = healthValue(progress);
@@ -87,9 +89,17 @@ function finishRun(progress, usableCapacityKwh, timestamp) {
     const expectedEnergy = usableCapacityKwh * socSpan / 100;
     const estimate = run.energyKwh / expectedEnergy * 100;
     if (Number.isFinite(estimate) && estimate >= 50 && estimate <= 120) {
-      progress.validRuns += 1;
       progress.estimates.push(round(estimate, 2));
-      progress.estimates = progress.estimates.slice(-20);
+      progress.validRuns = progress.estimates.length;
+      if (progress.estimates.length >= progress.requiredRuns) {
+        const completedBatch = progress.estimates.slice(0, progress.requiredRuns);
+        progress.publishedValue = round(
+          completedBatch.reduce((sum, value) => sum + value, 0) / completedBatch.length,
+          1
+        );
+        progress.estimates = progress.estimates.slice(progress.requiredRuns);
+        progress.validRuns = progress.estimates.length;
+      }
     } else {
       progress.rejectedRuns += 1;
     }
