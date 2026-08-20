@@ -1,5 +1,10 @@
 import { expect } from "chai";
-import { createBatteryHealthProgress, observeBatteryHealth } from "./batteryHealth";
+import {
+	BATTERY_HEALTH_SCHEMA_VERSION,
+	createBatteryHealthProgress,
+	normalizeBatteryHealthProgress,
+	observeBatteryHealth,
+} from "./batteryHealth";
 
 describe("battery health tracker", () => {
 	it("counts a sufficiently large discharge and estimates capacity", () => {
@@ -29,6 +34,36 @@ describe("battery health tracker", () => {
 			timestamp: "2026-08-10T10:10:00.000Z", soc: 75, batteryPower: 0, direction: "idle",
 		}, 5.2);
 		expect(result.progress.rejectedRuns).to.equal(1);
+	});
+
+	it("does not reject charging phases or tiny discharge fluctuations", () => {
+		let result = observeBatteryHealth(null, {
+			timestamp: "2026-08-10T10:00:00.000Z", soc: 50, batteryPower: 1000, direction: "charging",
+		}, 5.2);
+		result = observeBatteryHealth(result.progress, {
+			timestamp: "2026-08-10T10:10:00.000Z", soc: 55, batteryPower: 0, direction: "idle",
+		}, 5.2);
+		expect(result.progress.rejectedRuns).to.equal(0);
+
+		result = observeBatteryHealth(result.progress, {
+			timestamp: "2026-08-10T10:20:00.000Z", soc: 55, batteryPower: 1000, direction: "discharging",
+		}, 5.2);
+		result = observeBatteryHealth(result.progress, {
+			timestamp: "2026-08-10T10:30:00.000Z", soc: 53, batteryPower: 0, direction: "idle",
+		}, 5.2);
+		expect(result.progress.rejectedRuns).to.equal(0);
+	});
+
+	it("migrates the inflated legacy rejected-run counter once", () => {
+		const legacy = createBatteryHealthProgress("2026-08-10T10:00:00.000Z");
+		delete legacy.schemaVersion;
+		legacy.validRuns = 9;
+		legacy.rejectedRuns = 401;
+		const migrated = normalizeBatteryHealthProgress(legacy);
+		expect(migrated.schemaVersion).to.equal(BATTERY_HEALTH_SCHEMA_VERSION);
+		expect(migrated.validRuns).to.equal(9);
+		expect(migrated.rejectedRuns).to.equal(0);
+		expect(normalizeBatteryHealthProgress(migrated)).to.equal(migrated);
 	});
 
 	it("publishes the median after five valid discharges", () => {

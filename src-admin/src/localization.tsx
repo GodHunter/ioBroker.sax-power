@@ -35,8 +35,15 @@ function translateDynamicText(text: string): string {
 	match = text.match(/^([\d.,]+)% \(estimated\)$/);
 	if (match) return I18n.t("%s% (estimated)", match[1]);
 
-	match = text.match(/^Valid measurement runs: (\d+) of (\d+) · Rejected: (\d+)$/);
-	if (match) return I18n.t("Valid measurement runs: %s of %s · Rejected: %s", match[1], match[2], match[3]);
+	match = text.match(/^Qualified measurement runs: (\d+) · Minimum required: (\d+) · Rejected: (\d+)$/);
+	if (match) {
+		return I18n.t(
+			"Qualified measurement runs: %s · Minimum required: %s · Rejected: %s",
+			match[1],
+			match[2],
+			match[3],
+		);
+	}
 
 	match = text.match(/^(\d+) of (\d+) valid · (\d+) rejected$/);
 	if (match) return I18n.t("%s of %s valid · %s rejected", match[1], match[2], match[3]);

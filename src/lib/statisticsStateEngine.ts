@@ -22,6 +22,7 @@ import {
 } from "./batteryAnalysis";
 import {
 	observeBatteryHealth,
+	normalizeBatteryHealthProgress,
 	type BatteryHealthProgress,
 } from "./batteryHealth";
 
@@ -453,7 +454,7 @@ value
 			if (typeof state?.val === "string" && state.val) {
 				const parsed = JSON.parse(state.val) as BatteryHealthProgress;
 				if (typeof parsed.validRuns === "number" && typeof parsed.rejectedRuns === "number") {
-					this.healthProgress.set(serial, parsed);
+					this.healthProgress.set(serial, normalizeBatteryHealthProgress(parsed));
 				}
 			}
 		} catch {

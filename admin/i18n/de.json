@@ -129,6 +129,7 @@
   "Valid measurement runs:": "Valide Messläufe:",
   "of": "von",
   "Rejected:": "Verworfen:",
+  "Qualified measurement runs: %s · Minimum required: %s · Rejected: %s": "Qualifizierte Messläufe: %s · Benötigtes Minimum: %s · Verworfen: %s",
   "Current:": "Aktuell:",
   "Current measurement run: none": "Aktueller Messlauf: keiner",
   "Combined system": "Gesamtsystem",

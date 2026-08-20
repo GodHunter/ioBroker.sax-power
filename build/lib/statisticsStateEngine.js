@@ -330,7 +330,7 @@ class SaxPowerStatisticsStateEngine {
       if (typeof (state == null ? void 0 : state.val) === "string" && state.val) {
         const parsed = JSON.parse(state.val);
         if (typeof parsed.validRuns === "number" && typeof parsed.rejectedRuns === "number") {
-          this.healthProgress.set(serial, parsed);
+          this.healthProgress.set(serial, (0, import_batteryHealth.normalizeBatteryHealthProgress)(parsed));
         }
       }
     } catch {

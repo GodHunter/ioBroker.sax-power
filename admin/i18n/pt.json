@@ -106,6 +106,7 @@
   "Register 44 controls charging power. Automatic grid-friendly control is built on this safe write limit.": "Register 44 controls charging power. Automatic grid-friendly control is built on this safe write limit.",
   "Registers 43 to 48 are detected live; register 43 is required only for active night discharge": "Registers 43 to 48 are detected live; register 43 is required only for active night discharge",
   "Rejected:": "Rejected:",
+  "Qualified measurement runs: %s · Minimum required: %s · Rejected: %s": "Qualified measurement runs: %s · Minimum required: %s · Rejected: %s",
   "Report a bug or suggest a feature": "Report a bug or suggest a feature",
   "Report an issue": "Report an issue",
   "Reported by the storage system": "Reported by the storage system",

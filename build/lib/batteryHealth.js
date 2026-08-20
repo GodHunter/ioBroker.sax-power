@@ -18,18 +18,23 @@ var __copyProps = (to, from, except, desc) => {
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 var batteryHealth_exports = {};
 __export(batteryHealth_exports, {
+  BATTERY_HEALTH_SCHEMA_VERSION: () => BATTERY_HEALTH_SCHEMA_VERSION,
   MIN_HEALTH_SOC_SPAN: () => MIN_HEALTH_SOC_SPAN,
   REQUIRED_HEALTH_RUNS: () => REQUIRED_HEALTH_RUNS,
   createBatteryHealthProgress: () => createBatteryHealthProgress,
+  normalizeBatteryHealthProgress: () => normalizeBatteryHealthProgress,
   observeBatteryHealth: () => observeBatteryHealth
 });
 module.exports = __toCommonJS(batteryHealth_exports);
 const REQUIRED_HEALTH_RUNS = 5;
 const MIN_HEALTH_SOC_SPAN = 40;
+const BATTERY_HEALTH_SCHEMA_VERSION = 2;
+const MIN_REJECTED_RUN_SOC_SPAN = 5;
 const MIN_POWER_W = 100;
 const MAX_GAP_MS = 15 * 60 * 1e3;
 function createBatteryHealthProgress(timestamp) {
   return {
+    schemaVersion: BATTERY_HEALTH_SCHEMA_VERSION,
     validRuns: 0,
     requiredRuns: REQUIRED_HEALTH_RUNS,
     rejectedRuns: 0,
@@ -37,6 +42,17 @@ function createBatteryHealthProgress(timestamp) {
     lastEvaluation: "",
     estimates: [],
     activeRun: null
+  };
+}
+function normalizeBatteryHealthProgress(progress) {
+  if (progress.schemaVersion === BATTERY_HEALTH_SCHEMA_VERSION) return progress;
+  return {
+    ...progress,
+    schemaVersion: BATTERY_HEALTH_SCHEMA_VERSION,
+    // Version 1 counted charging phases and tiny power fluctuations as
+    // rejected discharge measurements. The historical value cannot be
+    // corrected reliably, so reset this diagnostic counter during migration.
+    rejectedRuns: 0
   };
 }
 function round(value, digits = 3) {
@@ -77,7 +93,7 @@ function finishRun(progress, usableCapacityKwh, timestamp) {
     } else {
       progress.rejectedRuns += 1;
     }
-  } else {
+  } else if (run.direction === "discharging" && socSpan >= MIN_REJECTED_RUN_SOC_SPAN) {
     progress.rejectedRuns += 1;
   }
   progress.lastEvaluation = timestamp;
@@ -90,7 +106,12 @@ function observeBatteryHealth(previous, sample, usableCapacityKwh) {
   const usableSample = Number.isFinite(time) && sample.soc !== null && sample.soc >= 0 && sample.soc <= 100 && sample.batteryPower !== null;
   const direction = sample.direction === "charging" || sample.direction === "discharging" ? sample.direction : null;
   if (!usableSample || !direction || Math.abs((_a = sample.batteryPower) != null ? _a : 0) < MIN_POWER_W) {
-    if (progress.activeRun) finishRun(progress, usableCapacityKwh, sample.timestamp);
+    if (progress.activeRun) {
+      if (sample.soc !== null && sample.soc >= 0 && sample.soc <= 100) {
+        progress.activeRun.currentSoc = sample.soc;
+      }
+      finishRun(progress, usableCapacityKwh, sample.timestamp);
+    }
     return result(progress);
   }
   if (!progress.activeRun || progress.activeRun.direction !== direction) {
@@ -122,9 +143,11 @@ function observeBatteryHealth(previous, sample, usableCapacityKwh) {
 }
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
+  BATTERY_HEALTH_SCHEMA_VERSION,
   MIN_HEALTH_SOC_SPAN,
   REQUIRED_HEALTH_RUNS,
   createBatteryHealthProgress,
+  normalizeBatteryHealthProgress,
   observeBatteryHealth
 });
 //# sourceMappingURL=batteryHealth.js.map

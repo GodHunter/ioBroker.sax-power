@@ -2,6 +2,8 @@ import type { BatteryDirection } from "./saxPowerDevice";
 
 export const REQUIRED_HEALTH_RUNS = 5;
 export const MIN_HEALTH_SOC_SPAN = 40;
+export const BATTERY_HEALTH_SCHEMA_VERSION = 2;
+const MIN_REJECTED_RUN_SOC_SPAN = 5;
 const MIN_POWER_W = 100;
 const MAX_GAP_MS = 15 * 60 * 1000;
 
@@ -22,6 +24,7 @@ interface ActiveHealthRun {
 }
 
 export interface BatteryHealthProgress {
+	schemaVersion?: number;
 	validRuns: number;
 	requiredRuns: number;
 	rejectedRuns: number;
@@ -39,6 +42,7 @@ export interface BatteryHealthResult {
 
 export function createBatteryHealthProgress(timestamp: string): BatteryHealthProgress {
 	return {
+		schemaVersion: BATTERY_HEALTH_SCHEMA_VERSION,
 		validRuns: 0,
 		requiredRuns: REQUIRED_HEALTH_RUNS,
 		rejectedRuns: 0,
@@ -46,6 +50,18 @@ export function createBatteryHealthProgress(timestamp: string): BatteryHealthPro
 		lastEvaluation: "",
 		estimates: [],
 		activeRun: null,
+	};
+}
+
+export function normalizeBatteryHealthProgress(progress: BatteryHealthProgress): BatteryHealthProgress {
+	if (progress.schemaVersion === BATTERY_HEALTH_SCHEMA_VERSION) return progress;
+	return {
+		...progress,
+		schemaVersion: BATTERY_HEALTH_SCHEMA_VERSION,
+		// Version 1 counted charging phases and tiny power fluctuations as
+		// rejected discharge measurements. The historical value cannot be
+		// corrected reliably, so reset this diagnostic counter during migration.
+		rejectedRuns: 0,
 	};
 }
 
@@ -97,7 +113,10 @@ function finishRun(progress: BatteryHealthProgress, usableCapacityKwh: number, t
 		} else {
 			progress.rejectedRuns += 1;
 		}
-	} else {
+	} else if (run.direction === "discharging" && socSpan >= MIN_REJECTED_RUN_SOC_SPAN) {
+		// Only count meaningful discharge attempts. Charging phases and tiny
+		// fluctuations are not battery-health measurements and must not inflate
+		// the rejected-run diagnostic counter.
 		progress.rejectedRuns += 1;
 	}
 	progress.lastEvaluation = timestamp;
@@ -115,7 +134,12 @@ export function observeBatteryHealth(
 	const direction = sample.direction === "charging" || sample.direction === "discharging" ? sample.direction : null;
 
 	if (!usableSample || !direction || Math.abs(sample.batteryPower ?? 0) < MIN_POWER_W) {
-		if (progress.activeRun) finishRun(progress, usableCapacityKwh, sample.timestamp);
+		if (progress.activeRun) {
+			if (sample.soc !== null && sample.soc >= 0 && sample.soc <= 100) {
+				progress.activeRun.currentSoc = sample.soc;
+			}
+			finishRun(progress, usableCapacityKwh, sample.timestamp);
+		}
 		return result(progress);
 	}
 

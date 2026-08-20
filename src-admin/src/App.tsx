@@ -81,6 +81,18 @@ StrategyCapabilityModeId,
 
 import { LocalizedContent } from "./localization";
 
+import de from "../../admin/i18n/de.json";
+import en from "../../admin/i18n/en.json";
+import es from "../../admin/i18n/es.json";
+import fr from "../../admin/i18n/fr.json";
+import it from "../../admin/i18n/it.json";
+import nl from "../../admin/i18n/nl.json";
+import pl from "../../admin/i18n/pl.json";
+import pt from "../../admin/i18n/pt.json";
+import ru from "../../admin/i18n/ru.json";
+import uk from "../../admin/i18n/uk.json";
+import zhCn from "../../admin/i18n/zh-cn.json";
+
 interface SaxPowerAdminState
 extends GenericAppState {
 selectedTab: AdminTab;
@@ -184,6 +196,19 @@ const extendedProps:
 GenericAppProps = {
 ...props,
 adapterName: "sax-power",
+translations: {
+de,
+en,
+es,
+fr,
+it,
+nl,
+pl,
+pt,
+ru,
+uk,
+"zh-cn": zhCn,
+},
 };
 
 super(extendedProps);
@@ -2093,7 +2118,7 @@ Storage system {index + 1}: {battery.serialNumber}
 <Typography variant="caption" color="text.secondary">Battery health</Typography>
 <Typography variant="h6">{this.formatHealthValue(battery.healthValue, battery.healthStatus)}</Typography>
 <Typography variant="body2" color="text.secondary">
-Valid measurement runs: {battery.validRuns} of {battery.requiredRuns} · Rejected: {battery.rejectedRuns}
+Qualified measurement runs: {battery.validRuns} · Minimum required: {battery.requiredRuns} · Rejected: {battery.rejectedRuns}
 </Typography>
 {battery.activeRun === "active" ? (
 <Typography variant="body2" color="text.secondary">
