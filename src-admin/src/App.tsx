@@ -1885,12 +1885,12 @@ return (
 <FormControlLabel
 control={(
 <Switch
-checked={checked && mode.selectable}
-disabled={!mode.selectable}
+checked={checked}
+disabled={!mode.selectable && !checked}
 onChange={(event) => this.updateNativeField(configKey, event.target.checked as never)}
 />
 )}
-label={checked && mode.selectable ? "Active" : "Inactive"}
+label={checked ? (mode.selectable ? "Active" : "Selected but unavailable") : "Inactive"}
 />
 </Stack>
 </CardContent>
@@ -2120,9 +2120,7 @@ Storage system {index + 1}: {battery.serialNumber}
 <Typography variant="body2" color="text.secondary">
 {battery.healthStatus === "available"
 ? translate(
-"Battery health calculated · Next update: %s of %s qualified runs",
-battery.validRuns,
-battery.requiredRuns,
+"Battery health calculated",
 )
 : translate(
 "Battery health is being calculated · %s of %s qualified runs collected",
@@ -2130,6 +2128,15 @@ battery.validRuns,
 battery.requiredRuns,
 )}
 </Typography>
+{battery.healthStatus === "available" ? (
+<Typography variant="body2" color="text.secondary">
+{translate(
+"Next update: %s of %s qualified runs",
+battery.validRuns,
+battery.requiredRuns,
+)}
+</Typography>
+) : null}
 {battery.activeRun === "active" ? (
 <Typography variant="body2" color="text.secondary">
 Current: {battery.activeRunDirection === "discharging" ? "Discharging" : "Charging"} · SOC {battery.activeRunSocStart ?? "–"}% → {battery.activeRunSocCurrent ?? "–"}% · {battery.activeRunEnergy?.toLocaleString(undefined, { maximumFractionDigits: 3 }) ?? "–"} kWh

@@ -1,10 +1,51 @@
 import { expect } from "chai";
 
 import {
+	createDetectedStrategyIntegrationContract,
 	createStrategyIntegrationContract,
 	inspectStrategyIntegrationAvailability,
 	STRATEGY_INTEGRATION_CONTRACT,
 } from "./strategyIntegrationContract";
+
+describe("detected strategy integration contract", () => {
+	it("uses the actually detected Modbus state IDs", () => {
+		const contract = createDetectedStrategyIntegrationContract("modbus.7", [
+			{ register: 44, stateId: "modbus.7.holdingRegisters.44_custom_charge" },
+			{ register: 45, stateId: "modbus.7.holdingRegisters.45_custom_state" },
+			{ register: 46, stateId: "modbus.7.holdingRegisters.46_custom_soc" },
+			{ register: 47, stateId: "modbus.7.holdingRegisters.47_custom_battery" },
+			{ register: 48, stateId: "modbus.7.holdingRegisters.48_custom_meter" },
+		]);
+
+		expect(contract?.modbus.chargePowerCommand.stateId)
+			.to.equal("modbus.7.holdingRegisters.44_custom_charge");
+		expect(contract?.modbus.operatingState.stateId)
+			.to.equal("modbus.7.holdingRegisters.45_custom_state");
+		expect(contract?.modbus.stateOfCharge.stateId)
+			.to.equal("modbus.7.holdingRegisters.46_custom_soc");
+		expect(contract?.modbus.batteryPower.stateId)
+			.to.equal("modbus.7.holdingRegisters.47_custom_battery");
+		expect(contract?.modbus.smartMeterPower.stateId)
+			.to.equal("modbus.7.holdingRegisters.48_custom_meter");
+	});
+
+	it("keeps register 43 optional and falls back only for absent registers", () => {
+		const contract = createDetectedStrategyIntegrationContract("modbus.3", [
+			{ register: 44, stateId: "modbus.3.holdingRegisters.44_charge" },
+			{ register: 43, stateId: null },
+		]);
+
+		expect(contract?.modbus.dischargePowerCommand.stateId)
+			.to.equal("modbus.3.holdingRegisters.43_Leistungsgrenzwert_für_Entladung");
+		expect(contract?.modbus.chargePowerCommand.stateId)
+			.to.equal("modbus.3.holdingRegisters.44_charge");
+	});
+
+	it("rejects invalid Modbus instances", () => {
+		expect(createDetectedStrategyIntegrationContract("modbus.invalid", []))
+			.to.equal(null);
+	});
+});
 
 function requiredObjects(): Record<string, unknown> {
 	const contract = STRATEGY_INTEGRATION_CONTRACT;

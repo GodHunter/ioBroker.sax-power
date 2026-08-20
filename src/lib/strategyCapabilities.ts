@@ -71,6 +71,14 @@ function registerNumber(stateId: string): number | null {
 	return match ? Number(match[1]) : null;
 }
 
+function providesDocumentedAccess(
+	register: number,
+	object: StrategyCapabilityObject,
+): boolean {
+	if (register === 43 || register === 44) return object.common?.write === true;
+	return object.common?.read === true;
+}
+
 function modeCapability(
 	id: StrategyCapabilityModeId,
 	registers: readonly StrategyRegisterCapability[],
@@ -122,6 +130,9 @@ export function discoverStrategyCapabilities(
 				.filter(({ object }) => object.type === "state"
 					&& object.common?.type === "number")
 				.sort((left, right) => {
+					const leftAccess = providesDocumentedAccess(register, left.object);
+					const rightAccess = providesDocumentedAccess(register, right.object);
+					if (leftAccess !== rightAccess) return leftAccess ? -1 : 1;
 					const leftHolding = left.stateId.includes(".holdingRegisters.");
 					const rightHolding = right.stateId.includes(".holdingRegisters.");
 					return leftHolding === rightHolding ? 0 : leftHolding ? -1 : 1;

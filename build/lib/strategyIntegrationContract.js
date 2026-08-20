@@ -19,6 +19,7 @@ var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: tru
 var strategyIntegrationContract_exports = {};
 __export(strategyIntegrationContract_exports, {
   STRATEGY_INTEGRATION_CONTRACT: () => STRATEGY_INTEGRATION_CONTRACT,
+  createDetectedStrategyIntegrationContract: () => createDetectedStrategyIntegrationContract,
   createStrategyIntegrationContract: () => createStrategyIntegrationContract,
   inspectStrategyIntegrationAvailability: () => inspectStrategyIntegrationAvailability
 });
@@ -133,6 +134,30 @@ function createStrategyIntegrationContract(modbusInstance) {
     marketPrice: STRATEGY_INTEGRATION_CONTRACT.marketPrice
   });
 }
+function createDetectedStrategyIntegrationContract(modbusInstance, registers) {
+  const fallback = createStrategyIntegrationContract(modbusInstance);
+  if (fallback === null) return null;
+  const detectedStateId = (register, fallbackStateId) => {
+    var _a, _b;
+    return (_b = (_a = registers.find((item) => item.register === register)) == null ? void 0 : _a.stateId) != null ? _b : fallbackStateId;
+  };
+  const detected = (state) => Object.freeze({
+    ...state,
+    stateId: state.register === void 0 ? state.stateId : detectedStateId(state.register, state.stateId)
+  });
+  return Object.freeze({
+    modbus: Object.freeze({
+      dischargePowerCommand: detected(fallback.modbus.dischargePowerCommand),
+      chargePowerCommand: detected(fallback.modbus.chargePowerCommand),
+      operatingState: detected(fallback.modbus.operatingState),
+      stateOfCharge: detected(fallback.modbus.stateOfCharge),
+      batteryPower: detected(fallback.modbus.batteryPower),
+      smartMeterPower: detected(fallback.modbus.smartMeterPower)
+    }),
+    pvForecast: fallback.pvForecast,
+    marketPrice: fallback.marketPrice
+  });
+}
 function stateContracts(contract) {
   return {
     modbus: [
@@ -164,6 +189,7 @@ function inspectStrategyIntegrationAvailability(objects, contract = STRATEGY_INT
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
   STRATEGY_INTEGRATION_CONTRACT,
+  createDetectedStrategyIntegrationContract,
   createStrategyIntegrationContract,
   inspectStrategyIntegrationAvailability
 });

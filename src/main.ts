@@ -92,6 +92,7 @@ import {
 } from "./lib/strategyIoBrokerReadinessRetry";
 
 import {
+	createDetectedStrategyIntegrationContract,
 	createStrategyIntegrationContract,
 	STRATEGY_INTEGRATION_CONTRACT,
 } from "./lib/strategyIntegrationContract";
@@ -226,9 +227,40 @@ new SaxPowerStateEngine(this);
 		const runtimeConfiguration = strategyRuntimeConfigurationFromNative(
 			this.saxConfig,
 		);
-		const contract = typeof runtimeConfiguration.modbusInstance === "string"
+		let contract = typeof runtimeConfiguration.modbusInstance === "string"
 			? createStrategyIntegrationContract(runtimeConfiguration.modbusInstance)
 			: null;
+		let capabilities: ReturnType<typeof discoverStrategyCapabilities> = null;
+		let capabilityDiscoveryError: unknown;
+
+		if (
+			runtimeConfiguration.enabled === true
+			&& typeof runtimeConfiguration.modbusInstance === "string"
+			&& contract !== null
+		) {
+			const modbusInstance = runtimeConfiguration.modbusInstance;
+			try {
+				const objects = await this.getForeignObjectsAsync(
+					`${modbusInstance}.*`,
+					"state",
+				);
+				capabilities = discoverStrategyCapabilities(
+					modbusInstance,
+					objects,
+				);
+				contract = capabilities === null
+					? contract
+					: createDetectedStrategyIntegrationContract(
+						modbusInstance,
+						capabilities.registers,
+					);
+			} catch (error) {
+				capabilityDiscoveryError = error;
+				this.log.warn(
+					`Unable to detect SAX Modbus registers during strategy startup: ${this.formatError(error)}`,
+				);
+			}
+		}
 		const binding = createStrategyIoBrokerStrategyBinding(
 			this.strategyAdapter(),
 			runtimeConfiguration,
@@ -272,6 +304,38 @@ new SaxPowerStateEngine(this);
 				"modbusInstance:invalid-instance",
 			);
 			return;
+		}
+
+		if (binding.status === "ready" && capabilityDiscoveryError !== undefined) {
+			await this.publishStrategyErrorStatus(
+				"Modbus register detection",
+				capabilityDiscoveryError,
+			);
+			return;
+		}
+
+		if (binding.status === "ready" && capabilities !== null) {
+			const enabledModes = new Map([
+				["chargingControl", binding.configuration.modes.chargingControlEnabled],
+				["dayAvailability", binding.configuration.modes.dayAvailabilityEnabled],
+				["nightDischarge", binding.configuration.modes.nightDischargeEnabled],
+			] as const);
+			const unavailableModes = capabilities.modes.filter(mode =>
+				enabledModes.get(mode.id) === true && !mode.selectable);
+			if (unavailableModes.length > 0) {
+				const detail = unavailableModes.map(mode =>
+					`${mode.id}:${mode.reason}${mode.missingRegisters.length > 0
+						? `(${mode.missingRegisters.join(",")})`
+						: ""}`,
+				).join(", ");
+				await publishStrategyRuntimeStatus(
+					this,
+					"invalid-configuration",
+					detail,
+				);
+				this.log.error(`SAX Power strategy mode is unavailable: ${detail}`);
+				return;
+			}
 		}
 
 		const readinessRetry = createStrategyReadinessRetry(

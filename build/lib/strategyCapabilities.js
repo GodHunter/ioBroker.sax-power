@@ -49,6 +49,11 @@ function registerNumber(stateId) {
   const match = stateName.match(/^(4[3-8])(?:_|$)/);
   return match ? Number(match[1]) : null;
 }
+function providesDocumentedAccess(register, object) {
+  var _a, _b;
+  if (register === 43 || register === 44) return ((_a = object.common) == null ? void 0 : _a.write) === true;
+  return ((_b = object.common) == null ? void 0 : _b.read) === true;
+}
 function modeCapability(id, registers) {
   const missingRegisters = MODE_REQUIREMENTS[id].filter((requirement) => {
     const register = registers.find((item) => item.register === requirement.register);
@@ -76,6 +81,9 @@ function discoverStrategyCapabilities(instance, objects) {
       var _a2;
       return object.type === "state" && ((_a2 = object.common) == null ? void 0 : _a2.type) === "number";
     }).sort((left, right) => {
+      const leftAccess = providesDocumentedAccess(register, left.object);
+      const rightAccess = providesDocumentedAccess(register, right.object);
+      if (leftAccess !== rightAccess) return leftAccess ? -1 : 1;
       const leftHolding = left.stateId.includes(".holdingRegisters.");
       const rightHolding = right.stateId.includes(".holdingRegisters.");
       return leftHolding === rightHolding ? 0 : leftHolding ? -1 : 1;

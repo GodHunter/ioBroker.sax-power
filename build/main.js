@@ -125,7 +125,31 @@ class SaxPower extends utils.Adapter {
     const runtimeConfiguration = (0, import_strategyNativeConfiguration.strategyRuntimeConfigurationFromNative)(
       this.saxConfig
     );
-    const contract = typeof runtimeConfiguration.modbusInstance === "string" ? (0, import_strategyIntegrationContract.createStrategyIntegrationContract)(runtimeConfiguration.modbusInstance) : null;
+    let contract = typeof runtimeConfiguration.modbusInstance === "string" ? (0, import_strategyIntegrationContract.createStrategyIntegrationContract)(runtimeConfiguration.modbusInstance) : null;
+    let capabilities = null;
+    let capabilityDiscoveryError;
+    if (runtimeConfiguration.enabled === true && typeof runtimeConfiguration.modbusInstance === "string" && contract !== null) {
+      const modbusInstance = runtimeConfiguration.modbusInstance;
+      try {
+        const objects = await this.getForeignObjectsAsync(
+          `${modbusInstance}.*`,
+          "state"
+        );
+        capabilities = (0, import_strategyCapabilities.discoverStrategyCapabilities)(
+          modbusInstance,
+          objects
+        );
+        contract = capabilities === null ? contract : (0, import_strategyIntegrationContract.createDetectedStrategyIntegrationContract)(
+          modbusInstance,
+          capabilities.registers
+        );
+      } catch (error) {
+        capabilityDiscoveryError = error;
+        this.log.warn(
+          `Unable to detect SAX Modbus registers during strategy startup: ${this.formatError(error)}`
+        );
+      }
+    }
     const binding = (0, import_strategyIoBrokerStrategyBinding.createStrategyIoBrokerStrategyBinding)(
       this.strategyAdapter(),
       runtimeConfiguration,
@@ -162,6 +186,33 @@ class SaxPower extends utils.Adapter {
         "modbusInstance:invalid-instance"
       );
       return;
+    }
+    if (binding.status === "ready" && capabilityDiscoveryError !== void 0) {
+      await this.publishStrategyErrorStatus(
+        "Modbus register detection",
+        capabilityDiscoveryError
+      );
+      return;
+    }
+    if (binding.status === "ready" && capabilities !== null) {
+      const enabledModes = /* @__PURE__ */ new Map([
+        ["chargingControl", binding.configuration.modes.chargingControlEnabled],
+        ["dayAvailability", binding.configuration.modes.dayAvailabilityEnabled],
+        ["nightDischarge", binding.configuration.modes.nightDischargeEnabled]
+      ]);
+      const unavailableModes = capabilities.modes.filter((mode) => enabledModes.get(mode.id) === true && !mode.selectable);
+      if (unavailableModes.length > 0) {
+        const detail = unavailableModes.map(
+          (mode) => `${mode.id}:${mode.reason}${mode.missingRegisters.length > 0 ? `(${mode.missingRegisters.join(",")})` : ""}`
+        ).join(", ");
+        await (0, import_strategyRuntimeStatus.publishStrategyRuntimeStatus)(
+          this,
+          "invalid-configuration",
+          detail
+        );
+        this.log.error(`SAX Power strategy mode is unavailable: ${detail}`);
+        return;
+      }
     }
     const readinessRetry = (0, import_strategyIoBrokerReadinessRetry.createStrategyReadinessRetry)(
       this.strategyAdapter(),

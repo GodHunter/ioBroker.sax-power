@@ -72,4 +72,18 @@ describe("strategy capabilities", () => {
 		expect(result?.registers.find(item => item.register === 44)?.stateId)
 			.to.equal(null);
 	});
+
+	it("prefers the candidate with the documented register access", () => {
+		const result = discoverStrategyCapabilities("modbus.1", {
+			"modbus.1.holdingRegisters.44_read_only": registerObject(true, false),
+			"modbus.1.holdingRegisters.44_write_command": registerObject(false, true),
+			"modbus.1.holdingRegisters.46_write_only": registerObject(false, true),
+			"modbus.1.holdingRegisters.46_soc": registerObject(true, false),
+		});
+
+		expect(result?.registers.find(item => item.register === 44)?.stateId)
+			.to.equal("modbus.1.holdingRegisters.44_write_command");
+		expect(result?.registers.find(item => item.register === 46)?.stateId)
+			.to.equal("modbus.1.holdingRegisters.46_soc");
+	});
 });

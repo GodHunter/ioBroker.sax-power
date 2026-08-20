@@ -176,6 +176,51 @@ export function createStrategyIntegrationContract(
 	});
 }
 
+export interface StrategyDetectedRegister {
+	readonly register: number;
+	readonly stateId: string | null;
+}
+
+/**
+ * Builds the runtime contract from the state objects actually detected in the
+ * selected Modbus instance. Register names are user-configurable in the
+ * ioBroker Modbus adapter, so the documented SAX names are only fallbacks.
+ */
+export function createDetectedStrategyIntegrationContract(
+	modbusInstance: string,
+	registers: readonly StrategyDetectedRegister[],
+): StrategyIntegrationContract | null {
+	const fallback = createStrategyIntegrationContract(modbusInstance);
+	if (fallback === null) return null;
+
+	const detectedStateId = (
+		register: number,
+		fallbackStateId: string,
+	): string => registers.find(item => item.register === register)?.stateId
+		?? fallbackStateId;
+	const detected = (
+		state: StrategyStateContract,
+	): StrategyStateContract => Object.freeze({
+		...state,
+		stateId: state.register === undefined
+			? state.stateId
+			: detectedStateId(state.register, state.stateId),
+	});
+
+	return Object.freeze({
+		modbus: Object.freeze({
+			dischargePowerCommand: detected(fallback.modbus.dischargePowerCommand),
+			chargePowerCommand: detected(fallback.modbus.chargePowerCommand),
+			operatingState: detected(fallback.modbus.operatingState),
+			stateOfCharge: detected(fallback.modbus.stateOfCharge),
+			batteryPower: detected(fallback.modbus.batteryPower),
+			smartMeterPower: detected(fallback.modbus.smartMeterPower),
+		}),
+		pvForecast: fallback.pvForecast,
+		marketPrice: fallback.marketPrice,
+	});
+}
+
 function stateContracts(
 	contract: StrategyIntegrationContract,
 ): {
