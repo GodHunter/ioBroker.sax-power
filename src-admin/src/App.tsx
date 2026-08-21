@@ -250,7 +250,7 @@ return `sax-power.${instance}`;
 }
 
 private getAdapterMessageTarget(): string {
-return `system.adapter.${this.getNamespace()}`;
+return this.getNamespace();
 }
 
 	private readStateValue(
