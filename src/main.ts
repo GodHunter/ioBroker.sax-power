@@ -797,6 +797,9 @@ error.statusCode !== undefined
 		}
 
 		if (message.command === "getModbusInstances") {
+			this.log.info(
+				`Modbus discovery request received from ${message.from}.`,
+			);
 			try {
 				const view = await this.getObjectViewAsync(
 					"system",
@@ -814,10 +817,16 @@ error.statusCode !== undefined
 					]),
 				);
 
+				const options = discoverModbusInstances(objects);
+
+				this.log.info(
+					`Modbus discovery found ${view.rows.length} instance row(s) and produced ${options.length} option(s).`,
+				);
+
 				this.sendTo(
 					message.from,
 					message.command,
-					discoverModbusInstances(objects),
+					options,
 					message.callback,
 				);
 			} catch (error) {

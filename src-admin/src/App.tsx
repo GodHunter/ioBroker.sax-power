@@ -634,11 +634,19 @@ target,
 command: "getModbusInstances",
 });
 
-const options = await this.socket.sendTo<unknown>(
+const options = await Promise.race([
+this.socket.sendTo<unknown>(
 target,
 "getModbusInstances",
 {},
+),
+new Promise<never>((_, reject) => {
+window.setTimeout(
+() => reject(new Error(`Timeout while waiting for ${target} / getModbusInstances`)),
+5_000,
 );
+}),
+]);
 
 const responseText = (() => {
 try {

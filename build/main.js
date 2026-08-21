@@ -543,6 +543,9 @@ class SaxPower extends utils.Adapter {
       return;
     }
     if (message.command === "getModbusInstances") {
+      this.log.info(
+        `Modbus discovery request received from ${message.from}.`
+      );
       try {
         const view = await this.getObjectViewAsync(
           "system",
@@ -558,10 +561,14 @@ class SaxPower extends utils.Adapter {
             row.value
           ])
         );
+        const options = (0, import_modbusDiscovery.discoverModbusInstances)(objects);
+        this.log.info(
+          `Modbus discovery found ${view.rows.length} instance row(s) and produced ${options.length} option(s).`
+        );
         this.sendTo(
           message.from,
           message.command,
-          (0, import_modbusDiscovery.discoverModbusInstances)(objects),
+          options,
           message.callback
         );
       } catch (error) {
