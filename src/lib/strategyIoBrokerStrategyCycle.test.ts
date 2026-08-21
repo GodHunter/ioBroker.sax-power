@@ -87,6 +87,7 @@ describe("strategy ioBroker operating-mode cycle", () => {
 		);
 
 		expect(result?.manualCharge?.control.operatingMode).to.equal("manual-charge");
+		expect(result?.chargingShadow).to.equal(null);
 		expect(result?.automatic).to.equal(null);
 		expect(run.astroCalls()).to.equal(0);
 		expect(run.writes.filter(({ id }) => id.startsWith("modbus."))).to.deep.equal([{
@@ -95,7 +96,7 @@ describe("strategy ioBroker operating-mode cycle", () => {
 		}]);
 	});
 
-	it("runs the automatic daylight cycle only when manual mode releases it", async () => {
+	it("runs charging shadow and automatic daylight evaluation when manual mode releases it", async () => {
 		const run = runtime(false);
 		const result = await executeStrategyIoBrokerStrategyCycle(
 			run.adapter, CONFIGURATION, 60 * 60 * 1_000, 2_000,
@@ -103,14 +104,19 @@ describe("strategy ioBroker operating-mode cycle", () => {
 		);
 
 		expect(result?.manualCharge?.control.operatingMode).to.equal("automatic");
+		expect(result?.chargingShadow?.wouldWriteRegister44).to.equal(false);
 		expect(result?.automatic).not.to.equal(null);
-		expect(run.astroCalls()).to.equal(2);
+		// Shadow charging and daytime availability each resolve the daylight window.
+		expect(run.astroCalls()).to.equal(4);
 		expect(run.writes).to.deep.include({
 			id: "strategy.dayDischarge.availablePowerW",
 			value: 2_000,
 		});
 		expect(run.writes.some(({ id }) => id ===
 			STRATEGY_INTEGRATION_CONTRACT.modbus.dischargePowerCommand.stateId,
+		)).to.equal(false);
+		expect(run.writes.some(({ id }) => id ===
+			STRATEGY_INTEGRATION_CONTRACT.modbus.chargePowerCommand.stateId,
 		)).to.equal(false);
 	});
 
@@ -138,13 +144,14 @@ describe("strategy ioBroker operating-mode cycle", () => {
 		);
 
 		expect(result?.manualCharge).to.equal(null);
+		expect(result?.chargingShadow).to.equal(null);
 		expect(result?.automatic?.availability.availablePowerW).to.equal(2_000);
 		expect(run.writes.some(({ id }) => id ===
 			STRATEGY_INTEGRATION_CONTRACT.modbus.dischargePowerCommand.stateId,
 		)).to.equal(false);
 	});
 
-	it("runs charging control without evaluating daytime availability", async () => {
+	it("runs charging control shadow without evaluating daytime availability", async () => {
 		const run = runtime(false);
 		const result = await executeStrategyIoBrokerStrategyCycle(
 			run.adapter, CONFIGURATION, 60 * 60 * 1_000, 2_000,
@@ -156,7 +163,12 @@ describe("strategy ioBroker operating-mode cycle", () => {
 		);
 
 		expect(result?.manualCharge?.control.operatingMode).to.equal("automatic");
+		expect(result?.chargingShadow?.wouldWriteRegister44).to.equal(false);
 		expect(result?.automatic).to.equal(null);
-		expect(run.astroCalls()).to.equal(0);
+		// Charging shadow still needs sunrise/sunset even without daytime availability.
+		expect(run.astroCalls()).to.equal(2);
+		expect(run.writes.some(({ id }) => id ===
+			STRATEGY_INTEGRATION_CONTRACT.modbus.chargePowerCommand.stateId,
+		)).to.equal(false);
 	});
 });
