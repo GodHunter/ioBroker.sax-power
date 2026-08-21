@@ -47,6 +47,12 @@ value: string;
 label: string;
 }
 
+export interface PvForecastInstanceOption {
+value: string;
+label: string;
+enabled: boolean;
+}
+
 export interface AdapterRuntimeStatus {
 connection: boolean | null;
 	connectionState: SaxPowerConnectionState | "unknown";
