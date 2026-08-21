@@ -103,6 +103,9 @@ statusError: string;
 showPassword: boolean;
 modbusInstances: ModbusInstanceOption[];
 modbusInstancesLoaded: boolean;
+modbusInstancesLoading: boolean;
+modbusInstancesError: string;
+modbusInstancesResponse: string;
 strategyCapabilities: StrategyCapabilities | null;
 strategyCapabilitiesLoading: boolean;
 }
@@ -225,6 +228,9 @@ statusError: "",
 showPassword: false,
 modbusInstances: [],
 modbusInstancesLoaded: false,
+modbusInstancesLoading: false,
+modbusInstancesError: "",
+modbusInstancesResponse: "",
 strategyCapabilities: null,
 strategyCapabilitiesLoading: false,
 };
@@ -614,20 +620,65 @@ error instanceof Error
 };
 
 private readonly loadModbusInstances = async (): Promise<void> => {
+const target = this.getAdapterMessageTarget();
+
+this.setState({
+modbusInstancesLoading: true,
+modbusInstancesError: "",
+modbusInstancesResponse: "",
+});
+
 try {
-const options = await this.socket.sendTo<ModbusInstanceOption[]>(
-this.getAdapterMessageTarget(),
+console.info("[SAX Power] Requesting Modbus instances", {
+target,
+command: "getModbusInstances",
+});
+
+const options = await this.socket.sendTo<unknown>(
+target,
 "getModbusInstances",
 {},
 );
-this.setState({
-modbusInstances: Array.isArray(options) ? options : [],
-modbusInstancesLoaded: true,
-});
+
+const responseText = (() => {
+try {
+return JSON.stringify(options);
 } catch {
+return String(options);
+}
+})();
+
+console.info("[SAX Power] Modbus instance response", options);
+
+if (!Array.isArray(options)) {
+throw new Error(
+`Unexpected response from ${target}: expected an array, received ${responseText}`,
+);
+}
+
+this.setState({
+modbusInstances: options as ModbusInstanceOption[],
+modbusInstancesLoaded: true,
+modbusInstancesLoading: false,
+modbusInstancesError: "",
+modbusInstancesResponse: responseText,
+});
+} catch (error) {
+const message = error instanceof Error
+? error.message
+: String(error);
+
+console.error("[SAX Power] Modbus instance discovery failed", {
+target,
+error,
+});
+
 this.setState({
 modbusInstances: [],
 modbusInstancesLoaded: true,
+modbusInstancesLoading: false,
+modbusInstancesError: message,
+modbusInstancesResponse: "",
 });
 }
 };
@@ -1823,6 +1874,50 @@ label="Enable storage strategy"
 ? "The strategy configuration is complete and can be saved."
 : "Complete all marked required fields with valid values."}
 </Alert>
+{this.state.modbusInstancesLoading ? (
+<Alert severity="info">
+<Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+<CircularProgress size={18} />
+<Typography variant="body2">
+Loading Modbus instances from {this.getAdapterMessageTarget()}…
+</Typography>
+</Stack>
+</Alert>
+) : this.state.modbusInstancesError ? (
+<Alert severity="error">
+<Typography variant="body2" sx={{ fontWeight: 700 }}>
+Modbus instance discovery failed
+</Typography>
+<Typography variant="body2" sx={{ overflowWrap: "anywhere" }}>
+{this.state.modbusInstancesError}
+</Typography>
+<Typography variant="caption" sx={{ display: "block", marginTop: 0.5 }}>
+Target: {this.getAdapterMessageTarget()}
+</Typography>
+</Alert>
+) : this.state.modbusInstancesLoaded ? (
+<Alert severity={this.state.modbusInstances.length > 0 ? "success" : "warning"}>
+<Typography variant="body2" sx={{ fontWeight: 700 }}>
+{this.state.modbusInstances.length > 0
+? `${this.state.modbusInstances.length} Modbus instance${this.state.modbusInstances.length === 1 ? "" : "s"} detected`
+: "No Modbus instances returned"}
+</Typography>
+{this.state.modbusInstancesResponse ? (
+<Typography
+variant="caption"
+component="div"
+sx={{
+marginTop: 0.5,
+fontFamily: "monospace",
+overflowWrap: "anywhere",
+}}
+>
+Raw response: {this.state.modbusInstancesResponse}
+</Typography>
+) : null}
+</Alert>
+) : null}
+
 <TextField
 select
 fullWidth
