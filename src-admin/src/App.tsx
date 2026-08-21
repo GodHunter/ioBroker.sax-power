@@ -79,6 +79,10 @@ StrategyCapabilities,
 StrategyCapabilityModeId,
 } from "../../src/lib/strategyCapabilities";
 
+import {
+discoverModbusInstances,
+} from "../../src/lib/modbusDiscovery";
+
 import { LocalizedContent, translate } from "./localization";
 
 import de from "../../admin/i18n/de.json";
@@ -620,8 +624,6 @@ error instanceof Error
 };
 
 private readonly loadModbusInstances = async (): Promise<void> => {
-const target = this.getAdapterMessageTarget();
-
 this.setState({
 modbusInstancesLoading: true,
 modbusInstancesError: "",
@@ -629,57 +631,27 @@ modbusInstancesResponse: "",
 });
 
 try {
-console.info("[SAX Power] Requesting Modbus instances", {
-target,
-command: "getModbusInstances",
-});
-
-const options = await Promise.race([
-this.socket.sendTo<unknown>(
-target,
-"getModbusInstances",
-{},
-),
-new Promise<never>((_, reject) => {
-window.setTimeout(
-() => reject(new Error(`Timeout while waiting for ${target} / getModbusInstances`)),
-5_000,
+const objects = await this.socket.getObjectViewSystem(
+"instance",
+"system.adapter.modbus.",
+"system.adapter.modbus.\u9999",
 );
-}),
-]);
 
-const responseText = (() => {
-try {
-return JSON.stringify(options);
-} catch {
-return String(options);
-}
-})();
-
-console.info("[SAX Power] Modbus instance response", options);
-
-if (!Array.isArray(options)) {
-throw new Error(
-`Unexpected response from ${target}: expected an array, received ${responseText}`,
-);
-}
+const options = discoverModbusInstances(objects);
 
 this.setState({
-modbusInstances: options as ModbusInstanceOption[],
+modbusInstances: options,
 modbusInstancesLoaded: true,
 modbusInstancesLoading: false,
 modbusInstancesError: "",
-modbusInstancesResponse: responseText,
+modbusInstancesResponse: "",
 });
 } catch (error) {
 const message = error instanceof Error
 ? error.message
 : String(error);
 
-console.error("[SAX Power] Modbus instance discovery failed", {
-target,
-error,
-});
+console.error("[SAX Power] Modbus instance discovery failed", error);
 
 this.setState({
 modbusInstances: [],
@@ -1887,42 +1859,18 @@ label="Enable storage strategy"
 <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
 <CircularProgress size={18} />
 <Typography variant="body2">
-Loading Modbus instances from {this.getAdapterMessageTarget()}…
+Modbus-Instanzen werden geladen…
 </Typography>
 </Stack>
 </Alert>
 ) : this.state.modbusInstancesError ? (
 <Alert severity="error">
 <Typography variant="body2" sx={{ fontWeight: 700 }}>
-Modbus instance discovery failed
+Modbus-Instanzen konnten nicht gelesen werden
 </Typography>
 <Typography variant="body2" sx={{ overflowWrap: "anywhere" }}>
 {this.state.modbusInstancesError}
 </Typography>
-<Typography variant="caption" sx={{ display: "block", marginTop: 0.5 }}>
-Target: {this.getAdapterMessageTarget()}
-</Typography>
-</Alert>
-) : this.state.modbusInstancesLoaded ? (
-<Alert severity={this.state.modbusInstances.length > 0 ? "success" : "warning"}>
-<Typography variant="body2" sx={{ fontWeight: 700 }}>
-{this.state.modbusInstances.length > 0
-? `${this.state.modbusInstances.length} Modbus instance${this.state.modbusInstances.length === 1 ? "" : "s"} detected`
-: "No Modbus instances returned"}
-</Typography>
-{this.state.modbusInstancesResponse ? (
-<Typography
-variant="caption"
-component="div"
-sx={{
-marginTop: 0.5,
-fontFamily: "monospace",
-overflowWrap: "anywhere",
-}}
->
-Raw response: {this.state.modbusInstancesResponse}
-</Typography>
-) : null}
 </Alert>
 ) : null}
 
