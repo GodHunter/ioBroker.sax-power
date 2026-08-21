@@ -682,7 +682,7 @@ strategyCapabilitiesLoading: true,
 
 try {
 const allObjects = await Promise.race([
-this.socket.getObjects(),
+this.socket.getObjects(true, true),
 new Promise<never>((_, reject) => {
 window.setTimeout(
 () => reject(new Error("Timeout while reading ioBroker objects")),
