@@ -545,8 +545,7 @@ class SaxPower extends utils.Adapter {
     if (message.command === "getModbusInstances") {
       try {
         const objects = await this.getForeignObjectsAsync(
-          "system.adapter.modbus.*",
-          "instance"
+          "system.adapter.modbus.*"
         );
         this.sendTo(
           message.from,
