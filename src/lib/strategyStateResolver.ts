@@ -5,58 +5,58 @@ import {
 } from "./strategyIntegrationContract";
 
 export interface StrategyStateReader {
-    getForeignObjectAsync(
-        id: string,
-    ): Promise<ioBroker.Object | null | undefined>;
+	getForeignObjectAsync(
+		id: string,
+	): Promise<ioBroker.Object | null | undefined>;
 
-    getForeignStateAsync(
-        id: string,
-    ): Promise<ioBroker.State | null | undefined>;
+	getForeignStateAsync(
+		id: string,
+	): Promise<ioBroker.State | null | undefined>;
 }
 
 export type StrategyStateFailureReason =
-    | "object-missing"
-    | "state-missing"
-    | "value-missing"
-    | "invalid-number"
-    | "invalid-timestamp"
-    | "bad-quality"
-    | "not-acknowledged"
-    | "stale";
+	| "object-missing"
+	| "state-missing"
+	| "value-missing"
+	| "invalid-number"
+	| "invalid-timestamp"
+	| "bad-quality"
+	| "not-acknowledged"
+	| "stale";
 
 export interface StrategyResolvedState {
-    readonly stateId: string;
-    readonly contract: StrategyStateContract;
-    readonly available: boolean;
-    readonly value: number | null;
-    readonly reason: StrategyStateFailureReason | null;
+	readonly stateId: string;
+	readonly contract: StrategyStateContract;
+	readonly available: boolean;
+	readonly value: number | null;
+	readonly reason: StrategyStateFailureReason | null;
 }
 
 export interface StrategyStateResolution {
-    readonly modbus: {
+	readonly modbus: {
 		readonly dischargePowerCommand: StrategyResolvedState;
-        readonly chargePowerCommand: StrategyResolvedState;
-        readonly operatingState: StrategyResolvedState;
-        readonly stateOfCharge: StrategyResolvedState;
-        readonly batteryPower: StrategyResolvedState;
-        readonly smartMeterPower: StrategyResolvedState;
-    };
-    readonly pvForecast: {
-        readonly energyNowUntilEndOfDay: StrategyResolvedState;
-        readonly energyToday: StrategyResolvedState;
-        readonly energyTomorrow: StrategyResolvedState;
-        readonly lastUpdated: StrategyResolvedState;
-    };
-    readonly modbusReady: boolean;
-    readonly pvForecastReady: boolean;
-    readonly strategyInputsReady: boolean;
-    readonly unavailableStateIds: readonly string[];
+		readonly chargePowerCommand: StrategyResolvedState;
+		readonly operatingState: StrategyResolvedState;
+		readonly stateOfCharge: StrategyResolvedState;
+		readonly batteryPower: StrategyResolvedState;
+		readonly smartMeterPower: StrategyResolvedState;
+	};
+	readonly pvForecast: {
+		readonly energyNowUntilEndOfDay: StrategyResolvedState;
+		readonly energyToday: StrategyResolvedState;
+		readonly energyTomorrow: StrategyResolvedState;
+		readonly lastUpdated: StrategyResolvedState;
+	};
+	readonly modbusReady: boolean;
+	readonly pvForecastReady: boolean;
+	readonly strategyInputsReady: boolean;
+	readonly unavailableStateIds: readonly string[];
 }
 
 export interface StrategyStateResolverOptions {
-    readonly now?: number;
-    readonly maximumStateAgeMs?: number;
-    readonly maximumTimestampAgeMs?: number;
+	readonly now?: number;
+	readonly maximumStateAgeMs?: number;
+	readonly maximumTimestampAgeMs?: number;
 }
 
 const DEFAULT_MAXIMUM_STATE_AGE_MS = 15 * 60 * 1000;
@@ -115,9 +115,18 @@ function isStale(
 ): boolean {
 	return (
 		typeof timestamp !== "number"
-        || !Number.isFinite(timestamp)
-        || timestamp > now
-        || now - timestamp > maximumAgeMs
+		|| !Number.isFinite(timestamp)
+		|| timestamp > now
+		|| now - timestamp > maximumAgeMs
+	);
+}
+
+function requiresFreshStateTimestamp(
+	contract: StrategyStateContract,
+): boolean {
+	return (
+		contract.access === "observation"
+		&& (contract.unit === "W" || contract.unit === "%")
 	);
 }
 
@@ -156,7 +165,10 @@ async function resolveState(
 		return unavailable(contract, "not-acknowledged");
 	}
 
-	if (isStale(state.ts, now, maximumStateAgeMs)) {
+	if (
+		requiresFreshStateTimestamp(contract)
+		&& isStale(state.ts, now, maximumStateAgeMs)
+	) {
 		return unavailable(contract, "stale");
 	}
 
@@ -208,9 +220,9 @@ export async function resolveStrategyStates(
 ): Promise<StrategyStateResolution> {
 	const now = options.now ?? Date.now();
 	const maximumStateAgeMs =
-        options.maximumStateAgeMs ?? DEFAULT_MAXIMUM_STATE_AGE_MS;
+		options.maximumStateAgeMs ?? DEFAULT_MAXIMUM_STATE_AGE_MS;
 	const maximumTimestampAgeMs =
-        options.maximumTimestampAgeMs ?? DEFAULT_MAXIMUM_TIMESTAMP_AGE_MS;
+		options.maximumTimestampAgeMs ?? DEFAULT_MAXIMUM_TIMESTAMP_AGE_MS;
 
 	const resolve = (stateContract: StrategyStateContract) =>
 		resolveStrategyState(reader, stateContract, {
