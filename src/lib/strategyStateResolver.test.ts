@@ -171,9 +171,9 @@ describe("strategy state resolver", () => {
 
 	it("distinguishes a missing object from a missing state", async () => {
 		const objectId =
-            STRATEGY_INTEGRATION_CONTRACT.modbus.stateOfCharge.stateId;
+			STRATEGY_INTEGRATION_CONTRACT.modbus.stateOfCharge.stateId;
 		const stateId =
-            STRATEGY_INTEGRATION_CONTRACT.modbus.batteryPower.stateId;
+			STRATEGY_INTEGRATION_CONTRACT.modbus.batteryPower.stateId;
 		const states = validStates();
 
 		delete states[stateId];
@@ -196,9 +196,9 @@ describe("strategy state resolver", () => {
 	it("rejects null and non-numeric observation values", async () => {
 		const states = validStates();
 		const socId =
-            STRATEGY_INTEGRATION_CONTRACT.modbus.stateOfCharge.stateId;
+			STRATEGY_INTEGRATION_CONTRACT.modbus.stateOfCharge.stateId;
 		const powerId =
-            STRATEGY_INTEGRATION_CONTRACT.modbus.batteryPower.stateId;
+			STRATEGY_INTEGRATION_CONTRACT.modbus.batteryPower.stateId;
 
 		states[socId] = { ...states[socId], val: null };
 		states[powerId] = { ...states[powerId], val: "1200" };
@@ -220,9 +220,9 @@ describe("strategy state resolver", () => {
 	it("rejects bad quality and unacknowledged observations", async () => {
 		const states = validStates();
 		const socId =
-            STRATEGY_INTEGRATION_CONTRACT.modbus.stateOfCharge.stateId;
+			STRATEGY_INTEGRATION_CONTRACT.modbus.stateOfCharge.stateId;
 		const powerId =
-            STRATEGY_INTEGRATION_CONTRACT.modbus.batteryPower.stateId;
+			STRATEGY_INTEGRATION_CONTRACT.modbus.batteryPower.stateId;
 
 		states[socId] = { ...states[socId], q: 1 };
 		states[powerId] = { ...states[powerId], ack: false };
@@ -241,10 +241,10 @@ describe("strategy state resolver", () => {
 		);
 	});
 
-	it("rejects a stale state update", async () => {
+	it("rejects a stale dynamic Modbus state update", async () => {
 		const states = validStates();
 		const stateId =
-            STRATEGY_INTEGRATION_CONTRACT.modbus.stateOfCharge.stateId;
+			STRATEGY_INTEGRATION_CONTRACT.modbus.stateOfCharge.stateId;
 
 		states[stateId] = {
 			...states[stateId],
@@ -263,10 +263,75 @@ describe("strategy state resolver", () => {
 		expect(resolution.modbus.stateOfCharge.reason).to.equal("stale");
 	});
 
+	it("accepts an unchanged operating state with an old ioBroker timestamp", async () => {
+		const states = validStates();
+		const stateId =
+			STRATEGY_INTEGRATION_CONTRACT.modbus.operatingState.stateId;
+
+		states[stateId] = {
+			...states[stateId],
+			ts: NOW - 12 * 60 * 60 * 1000,
+			lc: NOW - 12 * 60 * 60 * 1000,
+		};
+
+		const resolution = await resolveStrategyStates(
+			reader(states),
+			undefined,
+			{
+				now: NOW,
+				maximumStateAgeMs: 15 * 60 * 1000,
+			},
+		);
+
+		expect(resolution.modbus.operatingState.available).to.equal(true);
+		expect(resolution.modbus.operatingState.value).to.equal(2);
+		expect(resolution.modbusReady).to.equal(true);
+	});
+
+	it("uses the PVForecast domain timestamp instead of energy state timestamps", async () => {
+		const states = validStates();
+		const forecast = STRATEGY_INTEGRATION_CONTRACT.pvForecast;
+		const oldStateTimestamp = NOW - 12 * 60 * 60 * 1000;
+
+		for (const stateId of [
+			forecast.energyNowUntilEndOfDay.stateId,
+			forecast.energyToday.stateId,
+			forecast.energyTomorrow.stateId,
+			forecast.lastUpdated.stateId,
+		]) {
+			states[stateId] = {
+				...states[stateId],
+				ts: oldStateTimestamp,
+				lc: oldStateTimestamp,
+			};
+		}
+
+		states[forecast.lastUpdated.stateId] = {
+			...states[forecast.lastUpdated.stateId],
+			val: NOW - 30_000,
+		};
+
+		const resolution = await resolveStrategyStates(
+			reader(states),
+			undefined,
+			{
+				now: NOW,
+				maximumStateAgeMs: 15 * 60 * 1000,
+				maximumTimestampAgeMs: 60 * 60 * 1000,
+			},
+		);
+
+		expect(resolution.pvForecast.energyNowUntilEndOfDay.available).to.equal(true);
+		expect(resolution.pvForecast.energyToday.available).to.equal(true);
+		expect(resolution.pvForecast.energyTomorrow.available).to.equal(true);
+		expect(resolution.pvForecast.lastUpdated.available).to.equal(true);
+		expect(resolution.pvForecastReady).to.equal(true);
+	});
+
 	it("validates and normalizes the PVForecast timestamp", async () => {
 		const states = validStates();
 		const stateId =
-            STRATEGY_INTEGRATION_CONTRACT.pvForecast.lastUpdated.stateId;
+			STRATEGY_INTEGRATION_CONTRACT.pvForecast.lastUpdated.stateId;
 		const timestamp = NOW - 10_000;
 
 		states[stateId] = {
@@ -286,7 +351,7 @@ describe("strategy state resolver", () => {
 
 	it("rejects invalid and stale PVForecast timestamps", async () => {
 		const stateId =
-            STRATEGY_INTEGRATION_CONTRACT.pvForecast.lastUpdated.stateId;
+			STRATEGY_INTEGRATION_CONTRACT.pvForecast.lastUpdated.stateId;
 
 		const invalidStates = validStates();
 		invalidStates[stateId] = {
