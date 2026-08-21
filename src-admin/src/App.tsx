@@ -681,10 +681,22 @@ strategyCapabilitiesLoading: true,
 });
 
 try {
-const objects = await this.socket.getObjectViewSystem(
-"state",
-`${instance}.`,
-`${instance}.\u9999`,
+const allObjects = await Promise.race([
+this.socket.getObjects(),
+new Promise<never>((_, reject) => {
+window.setTimeout(
+() => reject(new Error("Timeout while reading ioBroker objects")),
+5_000,
+);
+}),
+]);
+
+const prefix = `${instance}.`;
+
+const objects = Object.fromEntries(
+Object.entries(allObjects).filter(
+([id]) => id.startsWith(prefix),
+),
 );
 
 const capabilities = discoverStrategyCapabilities(
