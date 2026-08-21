@@ -9,7 +9,7 @@ import {
 
 describe("detected strategy integration contract", () => {
 	it("uses the actually detected Modbus state IDs", () => {
-		const contract = createDetectedStrategyIntegrationContract("modbus.7", [
+		const contract = createDetectedStrategyIntegrationContract("modbus.7", "pvforecast.0", [
 			{ register: 44, stateId: "modbus.7.holdingRegisters.44_custom_charge" },
 			{ register: 45, stateId: "modbus.7.holdingRegisters.45_custom_state" },
 			{ register: 46, stateId: "modbus.7.holdingRegisters.46_custom_soc" },
@@ -30,7 +30,7 @@ describe("detected strategy integration contract", () => {
 	});
 
 	it("keeps register 43 optional and falls back only for absent registers", () => {
-		const contract = createDetectedStrategyIntegrationContract("modbus.3", [
+		const contract = createDetectedStrategyIntegrationContract("modbus.3", "pvforecast.0", [
 			{ register: 44, stateId: "modbus.3.holdingRegisters.44_charge" },
 			{ register: 43, stateId: null },
 		]);
@@ -42,7 +42,7 @@ describe("detected strategy integration contract", () => {
 	});
 
 	it("rejects invalid Modbus instances", () => {
-		expect(createDetectedStrategyIntegrationContract("modbus.invalid", []))
+		expect(createDetectedStrategyIntegrationContract("modbus.invalid", "pvforecast.0", []))
 			.to.equal(null);
 	});
 });
@@ -67,7 +67,7 @@ describe("strategy integration contract", () => {
 	});
 
 	it("binds the verified register contract to a selected Modbus instance", () => {
-		const contract = createStrategyIntegrationContract("modbus.7");
+		const contract = createStrategyIntegrationContract("modbus.7", "pvforecast.0");
 
 		expect(contract).not.to.equal(null);
 		expect(Object.values(contract?.modbus ?? {}).map(({ stateId }) => stateId))
@@ -80,7 +80,32 @@ describe("strategy integration contract", () => {
 				"modbus.7.holdingRegisters.48_Leistung_Smartmeter",
 			]);
 		expect(Object.isFrozen(contract)).to.equal(true);
-		expect(createStrategyIntegrationContract("javascript.0")).to.equal(null);
+		expect(createStrategyIntegrationContract("javascript.0", "pvforecast.0")).to.equal(null);
+	});
+
+	it("binds PVForecast inputs to the selected adapter instance", () => {
+		const contract = createStrategyIntegrationContract(
+			"modbus.7",
+			"pvforecast.3",
+		);
+
+		expect(contract).not.to.equal(null);
+		expect(contract?.pvForecast.energyNowUntilEndOfDay.stateId).to.equal(
+			"pvforecast.3.summary.energy.nowUntilEndOfDay",
+		);
+		expect(contract?.pvForecast.energyToday.stateId).to.equal(
+			"pvforecast.3.summary.energy.today",
+		);
+		expect(contract?.pvForecast.energyTomorrow.stateId).to.equal(
+			"pvforecast.3.summary.energy.tomorrow",
+		);
+		expect(contract?.pvForecast.lastUpdated.stateId).to.equal(
+			"pvforecast.3.summary.lastUpdated",
+		);
+
+		expect(
+			createStrategyIntegrationContract("modbus.7", "pvforecast.invalid"),
+		).to.equal(null);
 	});
 
 	it("treats register 43 as a transient discharge command", () => {

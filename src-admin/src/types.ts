@@ -6,6 +6,7 @@ batteryModels?: Record<string, string>;
 
 strategyEnabled?: boolean;
 strategyModbusInstance?: unknown;
+strategyPvForecastInstance?: unknown;
 strategyBatteryModelId?: unknown;
 strategyMinimumStateOfChargePercent?: unknown;
 strategyMaximumStateOfChargePercent?: unknown;

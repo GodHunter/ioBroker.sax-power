@@ -11,6 +11,7 @@ export interface StrategyRuntimeConfigurationInput
 	extends StrategyConfigurationInput {
 	readonly enabled: unknown;
 	readonly modbusInstance: unknown;
+	readonly pvForecastInstance: unknown;
 	readonly maximumForecastAgeMs: unknown;
 	readonly requestedDischargePowerW: unknown;
 	readonly intervalMs: unknown;
@@ -25,6 +26,7 @@ export type StrategyRuntimeConfiguration =
 		enabled: true;
 		configuration: StrategyConfiguration;
 		modbusInstance: string;
+		pvForecastInstance: string;
 		maximumForecastAgeMs: number;
 		requestedDischargePowerW: number;
 		intervalMs: number;
@@ -34,6 +36,7 @@ export type StrategyRuntimeConfiguration =
 export type StrategyRuntimeConfigurationField =
 	| "enabled"
 	| "modbusInstance"
+	| "pvForecastInstance"
 	| StrategyConfigurationField
 	| "maximumForecastAgeMs"
 	| "requestedDischargePowerW"
@@ -99,6 +102,16 @@ export function validateStrategyRuntimeConfiguration(
 	) {
 		issues.push({ field: "modbusInstance", reason: "invalid-instance" });
 	}
+	if (
+		typeof input.pvForecastInstance !== "string"
+		|| !/^pvforecast\.\d+$/.test(input.pvForecastInstance)
+	) {
+		issues.push({
+			field: "pvForecastInstance",
+			reason: "invalid-instance",
+		});
+	}
+
 
 	for (const field of [
 		"maximumForecastAgeMs",
@@ -144,6 +157,7 @@ export function validateStrategyRuntimeConfiguration(
 			enabled: true as const,
 			configuration: strategyValidation.configuration,
 			modbusInstance: input.modbusInstance as string,
+			pvForecastInstance: input.pvForecastInstance as string,
 			maximumForecastAgeMs: input.maximumForecastAgeMs as number,
 			requestedDischargePowerW: input.requestedDischargePowerW as number,
 			intervalMs: input.intervalMs as number,

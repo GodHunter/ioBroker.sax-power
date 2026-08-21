@@ -9,6 +9,7 @@ function validInput(): StrategyRuntimeConfigurationInput {
 	return {
 		enabled: true,
 		modbusInstance: "modbus.1",
+		pvForecastInstance: "pvforecast.0",
 		batteryModelId: "home-plus-7.7",
 		minimumStateOfChargePercent: 20,
 		maximumStateOfChargePercent: 90,

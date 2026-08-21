@@ -8,6 +8,7 @@ function validInput(): StrategyRuntimeConfigurationInput {
 	return {
 		enabled: true,
 		modbusInstance: "modbus.1",
+		pvForecastInstance: "pvforecast.0",
 		batteryModelId: "home-plus-7.7",
 		minimumStateOfChargePercent: 20,
 		maximumStateOfChargePercent: 90,
@@ -63,11 +64,33 @@ describe("strategy runtime configuration", () => {
 		}
 	});
 
+	it("requires a selected PVForecast adapter instance when enabled", () => {
+		for (const pvForecastInstance of [
+			undefined,
+			"",
+			"javascript.0",
+			"pvforecast.x",
+		]) {
+			const result = validateStrategyRuntimeConfiguration({
+				...validInput(),
+				pvForecastInstance,
+			});
+
+			expect(result.issues).to.include.deep.members([
+				{
+					field: "pvForecastInstance",
+					reason: "invalid-instance",
+				},
+			]);
+		}
+	});
+
 	it("accepts and freezes a complete enabled configuration", () => {
 		const result = validateStrategyRuntimeConfiguration(validInput());
 
 		expect(result.valid).to.equal(true);
 		if (!result.valid || !result.configuration.enabled) return;
+		expect(result.configuration.pvForecastInstance).to.equal("pvforecast.0");
 		expect(result.configuration.maximumForecastAgeMs).to.equal(3_600_000);
 		expect(result.configuration.requestedDischargePowerW).to.equal(2_000);
 		expect(result.configuration.intervalMs).to.equal(30_000);

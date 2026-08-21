@@ -139,15 +139,33 @@ export const STRATEGY_INTEGRATION_CONTRACT: StrategyIntegrationContract = {
 
 export function createStrategyIntegrationContract(
 	modbusInstance: string,
+	pvForecastInstance: string,
 ): StrategyIntegrationContract | null {
-	const normalized = modbusInstance.trim();
-	if (!/^modbus\.\d+$/.test(normalized)) return null;
+	const normalizedModbus = modbusInstance.trim();
+	const normalizedPvForecast = pvForecastInstance.trim();
+
+	if (!/^modbus\.\d+$/.test(normalizedModbus)) return null;
+	if (!/^pvforecast\.\d+$/.test(normalizedPvForecast)) return null;
 
 	const replaceModbusInstance = (
 		state: StrategyStateContract,
 	): StrategyStateContract => Object.freeze({
 		...state,
-		stateId: state.stateId.replace(/^modbus\.1/, normalized),
+		stateId: state.stateId.replace(
+			/^modbus\.1/,
+			normalizedModbus,
+		),
+	});
+
+
+	const replacePvForecastInstance = (
+		state: StrategyStateContract,
+	): StrategyStateContract => Object.freeze({
+		...state,
+		stateId: state.stateId.replace(
+			/^pvforecast\.0/,
+			normalizedPvForecast,
+		),
 	});
 
 	return Object.freeze({
@@ -171,7 +189,20 @@ export function createStrategyIntegrationContract(
 				STRATEGY_INTEGRATION_CONTRACT.modbus.smartMeterPower,
 			),
 		}),
-		pvForecast: STRATEGY_INTEGRATION_CONTRACT.pvForecast,
+		pvForecast: Object.freeze({
+			energyNowUntilEndOfDay: replacePvForecastInstance(
+				STRATEGY_INTEGRATION_CONTRACT.pvForecast.energyNowUntilEndOfDay,
+			),
+			energyToday: replacePvForecastInstance(
+				STRATEGY_INTEGRATION_CONTRACT.pvForecast.energyToday,
+			),
+			energyTomorrow: replacePvForecastInstance(
+				STRATEGY_INTEGRATION_CONTRACT.pvForecast.energyTomorrow,
+			),
+			lastUpdated: replacePvForecastInstance(
+				STRATEGY_INTEGRATION_CONTRACT.pvForecast.lastUpdated,
+			),
+		}),
 		marketPrice: STRATEGY_INTEGRATION_CONTRACT.marketPrice,
 	});
 }
@@ -188,9 +219,13 @@ export interface StrategyDetectedRegister {
  */
 export function createDetectedStrategyIntegrationContract(
 	modbusInstance: string,
+	pvForecastInstance: string,
 	registers: readonly StrategyDetectedRegister[],
 ): StrategyIntegrationContract | null {
-	const fallback = createStrategyIntegrationContract(modbusInstance);
+	const fallback = createStrategyIntegrationContract(
+		modbusInstance,
+		pvForecastInstance,
+	);
 	if (fallback === null) return null;
 
 	const detectedStateId = (

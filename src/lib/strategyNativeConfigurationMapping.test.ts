@@ -11,6 +11,7 @@ describe("strategy native configuration mapping", () => {
 		expect(result).to.deep.equal({
 			enabled: false,
 			modbusInstance: undefined,
+			pvForecastInstance: undefined,
 			batteryModelId: undefined,
 			minimumStateOfChargePercent: undefined,
 			maximumStateOfChargePercent: undefined,
@@ -30,6 +31,7 @@ describe("strategy native configuration mapping", () => {
 		const native = {
 			strategyEnabled: true,
 			strategyModbusInstance: "modbus.3",
+			strategyPvForecastInstance: "pvforecast.3",
 			strategyBatteryModelId: "home-plus-7.7",
 			strategyMinimumStateOfChargePercent: 20,
 			strategyMaximumStateOfChargePercent: 90,
@@ -48,6 +50,7 @@ describe("strategy native configuration mapping", () => {
 		expect(result).to.deep.equal({
 			enabled: true,
 			modbusInstance: "modbus.3",
+			pvForecastInstance: "pvforecast.3",
 			batteryModelId: "home-plus-7.7",
 			minimumStateOfChargePercent: 20,
 			maximumStateOfChargePercent: 90,

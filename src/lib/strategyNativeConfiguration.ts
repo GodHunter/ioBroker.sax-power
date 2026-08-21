@@ -5,6 +5,7 @@ import type {
 export interface StrategyNativeConfiguration {
 	readonly strategyEnabled?: unknown;
 	readonly strategyModbusInstance?: unknown;
+	readonly strategyPvForecastInstance?: unknown;
 	readonly strategyBatteryModelId?: unknown;
 	readonly strategyMinimumStateOfChargePercent?: unknown;
 	readonly strategyMaximumStateOfChargePercent?: unknown;
@@ -25,6 +26,7 @@ export function strategyRuntimeConfigurationFromNative(
 	return Object.freeze({
 		enabled: native.strategyEnabled ?? false,
 		modbusInstance: native.strategyModbusInstance,
+		pvForecastInstance: native.strategyPvForecastInstance,
 		batteryModelId: native.strategyBatteryModelId,
 		minimumStateOfChargePercent:
 			native.strategyMinimumStateOfChargePercent,

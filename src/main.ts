@@ -227,18 +227,33 @@ new SaxPowerStateEngine(this);
 		const runtimeConfiguration = strategyRuntimeConfigurationFromNative(
 			this.saxConfig,
 		);
-		let contract = typeof runtimeConfiguration.modbusInstance === "string"
-			? createStrategyIntegrationContract(runtimeConfiguration.modbusInstance)
+		const modbusInstance =
+			typeof runtimeConfiguration.modbusInstance === "string"
+				? runtimeConfiguration.modbusInstance
+				: null;
+		const pvForecastInstance =
+			typeof runtimeConfiguration.pvForecastInstance === "string"
+				? runtimeConfiguration.pvForecastInstance
+				: null;
+
+		let contract = (
+			modbusInstance !== null
+			&& pvForecastInstance !== null
+		)
+			? createStrategyIntegrationContract(
+				modbusInstance,
+				pvForecastInstance,
+			)
 			: null;
 		let capabilities: ReturnType<typeof discoverStrategyCapabilities> = null;
 		let capabilityDiscoveryError: unknown;
 
 		if (
 			runtimeConfiguration.enabled === true
-			&& typeof runtimeConfiguration.modbusInstance === "string"
+			&& modbusInstance !== null
+			&& pvForecastInstance !== null
 			&& contract !== null
 		) {
-			const modbusInstance = runtimeConfiguration.modbusInstance;
 			try {
 				const objects = await this.getForeignObjectsAsync(
 					`${modbusInstance}.*`,
@@ -252,6 +267,7 @@ new SaxPowerStateEngine(this);
 					? contract
 					: createDetectedStrategyIntegrationContract(
 						modbusInstance,
+						pvForecastInstance,
 						capabilities.registers,
 					);
 			} catch (error) {
