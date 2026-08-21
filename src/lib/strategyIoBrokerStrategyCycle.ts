@@ -11,6 +11,7 @@ import {
 import {
 	executeStrategyIoBrokerChargingShadowCycle,
 	type StrategyIoBrokerChargingShadowAdapter,
+	type StrategyIoBrokerChargingShadowCycle,
 } from "./strategyIoBrokerChargingShadowCycle";
 import type { StrategyManualChargeCycle } from "./strategyManualChargeCycle";
 import {
@@ -31,6 +32,7 @@ export interface StrategyIoBrokerStrategyCycleAdapter
 export interface StrategyIoBrokerStrategyCycle {
 	readonly createdAt: number;
 	readonly manualCharge: StrategyManualChargeCycle | null;
+	readonly chargingShadow: StrategyIoBrokerChargingShadowCycle | null;
 	readonly automatic: StrategyDaylightWindowCycleExecution | null;
 }
 
@@ -58,23 +60,25 @@ export async function executeStrategyIoBrokerStrategyCycle(
 		return Object.freeze({
 			createdAt: manualCharge.createdAt,
 			manualCharge,
+			chargingShadow: null,
 			automatic: null,
 		});
 	}
 
-	if (modes.chargingControlEnabled) {
-		await executeStrategyIoBrokerChargingShadowCycle(
+	const chargingShadow = modes.chargingControlEnabled
+		? await executeStrategyIoBrokerChargingShadowCycle(
 			adapter,
 			configuration,
 			contract,
 			resolverOptions,
-		);
-	}
+		)
+		: null;
 
 	if (!modes.dayAvailabilityEnabled) {
 		return Object.freeze({
 			createdAt: manualCharge?.createdAt ?? resolverOptions.now ?? Date.now(),
 			manualCharge,
+			chargingShadow,
 			automatic: null,
 		});
 	}
@@ -98,6 +102,7 @@ export async function executeStrategyIoBrokerStrategyCycle(
 	return Object.freeze({
 		createdAt: automatic.createdAt,
 		manualCharge,
+		chargingShadow,
 		automatic,
 	});
 }
