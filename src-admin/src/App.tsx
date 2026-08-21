@@ -243,6 +243,10 @@ query.get("instance") ??
 return `sax-power.${instance}`;
 }
 
+private getAdapterMessageTarget(): string {
+return `system.adapter.${this.getNamespace()}`;
+}
+
 	private readStateValue(
 		state:
 			| {
@@ -612,7 +616,7 @@ error instanceof Error
 private readonly loadModbusInstances = async (): Promise<void> => {
 try {
 const options = await this.socket.sendTo<ModbusInstanceOption[]>(
-this.getNamespace(),
+this.getAdapterMessageTarget(),
 "getModbusInstances",
 {},
 );
@@ -639,7 +643,7 @@ return;
 this.setState({ strategyCapabilities: null, strategyCapabilitiesLoading: true });
 try {
 const capabilities = await this.socket.sendTo<StrategyCapabilities | null>(
-this.getNamespace(),
+this.getAdapterMessageTarget(),
 "getStrategyCapabilities",
 { instance },
 );
