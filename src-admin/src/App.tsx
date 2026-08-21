@@ -3,6 +3,9 @@ useEffect,
 } from "react";
 
 import {
+Accordion,
+AccordionDetails,
+AccordionSummary,
 Alert,
 Box,
 Button,
@@ -36,6 +39,7 @@ EnergySavingsLeaf,
 SolarPower,
 Home,
 ElectricalServices,
+ExpandMore,
 BatteryChargingFull,
 BatteryFull,
 Settings,
@@ -83,6 +87,14 @@ type StrategyCapabilityModeId,
 import {
 discoverModbusInstances,
 } from "../../src/lib/modbusDiscovery";
+
+import {
+getBatteryModel,
+} from "../../src/lib/batteryAnalysis";
+
+import {
+resolveStrategyBatteryTechnicalLimits,
+} from "../../src/lib/strategyBatteryChargeCapability";
 
 import { LocalizedContent, translate } from "./localization";
 
@@ -720,6 +732,191 @@ strategyCapabilitiesLoading: false,
 });
 }
 };
+
+private updateStrategyFields(
+patch: Partial<SaxPowerNativeConfig>,
+): void {
+const currentNative =
+this.state.native as unknown as SaxPowerNativeConfig;
+
+const nextNative: SaxPowerNativeConfig = {
+...currentNative,
+...patch,
+};
+
+const strategyError =
+this.strategyConfigurationError(nextNative);
+
+this.setState({
+native: nextNative as unknown as Record<string, unknown>,
+changed: this.getIsChanged(
+nextNative as unknown as Record<string, unknown>,
+),
+isConfigurationError: strategyError,
+} as unknown as Pick<
+SaxPowerAdminState,
+"native" | "changed" | "isConfigurationError"
+>);
+
+if (
+Object.prototype.hasOwnProperty.call(
+patch,
+"strategyModbusInstance",
+)
+) {
+const instance =
+typeof patch.strategyModbusInstance === "string"
+? patch.strategyModbusInstance
+: "";
+
+void this.loadStrategyCapabilities(instance);
+}
+}
+
+private updateStrategyEnabled(
+enabled: boolean,
+): void {
+const native =
+this.state.native as unknown as SaxPowerNativeConfig;
+
+if (!enabled) {
+this.updateStrategyFields({
+strategyEnabled: false,
+});
+return;
+}
+
+this.updateStrategyFields({
+strategyEnabled: true,
+
+strategyMinimumStateOfChargePercent:
+typeof native.strategyMinimumStateOfChargePercent === "number"
+? native.strategyMinimumStateOfChargePercent
+: 30,
+
+strategyMaximumStateOfChargePercent:
+typeof native.strategyMaximumStateOfChargePercent === "number"
+? native.strategyMaximumStateOfChargePercent
+: 100,
+
+// Transitional reserve until the adaptive load/forecast model replaces it.
+strategyPvForecastReserveWh:
+typeof native.strategyPvForecastReserveWh === "number"
+? native.strategyPvForecastReserveWh
+: 0,
+
+strategyMaximumForecastAgeMs:
+typeof native.strategyMaximumForecastAgeMs === "number"
+? native.strategyMaximumForecastAgeMs
+: 120 * 60_000,
+
+strategyIntervalMs:
+typeof native.strategyIntervalMs === "number"
+? native.strategyIntervalMs
+: 30_000,
+
+strategyChargingControlEnabled:
+native.strategyChargingControlEnabled ?? true,
+
+strategyDayAvailabilityEnabled:
+native.strategyDayAvailabilityEnabled ?? false,
+
+strategyNightDischargeEnabled:
+native.strategyNightDischargeEnabled ?? false,
+});
+}
+
+private updateStrategyBatteryModel(
+modelId: string,
+): void {
+const native =
+this.state.native as unknown as SaxPowerNativeConfig;
+
+if (!modelId) {
+this.updateStrategyFields({
+strategyBatteryModelId: undefined,
+});
+return;
+}
+
+const model = getBatteryModel(modelId);
+const limits =
+model === null
+? null
+: resolveStrategyBatteryTechnicalLimits(model);
+
+if (model === null || limits === null) {
+this.updateStrategyFields({
+strategyBatteryModelId: modelId,
+});
+return;
+}
+
+const previousModel =
+typeof native.strategyBatteryModelId === "string"
+? getBatteryModel(native.strategyBatteryModelId)
+: null;
+
+const previousLimits =
+previousModel === null
+? null
+: resolveStrategyBatteryTechnicalLimits(previousModel);
+
+const chargePowerWasDefault =
+typeof native.strategyMaximumChargePowerW !== "number"
+|| (
+previousLimits !== null
+&& native.strategyMaximumChargePowerW
+=== previousLimits.maximumChargePowerW
+);
+
+const dischargePowerWasDefault =
+typeof native.strategyMaximumDischargePowerW !== "number"
+|| (
+previousLimits !== null
+&& native.strategyMaximumDischargePowerW
+=== previousLimits.maximumDischargePowerW
+);
+
+this.updateStrategyFields({
+strategyBatteryModelId: model.id,
+
+strategyMinimumStateOfChargePercent:
+typeof native.strategyMinimumStateOfChargePercent === "number"
+? native.strategyMinimumStateOfChargePercent
+: 30,
+
+strategyMaximumStateOfChargePercent:
+typeof native.strategyMaximumStateOfChargePercent === "number"
+? native.strategyMaximumStateOfChargePercent
+: 100,
+
+strategyMaximumChargePowerW:
+chargePowerWasDefault
+? limits.maximumChargePowerW
+: native.strategyMaximumChargePowerW,
+
+strategyMaximumDischargePowerW:
+dischargePowerWasDefault
+? limits.maximumDischargePowerW
+: native.strategyMaximumDischargePowerW,
+
+strategyPvForecastReserveWh:
+typeof native.strategyPvForecastReserveWh === "number"
+? native.strategyPvForecastReserveWh
+: 0,
+
+strategyMaximumForecastAgeMs:
+typeof native.strategyMaximumForecastAgeMs === "number"
+? native.strategyMaximumForecastAgeMs
+: 120 * 60_000,
+
+strategyIntervalMs:
+typeof native.strategyIntervalMs === "number"
+? native.strategyIntervalMs
+: 30_000,
+});
+}
 
 private updateNativeField<
 Key extends keyof SaxPowerNativeConfig,
@@ -1876,7 +2073,7 @@ Runtime status
 control={(
 <Switch
 checked={native.strategyEnabled === true}
-onChange={(event) => this.updateNativeField("strategyEnabled", event.target.checked)}
+onChange={(event) => this.updateStrategyEnabled(event.target.checked)}
 />
 )}
 label="Enable storage strategy"
@@ -1908,165 +2105,471 @@ Modbus-Instanzen konnten nicht gelesen werden
 </Alert>
 ) : null}
 
+<Stack spacing={2.5}>
+
+{/* Connection ------------------------------------------------ */}
+<Box>
+<Typography variant="subtitle1" sx={{ fontWeight: 700, marginBottom: 1 }}>
+Storage interface
+</Typography>
+
 <TextField
 select
 fullWidth
 required
 label="Modbus instance"
 value={typeof native.strategyModbusInstance === "string" ? native.strategyModbusInstance : ""}
-onChange={(event) => this.updateNativeField("strategyModbusInstance", event.target.value || undefined)}
+onChange={(event) => this.updateNativeField(
+"strategyModbusInstance",
+event.target.value || undefined,
+)}
 error={hasStrategyIssue("modbusInstance")}
-helperText="Registers 43 to 48 are detected live; register 43 is required only for active night discharge"
+helperText="The SAX register interface is detected automatically. Register 43 is only required for active night discharge."
 >
 <MenuItem value=""><em>Select an instance</em></MenuItem>
 {this.state.modbusInstances.map(option => (
-<MenuItem key={option.value} value={option.value}>{option.label}</MenuItem>
+<MenuItem key={option.value} value={option.value}>
+{option.label}
+</MenuItem>
 ))}
 </TextField>
+</Box>
+
 {this.state.strategyCapabilitiesLoading ? (
 <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
 <CircularProgress size={18} />
-<Typography variant="body2">Checking registers and available modes…</Typography>
-</Stack>
-) : capabilities ? (
-<Stack spacing={1.5}>
-<Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-Detected SAX capabilities
+<Typography variant="body2">
+Checking SAX interface…
 </Typography>
-<Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", gap: 1 }}>
+</Stack>
+) : capabilities ? (() => {
+const compatibleModes =
+capabilities.modes.filter(mode => mode.hardwareSupported);
+
+const saxCompatible =
+compatibleModes.length > 0;
+
+if (!saxCompatible) {
+return (
+<Alert severity="warning">
+<Typography variant="body2" sx={{ fontWeight: 700 }}>
+No compatible SAX Modbus interface detected
+</Typography>
+<Typography variant="caption">
+The selected Modbus instance does not provide the required SAX registers 44 to 48.
+</Typography>
+</Alert>
+);
+}
+
+return (
+<Stack spacing={1.5}>
+<Alert severity="success">
+<Typography variant="body2" sx={{ fontWeight: 700 }}>
+SAX Modbus interface detected
+</Typography>
+<Typography variant="caption">
+Charging control and daytime availability can use this interface safely.
+</Typography>
+</Alert>
+
+<Accordion
+disableGutters
+elevation={0}
+sx={{
+border: 1,
+borderColor: "divider",
+borderRadius: "12px !important",
+"&:before": { display: "none" },
+}}
+>
+<AccordionSummary expandIcon={<ExpandMore />}>
+<Stack
+direction="row"
+spacing={1}
+sx={{
+alignItems: "center",
+flexWrap: "wrap",
+gap: 0.5,
+}}
+>
+<Typography variant="body2" sx={{ fontWeight: 700 }}>
+Technical interface details
+</Typography>
+
 {capabilities.registers.map(register => (
 <Chip
 key={register.register}
 size="small"
 color={register.stateId ? "success" : "default"}
 variant={register.stateId ? "filled" : "outlined"}
-label={`R${register.register}: ${register.stateId
-? `${register.readable ? "read" : ""}${register.readable && register.writable ? "/" : ""}${register.writable ? "write" : ""}`
-: "missing"}`}
+label={`R${register.register}: ${
+register.stateId
+? `${register.readable ? "read" : ""}${
+register.readable && register.writable ? "/" : ""
+}${register.writable ? "write" : ""}`
+: "missing"
+}`}
 />
 ))}
 </Stack>
-{capabilities.modes.map(mode => {
-const configKey = modeConfigKey[mode.id];
-const checked = native[configKey] === undefined
-? mode.id !== "nightDischarge"
-: native[configKey] === true;
-const detail = mode.reason === "missing-registers"
-? `Not available: register ${mode.missingRegisters.join(", ")} is missing or does not provide the required access.`
-: mode.reason === "not-implemented"
-? "Hardware supported; the separate night logic is not implemented in this beta yet."
-: "Available for this Modbus instance.";
-return (
-<Card key={mode.id} variant="outlined" sx={{ borderRadius: 2 }}>
-<CardContent sx={{ paddingBottom: "16px !important" }}>
-<Stack direction={{ xs: "column", sm: "row" }} spacing={1} sx={{ justifyContent: "space-between" }}>
-<Box>
-<Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-{this.strategyModeLabel(mode.id)}
+</AccordionSummary>
+
+<AccordionDetails>
+<Typography variant="caption" sx={{ color: "text.secondary" }}>
+Registers are detected from the selected ioBroker Modbus instance.
+R43 is optional and is only needed for active night discharge.
 </Typography>
+</AccordionDetails>
+</Accordion>
+</Stack>
+);
+})() : null}
+
+<Divider />
+
+{/* Battery --------------------------------------------------- */}
+<Box>
+<Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+Storage limits
+</Typography>
+<Typography
+variant="body2"
+sx={{
+color: "text.secondary",
+marginBottom: 1.5,
+}}
+>
+Select the SAX model. Manufacturer power limits are filled automatically but can be reduced manually.
+</Typography>
+
+<Stack spacing={2}>
+<TextField
+select
+fullWidth
+required
+label="Battery model"
+value={typeof native.strategyBatteryModelId === "string" ? native.strategyBatteryModelId : ""}
+onChange={(event) => this.updateStrategyBatteryModel(event.target.value)}
+error={hasStrategyIssue("batteryModelId")}
+helperText="Used for usable capacity, charging limits and recharge-time calculations."
+>
+<MenuItem value=""><em>Select a model</em></MenuItem>
+<MenuItem value="home-5.8">
+SAX Power Home 5.8 kWh — 5.20 kWh usable
+</MenuItem>
+<MenuItem value="home-plus-7.7">
+SAX Power Home Plus 7.7 kWh — 7.00 kWh usable
+</MenuItem>
+</TextField>
+
+<Grid container spacing={2}>
+<Grid size={{ xs: 12, md: 6 }}>
+<TextField
+fullWidth
+required
+type="number"
+label="Minimum SOC"
+value={strategyNumber(native.strategyMinimumStateOfChargePercent)}
+onChange={(event) => this.updateOptionalNumberField(
+"strategyMinimumStateOfChargePercent",
+event.target.value,
+)}
+error={hasStrategyIssue("minimumStateOfChargePercent")}
+helperText="Default: 30 %. The strategy will not release energy below this limit."
+slotProps={{
+input: {
+endAdornment: <InputAdornment position="end">%</InputAdornment>,
+},
+htmlInput: { min: 0, max: 100, step: 1 },
+}}
+/>
+</Grid>
+
+<Grid size={{ xs: 12, md: 6 }}>
+<TextField
+fullWidth
+required
+type="number"
+label="Maximum SOC"
+value={strategyNumber(native.strategyMaximumStateOfChargePercent)}
+onChange={(event) => this.updateOptionalNumberField(
+"strategyMaximumStateOfChargePercent",
+event.target.value,
+)}
+error={hasStrategyIssue("maximumStateOfChargePercent")}
+helperText="Default: 100 %. Can be reduced for battery-care preferences."
+slotProps={{
+input: {
+endAdornment: <InputAdornment position="end">%</InputAdornment>,
+},
+htmlInput: { min: 0, max: 100, step: 1 },
+}}
+/>
+</Grid>
+
+<Grid size={{ xs: 12, md: 6 }}>
+<TextField
+fullWidth
+required
+type="number"
+label="Maximum charging power"
+value={strategyNumber(native.strategyMaximumChargePowerW)}
+onChange={(event) => this.updateOptionalNumberField(
+"strategyMaximumChargePowerW",
+event.target.value,
+)}
+error={hasStrategyIssue("maximumChargePowerW")}
+helperText="Manufacturer value is inserted when the model is selected."
+slotProps={{
+input: {
+endAdornment: <InputAdornment position="end">W</InputAdornment>,
+},
+htmlInput: { min: 0, step: 50 },
+}}
+/>
+</Grid>
+
+<Grid size={{ xs: 12, md: 6 }}>
+<TextField
+fullWidth
+required
+type="number"
+label="Maximum discharge power"
+value={strategyNumber(native.strategyMaximumDischargePowerW)}
+onChange={(event) => this.updateOptionalNumberField(
+"strategyMaximumDischargePowerW",
+event.target.value,
+)}
+error={hasStrategyIssue("maximumDischargePowerW")}
+helperText="Manufacturer value is inserted when the model is selected."
+slotProps={{
+input: {
+endAdornment: <InputAdornment position="end">W</InputAdornment>,
+},
+htmlInput: { min: 0, step: 50 },
+}}
+/>
+</Grid>
+</Grid>
+</Stack>
+</Box>
+
+<Divider />
+
+{/* Functions ------------------------------------------------- */}
+<Box>
+<Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+Strategy functions
+</Typography>
+<Typography
+variant="body2"
+sx={{ color: "text.secondary", marginBottom: 1.5 }}
+>
+Enable only the functions you want SAX Power to provide.
+</Typography>
+
+<Stack spacing={1.5}>
+{capabilities?.modes.map(mode => {
+const configKey = modeConfigKey[mode.id];
+
+const checked =
+native[configKey] === undefined
+? (
+mode.id === "chargingControl"
+)
+: native[configKey] === true;
+
+const available =
+mode.selectable;
+
+const title =
+this.strategyModeLabel(mode.id);
+
+const detail =
+mode.reason === "missing-registers"
+? `Not available: register ${mode.missingRegisters.join(", ")} is missing or lacks the required access.`
+: mode.reason === "not-implemented"
+? "Hardware support detected. The guarded night-discharge strategy is not implemented yet."
+: mode.id === "dayAvailability"
+? "Publishes a safe power allowance for external consumers. What uses this allowance is entirely up to the user."
+: "Available for the selected SAX Modbus interface.";
+
+return (
+<Card
+key={mode.id}
+variant="outlined"
+sx={{
+borderRadius: 2.5,
+backgroundColor: checked && available
+? "action.selected"
+: "transparent",
+}}
+>
+<CardContent sx={{ paddingBottom: "16px !important" }}>
+<Stack
+direction={{ xs: "column", md: "row" }}
+spacing={2}
+sx={{
+justifyContent: "space-between",
+alignItems: { xs: "stretch", md: "center" },
+}}
+>
+<Box sx={{ flex: 1 }}>
+<Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+{title}
+</Typography>
+
 <Typography variant="body2" sx={{ color: "text.secondary" }}>
 {modeDescription[mode.id]}
 </Typography>
-<Typography variant="caption" sx={{ color: mode.selectable ? "success.main" : "text.secondary" }}>
+
+<Typography
+variant="caption"
+sx={{
+display: "block",
+marginTop: 0.5,
+color: available
+? "success.main"
+: "text.secondary",
+}}
+>
 {detail}
 </Typography>
 </Box>
+
 <FormControlLabel
 control={(
 <Switch
 checked={checked}
-disabled={!mode.selectable && !checked}
-onChange={(event) => this.updateNativeField(configKey, event.target.checked as never)}
+disabled={!available}
+onChange={(event) => this.updateNativeField(
+configKey,
+event.target.checked as never,
+)}
 />
 )}
-label={checked ? (mode.selectable ? "Active" : "Selected but unavailable") : "Inactive"}
+label={
+checked && available
+? "Enabled"
+: available
+? "Disabled"
+: "Unavailable"
+}
 />
 </Stack>
+
+{mode.id === "dayAvailability" && checked && available ? (
+<Box sx={{ marginTop: 2, maxWidth: 520 }}>
+<TextField
+fullWidth
+required
+type="number"
+label="Maximum daytime allowance"
+value={strategyNumber(native.strategyRequestedDischargePowerW)}
+onChange={(event) => this.updateOptionalNumberField(
+"strategyRequestedDischargePowerW",
+event.target.value,
+)}
+error={hasStrategyIssue("requestedDischargePowerW")}
+helperText="Maximum power SAX may publish as available to external consumers. The adapter does not control what consumes it."
+slotProps={{
+input: {
+endAdornment: <InputAdornment position="end">W</InputAdornment>,
+},
+htmlInput: {
+min: 0,
+step: 50,
+},
+}}
+/>
+</Box>
+) : null}
 </CardContent>
 </Card>
 );
 })}
 </Stack>
-) : typeof native.strategyModbusInstance === "string" && native.strategyModbusInstance ? (
-<Alert severity="warning">No SAX registers could be detected for the selected instance.</Alert>
-) : null}
-<TextField
-select
-fullWidth
-label="Battery model"
-value={typeof native.strategyBatteryModelId === "string" ? native.strategyBatteryModelId : ""}
-onChange={(event) => this.updateNativeField("strategyBatteryModelId", event.target.value || undefined)}
-error={hasStrategyIssue("batteryModelId")}
-helperText="Technical power and capacity limits of the storage system"
+</Box>
+
+{/* Adaptive model ------------------------------------------- */}
+<Card
+variant="outlined"
+sx={{
+borderRadius: 2.5,
+borderStyle: "dashed",
+}}
 >
-<MenuItem value=""><em>Select a model</em></MenuItem>
-<MenuItem value="home-5.8">SAX Power Home 5.8 kWh</MenuItem>
-<MenuItem value="home-plus-7.7">SAX Power Home Plus 7.7 kWh</MenuItem>
-</TextField>
+<CardContent sx={{ paddingBottom: "16px !important" }}>
+<Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+<Savings color="primary" />
+<Box>
+<Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+Adaptive PV safety model
+</Typography>
+<Typography variant="body2" sx={{ color: "text.secondary" }}>
+The planned learning model separates expected household consumption from
+PV-forecast error. This will later allow daytime availability to adapt to
+the individual installation instead of relying on a fixed reserve.
+</Typography>
+<Typography
+variant="caption"
+sx={{ display: "block", marginTop: 0.5, color: "text.secondary" }}
+>
+Anonymous opt-in fleet statistics are planned separately; no data is sent by this configuration today.
+</Typography>
+</Box>
+</Stack>
+</CardContent>
+</Card>
+
+{/* Advanced ------------------------------------------------- */}
+<Accordion
+disableGutters
+elevation={0}
+sx={{
+border: 1,
+borderColor: "divider",
+borderRadius: "12px !important",
+"&:before": { display: "none" },
+}}
+>
+<AccordionSummary expandIcon={<ExpandMore />}>
+<Box>
+<Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+Advanced settings
+</Typography>
+<Typography variant="caption" sx={{ color: "text.secondary" }}>
+Technical fallback values. Normally the defaults can be left unchanged.
+</Typography>
+</Box>
+</AccordionSummary>
+
+<AccordionDetails>
 <Grid container spacing={2}>
-{[
-{
-key: "strategyMinimumStateOfChargePercent" as const,
-field: "minimumStateOfChargePercent",
-label: "Minimum SOC",
-unit: "%",
-min: 0,
-max: 100,
-},
-{
-key: "strategyMaximumStateOfChargePercent" as const,
-field: "maximumStateOfChargePercent",
-label: "Maximum SOC",
-unit: "%",
-min: 0,
-max: 100,
-},
-{
-key: "strategyMaximumChargePowerW" as const,
-field: "maximumChargePowerW",
-label: "Maximum charging power",
-unit: "W",
-min: 0,
-},
-{
-key: "strategyMaximumDischargePowerW" as const,
-field: "maximumDischargePowerW",
-label: "Maximum discharge power",
-unit: "W",
-min: 0,
-},
-{
-key: "strategyPvForecastReserveWh" as const,
-field: "pvForecastReserveWh",
-label: "PV forecast reserve",
-unit: "Wh",
-min: 0,
-},
-{
-key: "strategyRequestedDischargePowerW" as const,
-field: "requestedDischargePowerW",
-label: "Daytime discharge power target",
-unit: "W",
-min: 0,
-},
-].map(item => (
-<Grid key={item.key} size={{ xs: 12, md: 6 }}>
+<Grid size={{ xs: 12, md: 4 }}>
 <TextField
 fullWidth
 required
 type="number"
-label={item.label}
-value={strategyNumber(native[item.key])}
-onChange={(event) => this.updateOptionalNumberField(item.key, event.target.value)}
-error={hasStrategyIssue(item.field)}
+label="Temporary PV reserve"
+value={strategyNumber(native.strategyPvForecastReserveWh)}
+onChange={(event) => this.updateOptionalNumberField(
+"strategyPvForecastReserveWh",
+event.target.value,
+)}
+error={hasStrategyIssue("pvForecastReserveWh")}
+helperText="Temporary fixed reserve until the adaptive model replaces it."
 slotProps={{
-input: { endAdornment: <InputAdornment position="end">{item.unit}</InputAdornment> },
-htmlInput: { min: item.min, max: item.max, step: 1 },
+input: {
+endAdornment: <InputAdornment position="end">Wh</InputAdornment>,
+},
+htmlInput: { min: 0, step: 100 },
 }}
 />
 </Grid>
-))}
-<Grid size={{ xs: 12, md: 6 }}>
+
+<Grid size={{ xs: 12, md: 4 }}>
 <TextField
 fullWidth
 required
@@ -2074,16 +2577,21 @@ type="number"
 label="Maximum forecast age"
 value={strategyNumber(native.strategyMaximumForecastAgeMs, 60_000)}
 onChange={(event) => this.updateOptionalNumberField(
-"strategyMaximumForecastAgeMs", event.target.value, 60_000,
+"strategyMaximumForecastAgeMs",
+event.target.value,
+60_000,
 )}
 error={hasStrategyIssue("maximumForecastAgeMs")}
 slotProps={{
-input: { endAdornment: <InputAdornment position="end">minutes</InputAdornment> },
-htmlInput: { min: 0, step: 1 },
+input: {
+endAdornment: <InputAdornment position="end">minutes</InputAdornment>,
+},
+htmlInput: { min: 0, step: 5 },
 }}
 />
 </Grid>
-<Grid size={{ xs: 12, md: 6 }}>
+
+<Grid size={{ xs: 12, md: 4 }}>
 <TextField
 fullWidth
 required
@@ -2091,16 +2599,24 @@ type="number"
 label="Strategy interval"
 value={strategyNumber(native.strategyIntervalMs, 1_000)}
 onChange={(event) => this.updateOptionalNumberField(
-"strategyIntervalMs", event.target.value, 1_000,
+"strategyIntervalMs",
+event.target.value,
+1_000,
 )}
 error={hasStrategyIssue("intervalMs")}
 slotProps={{
-input: { endAdornment: <InputAdornment position="end">seconds</InputAdornment> },
-htmlInput: { min: 1, step: 1 },
+input: {
+endAdornment: <InputAdornment position="end">seconds</InputAdornment>,
+},
+htmlInput: { min: 1, step: 5 },
 }}
 />
 </Grid>
 </Grid>
+</AccordionDetails>
+</Accordion>
+
+</Stack>
 </Stack>
 ) : (
 <Alert severity="info" sx={{ marginTop: 2 }}>
