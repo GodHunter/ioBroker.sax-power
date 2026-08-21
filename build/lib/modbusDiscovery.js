@@ -38,14 +38,26 @@ function normalizeInstance(value) {
 }
 function discoverModbusInstances(objects) {
   return Object.entries(objects).map(([id, rawObject]) => {
-    var _a;
+    var _a, _b, _c;
     const instance = normalizeInstance(id);
     if (!instance || typeof rawObject !== "object" || rawObject === null) {
       return null;
     }
     const object = rawObject;
-    const name = readDisplayName((_a = object.common) == null ? void 0 : _a.name, instance);
-    return { value: instance, label: `${name} \u2014 ${instance}` };
+    if (object.type !== "instance") {
+      return null;
+    }
+    const name = readDisplayName(
+      (_a = object.common) == null ? void 0 : _a.titleLang,
+      readDisplayName((_b = object.common) == null ? void 0 : _b.name, instance)
+    );
+    const enabled = ((_c = object.common) == null ? void 0 : _c.enabled) === true;
+    const suffix = enabled ? "" : " \xB7 disabled";
+    return {
+      value: instance,
+      label: `${name} \u2014 ${instance}${suffix}`,
+      enabled
+    };
   }).filter((option) => option !== null).sort((left, right) => left.value.localeCompare(right.value, "en", {
     numeric: true
   }));

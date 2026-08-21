@@ -6,6 +6,7 @@ label: string;
 export interface ModbusInstanceOption {
 value: string;
 label: string;
+enabled: boolean;
 }
 
 export type ForeignObjectReader = (
@@ -63,9 +64,31 @@ export function discoverModbusInstances(
 				return null;
 			}
 
-			const object = rawObject as { common?: CommonObjectData };
-			const name = readDisplayName(object.common?.name, instance);
-			return { value: instance, label: `${name} — ${instance}` };
+			const object = rawObject as {
+				type?: unknown;
+				common?: CommonObjectData & {
+					titleLang?: unknown;
+					enabled?: unknown;
+				};
+			};
+
+			if (object.type !== "instance") {
+				return null;
+			}
+
+			const name = readDisplayName(
+				object.common?.titleLang,
+				readDisplayName(object.common?.name, instance),
+			);
+
+			const enabled = object.common?.enabled === true;
+			const suffix = enabled ? "" : " · disabled";
+
+			return {
+				value: instance,
+				label: `${name} — ${instance}${suffix}`,
+				enabled,
+			};
 		})
 		.filter((option): option is ModbusInstanceOption => option !== null)
 		.sort((left, right) => left.value.localeCompare(right.value, "en", {

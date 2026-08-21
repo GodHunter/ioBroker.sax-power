@@ -798,9 +798,22 @@ error.statusCode !== undefined
 
 		if (message.command === "getModbusInstances") {
 			try {
-				const objects = await this.getForeignObjectsAsync(
-					"system.adapter.modbus.*",
+				const view = await this.getObjectViewAsync(
+					"system",
+					"instance",
+					{
+						startkey: "system.adapter.modbus.",
+						endkey: "system.adapter.modbus.\u9999",
+					},
 				);
+
+				const objects = Object.fromEntries(
+					view.rows.map(row => [
+						row.id,
+						row.value,
+					]),
+				);
+
 				this.sendTo(
 					message.from,
 					message.command,
