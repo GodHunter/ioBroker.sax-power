@@ -74,9 +74,10 @@ strategyRuntimeConfigurationFromNative,
 import {
 validateStrategyRuntimeConfiguration,
 } from "../../src/lib/strategyRuntimeConfiguration";
-import type {
-StrategyCapabilities,
-StrategyCapabilityModeId,
+import {
+discoverStrategyCapabilities,
+type StrategyCapabilities,
+type StrategyCapabilityModeId,
 } from "../../src/lib/strategyCapabilities";
 
 import {
@@ -667,23 +668,44 @@ private readonly loadStrategyCapabilities = async (
 instance: string,
 ): Promise<void> => {
 if (!/^modbus\.\d+$/.test(instance)) {
-this.setState({ strategyCapabilities: null, strategyCapabilitiesLoading: false });
+this.setState({
+strategyCapabilities: null,
+strategyCapabilitiesLoading: false,
+});
 return;
 }
 
-this.setState({ strategyCapabilities: null, strategyCapabilitiesLoading: true });
-try {
-const capabilities = await this.socket.sendTo<StrategyCapabilities | null>(
-this.getAdapterMessageTarget(),
-"getStrategyCapabilities",
-{ instance },
-);
 this.setState({
-strategyCapabilities: capabilities?.instance === instance ? capabilities : null,
+strategyCapabilities: null,
+strategyCapabilitiesLoading: true,
+});
+
+try {
+const objects = await this.socket.getObjectViewSystem(
+"state",
+`${instance}.`,
+`${instance}.\u9999`,
+);
+
+const capabilities = discoverStrategyCapabilities(
+instance,
+objects,
+);
+
+this.setState({
+strategyCapabilities: capabilities,
 strategyCapabilitiesLoading: false,
 });
-} catch {
-this.setState({ strategyCapabilities: null, strategyCapabilitiesLoading: false });
+} catch (error) {
+console.error(
+"[SAX Power] Strategy capability discovery failed",
+error,
+);
+
+this.setState({
+strategyCapabilities: null,
+strategyCapabilitiesLoading: false,
+});
 }
 };
 
