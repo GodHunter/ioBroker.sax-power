@@ -8,6 +8,10 @@ import {
 	executeStrategyIoBrokerManualChargeCycle,
 	type StrategyIoBrokerManualChargeAdapter,
 } from "./strategyIoBrokerManualChargeCycle";
+import {
+	executeStrategyIoBrokerChargingShadowCycle,
+	type StrategyIoBrokerChargingShadowAdapter,
+} from "./strategyIoBrokerChargingShadowCycle";
 import type { StrategyManualChargeCycle } from "./strategyManualChargeCycle";
 import {
 	STRATEGY_INTEGRATION_CONTRACT,
@@ -21,7 +25,8 @@ import {
 
 export interface StrategyIoBrokerStrategyCycleAdapter
 	extends StrategyIoBrokerDaylightCycleAdapter,
-	StrategyIoBrokerManualChargeAdapter {}
+	StrategyIoBrokerManualChargeAdapter,
+	StrategyIoBrokerChargingShadowAdapter {}
 
 export interface StrategyIoBrokerStrategyCycle {
 	readonly createdAt: number;
@@ -55,6 +60,15 @@ export async function executeStrategyIoBrokerStrategyCycle(
 			manualCharge,
 			automatic: null,
 		});
+	}
+
+	if (modes.chargingControlEnabled) {
+		await executeStrategyIoBrokerChargingShadowCycle(
+			adapter,
+			configuration,
+			contract,
+			resolverOptions,
+		);
 	}
 
 	if (!modes.dayAvailabilityEnabled) {
