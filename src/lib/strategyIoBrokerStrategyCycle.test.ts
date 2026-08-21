@@ -104,7 +104,7 @@ describe("strategy ioBroker operating-mode cycle", () => {
 		);
 
 		expect(result?.manualCharge?.control.operatingMode).to.equal("automatic");
-		expect(result?.chargingShadow?.wouldWriteRegister44).to.equal(false);
+		expect(result?.chargingShadow?.decision.wouldWriteRegister44).to.equal(false);
 		expect(result?.automatic).not.to.equal(null);
 		// Shadow charging and daytime availability each resolve the daylight window.
 		expect(run.astroCalls()).to.equal(4);
@@ -163,7 +163,7 @@ describe("strategy ioBroker operating-mode cycle", () => {
 		);
 
 		expect(result?.manualCharge?.control.operatingMode).to.equal("automatic");
-		expect(result?.chargingShadow?.wouldWriteRegister44).to.equal(false);
+		expect(result?.chargingShadow?.decision.wouldWriteRegister44).to.equal(false);
 		expect(result?.automatic).to.equal(null);
 		// Charging shadow still needs sunrise/sunset even without daytime availability.
 		expect(run.astroCalls()).to.equal(2);
