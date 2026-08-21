@@ -6,6 +6,7 @@ import {
 } from "./strategyIoBrokerStrategyLifecycle";
 import type { StrategyIoBrokerStrategyTimerAdapter } from "./strategyIoBrokerStrategyCycleScheduler";
 import { STRATEGY_MANUAL_CHARGE_STATE_DEFINITIONS } from "./strategyManualChargeStates";
+import { STRATEGY_CHARGING_SHADOW_STATE_IDS } from "./strategyChargingShadowStates";
 
 const CONFIGURATION: StrategyConfiguration = {
 	batteryModelId: "home-plus-7.7",
@@ -102,6 +103,9 @@ describe("strategy ioBroker lifecycle", () => {
 			"strategy.manualCharge",
 			"strategy.status",
 			...STRATEGY_MANUAL_CHARGE_STATE_DEFINITIONS.map(({ id }) => id),
+			"strategy",
+			"strategy.shadowCharging",
+			...Object.values(STRATEGY_CHARGING_SHADOW_STATE_IDS),
 			"strategy.dayDischarge",
 			"strategy.dayDischarge.allowed",
 			"strategy.dayDischarge.availablePowerW",
