@@ -13,6 +13,11 @@ export const STRATEGY_CHARGING_SHADOW_STATE_IDS = Object.freeze({
 	lastUpdate: "strategy.shadowCharging.lastUpdate",
 });
 
+export type StrategyChargingShadowUnavailableReason =
+	| "inputs-not-ready"
+	| "outside-daylight"
+	| "invalid-input";
+
 export interface StrategyChargingShadowIoBrokerAdapter {
 	extendObjectAsync(
 		stateId: string,
@@ -142,6 +147,55 @@ export async function ensureStrategyChargingShadowStates(
 			native: {},
 		});
 	}
+}
+
+export async function publishStrategyChargingShadowUnavailable(
+	adapter: StrategyChargingShadowIoBrokerAdapter,
+	reason: StrategyChargingShadowUnavailableReason,
+	createdAt: number,
+): Promise<void> {
+	await Promise.all([
+		adapter.setStateAsync(
+			STRATEGY_CHARGING_SHADOW_STATE_IDS.active,
+			{ val: false, ack: true },
+		),
+		adapter.setStateAsync(
+			STRATEGY_CHARGING_SHADOW_STATE_IDS.recommendedChargePowerW,
+			{ val: 0, ack: true },
+		),
+		adapter.setStateAsync(
+			STRATEGY_CHARGING_SHADOW_STATE_IDS.requiredAverageChargePowerW,
+			{ val: 0, ack: true },
+		),
+		adapter.setStateAsync(
+			STRATEGY_CHARGING_SHADOW_STATE_IDS.energyRequiredWh,
+			{ val: 0, ack: true },
+		),
+		adapter.setStateAsync(
+			STRATEGY_CHARGING_SHADOW_STATE_IDS.forecastEnergyRemainingWh,
+			{ val: 0, ack: true },
+		),
+		adapter.setStateAsync(
+			STRATEGY_CHARGING_SHADOW_STATE_IDS.forecastMarginWh,
+			{ val: 0, ack: true },
+		),
+		adapter.setStateAsync(
+			STRATEGY_CHARGING_SHADOW_STATE_IDS.remainingDaylightMinutes,
+			{ val: 0, ack: true },
+		),
+		adapter.setStateAsync(
+			STRATEGY_CHARGING_SHADOW_STATE_IDS.decisionReason,
+			{ val: reason, ack: true },
+		),
+		adapter.setStateAsync(
+			STRATEGY_CHARGING_SHADOW_STATE_IDS.wouldWriteRegister44,
+			{ val: false, ack: true },
+		),
+		adapter.setStateAsync(
+			STRATEGY_CHARGING_SHADOW_STATE_IDS.lastUpdate,
+			{ val: createdAt, ack: true },
+		),
+	]);
 }
 
 export async function publishStrategyChargingShadowDecision(
