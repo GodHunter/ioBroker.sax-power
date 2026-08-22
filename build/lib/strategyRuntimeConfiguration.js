@@ -47,6 +47,12 @@ function validateStrategyRuntimeConfiguration(input) {
   if (typeof input.modbusInstance !== "string" || !/^modbus\.\d+$/.test(input.modbusInstance)) {
     issues.push({ field: "modbusInstance", reason: "invalid-instance" });
   }
+  if (typeof input.pvForecastInstance !== "string" || !/^pvforecast\.\d+$/.test(input.pvForecastInstance)) {
+    issues.push({
+      field: "pvForecastInstance",
+      reason: "invalid-instance"
+    });
+  }
   for (const field of [
     "maximumForecastAgeMs",
     "requestedDischargePowerW",
@@ -81,6 +87,7 @@ function validateStrategyRuntimeConfiguration(input) {
       enabled: true,
       configuration: strategyValidation.configuration,
       modbusInstance: input.modbusInstance,
+      pvForecastInstance: input.pvForecastInstance,
       maximumForecastAgeMs: input.maximumForecastAgeMs,
       requestedDischargePowerW: input.requestedDischargePowerW,
       intervalMs: input.intervalMs,

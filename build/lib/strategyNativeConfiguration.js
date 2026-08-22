@@ -26,6 +26,7 @@ function strategyRuntimeConfigurationFromNative(native) {
   return Object.freeze({
     enabled: (_a = native.strategyEnabled) != null ? _a : false,
     modbusInstance: native.strategyModbusInstance,
+    pvForecastInstance: native.strategyPvForecastInstance,
     batteryModelId: native.strategyBatteryModelId,
     minimumStateOfChargePercent: native.strategyMinimumStateOfChargePercent,
     maximumStateOfChargePercent: native.strategyMaximumStateOfChargePercent,

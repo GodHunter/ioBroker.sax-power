@@ -125,11 +125,15 @@ class SaxPower extends utils.Adapter {
     const runtimeConfiguration = (0, import_strategyNativeConfiguration.strategyRuntimeConfigurationFromNative)(
       this.saxConfig
     );
-    let contract = typeof runtimeConfiguration.modbusInstance === "string" ? (0, import_strategyIntegrationContract.createStrategyIntegrationContract)(runtimeConfiguration.modbusInstance) : null;
+    const modbusInstance = typeof runtimeConfiguration.modbusInstance === "string" ? runtimeConfiguration.modbusInstance : null;
+    const pvForecastInstance = typeof runtimeConfiguration.pvForecastInstance === "string" ? runtimeConfiguration.pvForecastInstance : null;
+    let contract = modbusInstance !== null && pvForecastInstance !== null ? (0, import_strategyIntegrationContract.createStrategyIntegrationContract)(
+      modbusInstance,
+      pvForecastInstance
+    ) : null;
     let capabilities = null;
     let capabilityDiscoveryError;
-    if (runtimeConfiguration.enabled === true && typeof runtimeConfiguration.modbusInstance === "string" && contract !== null) {
-      const modbusInstance = runtimeConfiguration.modbusInstance;
+    if (runtimeConfiguration.enabled === true && modbusInstance !== null && pvForecastInstance !== null && contract !== null) {
       try {
         const objects = await this.getForeignObjectsAsync(
           `${modbusInstance}.*`,
@@ -141,6 +145,7 @@ class SaxPower extends utils.Adapter {
         );
         contract = capabilities === null ? contract : (0, import_strategyIntegrationContract.createDetectedStrategyIntegrationContract)(
           modbusInstance,
+          pvForecastInstance,
           capabilities.registers
         );
       } catch (error) {

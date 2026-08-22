@@ -24,6 +24,7 @@ module.exports = __toCommonJS(strategyIoBrokerStrategyLifecycle_exports);
 var import_strategyIoBrokerStrategyCycleScheduler = require("./strategyIoBrokerStrategyCycleScheduler");
 var import_strategyIntegrationContract = require("./strategyIntegrationContract");
 var import_strategyManualChargeStates = require("./strategyManualChargeStates");
+var import_strategyChargingShadowStates = require("./strategyChargingShadowStates");
 var import_strategyDayDischargeAvailabilityStates = require("./strategyDayDischargeAvailabilityStates");
 var import_strategyModes = require("./strategyModes");
 function createStrategyIoBrokerStrategyLifecycle(adapter, configuration, maximumForecastAgeMs, requestedDischargePowerW, intervalMs, onError, contract = import_strategyIntegrationContract.STRATEGY_INTEGRATION_CONTRACT, resolverOptions = {}, modes = import_strategyModes.DEFAULT_STRATEGY_MODES) {
@@ -48,6 +49,7 @@ function createStrategyIoBrokerStrategyLifecycle(adapter, configuration, maximum
       try {
         if (modes.chargingControlEnabled) {
           await (0, import_strategyManualChargeStates.ensureStrategyManualChargeIoBrokerStates)(adapter);
+          await (0, import_strategyChargingShadowStates.ensureStrategyChargingShadowStates)(adapter);
         }
         if (modes.dayAvailabilityEnabled) {
           await (0, import_strategyDayDischargeAvailabilityStates.ensureStrategyDayDischargeAvailabilityStates)(adapter);

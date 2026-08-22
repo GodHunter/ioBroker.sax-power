@@ -23,6 +23,7 @@ __export(strategyIoBrokerStrategyCycle_exports, {
 module.exports = __toCommonJS(strategyIoBrokerStrategyCycle_exports);
 var import_strategyIoBrokerDaylightCycle = require("./strategyIoBrokerDaylightCycle");
 var import_strategyIoBrokerManualChargeCycle = require("./strategyIoBrokerManualChargeCycle");
+var import_strategyIoBrokerChargingShadowCycle = require("./strategyIoBrokerChargingShadowCycle");
 var import_strategyIntegrationContract = require("./strategyIntegrationContract");
 var import_strategyModes = require("./strategyModes");
 async function executeStrategyIoBrokerStrategyCycle(adapter, configuration, maximumForecastAgeMs, requestedDischargePowerW, contract = import_strategyIntegrationContract.STRATEGY_INTEGRATION_CONTRACT, resolverOptions = {}, modes = import_strategyModes.DEFAULT_STRATEGY_MODES) {
@@ -38,13 +39,21 @@ async function executeStrategyIoBrokerStrategyCycle(adapter, configuration, maxi
     return Object.freeze({
       createdAt: manualCharge.createdAt,
       manualCharge,
+      chargingShadow: null,
       automatic: null
     });
   }
+  const chargingShadow = modes.chargingControlEnabled ? await (0, import_strategyIoBrokerChargingShadowCycle.executeStrategyIoBrokerChargingShadowCycle)(
+    adapter,
+    configuration,
+    contract,
+    resolverOptions
+  ) : null;
   if (!modes.dayAvailabilityEnabled) {
     return Object.freeze({
       createdAt: (_b = (_a = manualCharge == null ? void 0 : manualCharge.createdAt) != null ? _a : resolverOptions.now) != null ? _b : Date.now(),
       manualCharge,
+      chargingShadow,
       automatic: null
     });
   }
@@ -62,6 +71,7 @@ async function executeStrategyIoBrokerStrategyCycle(adapter, configuration, maxi
   return Object.freeze({
     createdAt: automatic.createdAt,
     manualCharge,
+    chargingShadow,
     automatic
   });
 }

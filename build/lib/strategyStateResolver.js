@@ -60,6 +60,9 @@ function parseTimestamp(value) {
 function isStale(timestamp, now, maximumAgeMs) {
   return typeof timestamp !== "number" || !Number.isFinite(timestamp) || timestamp > now || now - timestamp > maximumAgeMs;
 }
+function requiresFreshStateTimestamp(contract) {
+  return contract.access === "observation" && (contract.unit === "W" || contract.unit === "%");
+}
 async function resolveState(reader, contract, now, maximumStateAgeMs, maximumTimestampAgeMs) {
   const object = await reader.getForeignObjectAsync(contract.stateId);
   if (!object) {
@@ -81,7 +84,7 @@ async function resolveState(reader, contract, now, maximumStateAgeMs, maximumTim
   if (state.ack !== true) {
     return unavailable(contract, "not-acknowledged");
   }
-  if (isStale(state.ts, now, maximumStateAgeMs)) {
+  if (requiresFreshStateTimestamp(contract) && isStale(state.ts, now, maximumStateAgeMs)) {
     return unavailable(contract, "stale");
   }
   if (contract.unit === "timestamp") {
