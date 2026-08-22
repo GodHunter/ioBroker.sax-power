@@ -5,6 +5,7 @@ import {
 } from "./strategyChargingShadow";
 import {
 	publishStrategyChargingShadowDecision,
+	publishStrategyChargingShadowUnavailable,
 	type StrategyChargingShadowIoBrokerAdapter,
 } from "./strategyChargingShadowStates";
 import {
@@ -54,7 +55,14 @@ export async function executeStrategyIoBrokerChargingShadowCycle(
 		},
 	);
 
-	if (!resolution.strategyInputsReady) return null;
+	if (!resolution.strategyInputsReady) {
+		await publishStrategyChargingShadowUnavailable(
+			adapter,
+			"inputs-not-ready",
+			createdAt,
+		);
+		return null;
+	}
 
 	const stateOfChargePercent = resolution.modbus.stateOfCharge.value;
 	const forecastEnergyRemainingWh =
@@ -64,6 +72,11 @@ export async function executeStrategyIoBrokerChargingShadowCycle(
 		stateOfChargePercent === null
 		|| forecastEnergyRemainingWh === null
 	) {
+		await publishStrategyChargingShadowUnavailable(
+			adapter,
+			"inputs-not-ready",
+			createdAt,
+		);
 		return null;
 	}
 
@@ -78,6 +91,11 @@ export async function executeStrategyIoBrokerChargingShadowCycle(
 		|| createdAt < daylightWindow.startsAt
 		|| createdAt >= daylightWindow.endsAt
 	) {
+		await publishStrategyChargingShadowUnavailable(
+			adapter,
+			"outside-daylight",
+			createdAt,
+		);
 		return null;
 	}
 
@@ -90,7 +108,14 @@ export async function executeStrategyIoBrokerChargingShadowCycle(
 		},
 	);
 
-	if (!decision.valid) return null;
+	if (!decision.valid) {
+		await publishStrategyChargingShadowUnavailable(
+			adapter,
+			"invalid-input",
+			createdAt,
+		);
+		return null;
+	}
 
 	await publishStrategyChargingShadowDecision(
 		adapter,
