@@ -40,9 +40,9 @@ function systemConfig(): ioBroker.Object {
 			name: "System configuration",
 			latitude: 49.0732312,
 			longitude: 9.1064578,
-		} as ioBroker.SystemConfigCommon,
+		},
 		native: {},
-	} as ioBroker.ConfigObject;
+	} as unknown as ioBroker.Object;
 }
 
 function runtime() {
