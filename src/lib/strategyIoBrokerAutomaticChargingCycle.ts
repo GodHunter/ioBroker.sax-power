@@ -162,7 +162,7 @@ export async function executeStrategyIoBrokerAutomaticChargingCycle(
 		);
 	}
 
-	if (daylightWindow === null) {
+	if (daylightWindow == null) {
 		return applyChargePowerTarget(
 			adapter,
 			configuration,
