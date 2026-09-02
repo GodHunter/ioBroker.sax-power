@@ -64,14 +64,6 @@ import {
 	type StrategyNativeConfiguration,
 } from "./lib/strategyNativeConfiguration";
 
-import {
-	resolveStrategyAstroDate,
-} from "./lib/strategyAstroDate";
-
-import type {
-	StrategyIoBrokerAstroEvent,
-} from "./lib/strategyIoBrokerDaylightWindow";
-
 import type {
 	StrategyIoBrokerStrategyTimerAdapter,
 } from "./lib/strategyIoBrokerStrategyCycleScheduler";
@@ -186,24 +178,8 @@ new SaxPowerStateEngine(this);
 		this.scheduleNextPoll();
 	}
 
-	public getAstroDate(
-		event: StrategyIoBrokerAstroEvent,
-		date = new Date(),
-		offsetMinutes = 0,
-	): Date {
-		return resolveStrategyAstroDate(
-			event,
-			date,
-			this.latitude,
-			this.longitude,
-			offsetMinutes,
-		);
-	}
-
 	private strategyAdapter(): StrategyIoBrokerStrategyTimerAdapter {
 		return {
-			getAstroDate: (event, date, offsetMinutes) =>
-				this.getAstroDate(event, date, offsetMinutes),
 			extendObjectAsync: (id, object) =>
 				this.extendObjectAsync(id, object),
 			getStateAsync: id => this.getStateAsync(id),
@@ -471,488 +447,267 @@ new SaxPowerStateEngine(this);
 			this.clearTimeout(this.pollTimer);
 		}
 
-		const intervalMs =
-this.saxConfig.pollInterval * 1_000;
+		const intervalMs = this.saxConfig.pollInterval * 1000;
 
-		this.pollTimer = this.setTimeout(
-			async () => {
-				await this.pollLiveData();
-				this.scheduleNextPoll();
-			},
-			intervalMs,
-		);
+		this.pollTimer = this.setTimeout(() => {
+			this.pollTimer = undefined;
+			void this.pollLiveData();
+		}, intervalMs);
 	}
 
 	private async pollLiveData(): Promise<void> {
 		if (this.pollRunning) {
-			this.log.debug(
-				"Skipping SAX Power poll because a previous request is still running.",
-			);
-
 			return;
 		}
 
-		if (!this.apiClient) {
-			this.log.warn(
-				"SAX Power API client is not initialized.",
-			);
-
+		if (!this.apiClient || !this.stateEngine) {
 			return;
 		}
 
 		this.pollRunning = true;
 
-		await this.applyConnectionResult(
-			SaxPowerErrorClassifier.connecting(),
-		);
-
 		try {
-			const response =
-await this.apiClient.getLiveData();
+			const response = await this.apiClient.getLiveData();
+			const devices = parseLiveDataResponse(response);
 
-			await this.processLiveData(response);
+			this.latestDevices = devices;
 
+			await this.stateEngine.update(devices);
 			await this.applyConnectionResult(
-				SaxPowerErrorClassifier.connected(),
+				SaxPowerErrorClassifier.connected(response.httpStatus),
 			);
 
-			await this.setStateAsync(
-				"info.lastUpdate",
-				new Date().toISOString(),
-				true,
-			);
-
-			this.log.debug(
-				"SAX Power live data updated successfully.",
-			);
+			if (!this.historyInitialized) {
+				this.historyInitialized = true;
+				await this.pollHistory();
+				this.scheduleNextHistoryPoll();
+			}
 		} catch (error) {
-			const result =
-SaxPowerErrorClassifier.classify(
-	error,
-);
-
-			this.log.error(result.message);
-
-			await this.applyConnectionResult(result);
+			await this.handleApiError(error);
 		} finally {
 			this.pollRunning = false;
 		}
 	}
 
-	private async processLiveData(
-		response: SaxPowerLiveDataResponse,
-	): Promise<void> {
-		const receivedTimestamp =
-new Date().toISOString();
-
-		const devices =
-parseLiveDataResponse(
-	response,
-	receivedTimestamp,
-);
-
-		if (devices.length === 0) {
-			throw new Error(
-				"The SAX Power API response did not contain any valid devices.",
-			);
-		}
-
-		if (!this.stateEngine) {
-			throw new Error(
-				"The SAX Power state engine is not initialized.",
-			);
-		}
-
-		await this.stateEngine.writeDevices(
-			devices,
-		);
-
-		await this.stateEngine.observeBatteryHealth(devices, this.saxConfig.batteryModels ?? {});
-
-		await this.stateEngine
-			.writeAggregateLiveData(
-				devices,
-			);
-
-		this.latestDevices = devices;
-
-		if (!this.historyInitialized) {
-			this.historyInitialized = true;
-
-			await this.pollHistory();
-			this.scheduleNextHistoryPoll();
-		}
-
-		await this.setStateAsync(
-			"diagnostics.rawLiveData",
-			JSON.stringify(response),
-			true,
-		);
-	}
-
 	private scheduleNextHistoryPoll(): void {
 		if (this.historyTimer) {
-			this.clearTimeout(
-				this.historyTimer,
-			);
+			this.clearTimeout(this.historyTimer);
 		}
 
-		this.historyTimer =
-this.setTimeout(
-	async () => {
-		await this.pollHistory();
-		this.scheduleNextHistoryPoll();
-	},
-	SaxPower.HISTORY_INTERVAL_MS,
-);
+		this.historyTimer = this.setTimeout(() => {
+			this.historyTimer = undefined;
+			void this.pollHistory();
+		}, SaxPower.HISTORY_INTERVAL_MS);
 	}
 
 	private async pollHistory(): Promise<void> {
 		if (this.historyPollRunning) {
-			this.log.debug(
-				"Skipping SAX Power history poll because a previous history request is still running.",
-			);
-
 			return;
 		}
 
-		if (
-			!this.apiClient ||
-!this.stateEngine ||
-this.latestDevices.length === 0
-		) {
+		if (!this.apiClient || !this.stateEngine) {
 			return;
 		}
 
 		this.historyPollRunning = true;
 
 		try {
-			const today =
-new Date()
-	.toISOString()
-	.slice(0, 10);
+			const devices = this.latestDevices;
 
-			const deviceStatistics:
-Record<
-string,
-SaxPowerDeviceStatistics
-> = {};
-
-			const deviceMetadata:
-Record<
-string,
-SaxPowerDeviceHistoryMetadata
-> = {};
-
-			const batteryModels: Record<string, string> = {};
-			const reportedCycles: Record<string, number | null> = {};
-
-			for (
-				const device
-				of this.latestDevices
-			) {
-				const serialNumber =
-device.info.serialNumber;
-
-				batteryModels[serialNumber] =
-this.saxConfig.batteryModels?.[serialNumber] ?? "";
-				reportedCycles[serialNumber] =
-device.info.reportedCycleCount;
-
-				const [
-					week,
-					month,
-					year,
-					total,
-				] = await Promise.all([
-					this.apiClient.getEnergyChart(
-						serialNumber,
-						`week_${today}`,
-					),
-
-					this.apiClient.getEnergyChart(
-						serialNumber,
-						`month_${today}`,
-					),
-
-					this.apiClient.getEnergyChart(
-						serialNumber,
-						`year_${today}`,
-					),
-
-					this.apiClient.getEnergyChart(
-						serialNumber,
-						`total_${today}`,
-					),
-				]);
-
-				deviceStatistics[
-					serialNumber
-				] =
-parseDeviceStatistics({
-	serialNumber,
-	todayIso: today,
-	week,
-	month,
-	year,
-	total,
-});
-
-				deviceMetadata[
-					serialNumber
-				] =
-createDeviceHistoryMetadata({
-	serialNumber,
-	todayIso: today,
-	week,
-	month,
-	year,
-	total,
-});
+			if (devices.length === 0) {
+				return;
 			}
 
-			const statistics =
-aggregateStatistics(
-	deviceStatistics,
-);
+			const metadataBySerial = new Map<
+				string,
+				SaxPowerDeviceHistoryMetadata
+			>();
 
-			const metadata =
-aggregateHistoryMetadata(
-	deviceMetadata,
-);
+			const statisticsBySerial = new Map<
+				string,
+				SaxPowerDeviceStatistics
+			>();
 
-			const updatedAt =
-new Date().toISOString();
+			for (const device of devices) {
+				try {
+					const statisticsResponse =
+						await this.apiClient.getStatistics(
+							device.serialNumber,
+						);
 
-			await this.stateEngine
-				.writeStatistics(
-					statistics,
-					metadata,
-					updatedAt,
-					batteryModels,
-					reportedCycles,
+					const statistics = parseDeviceStatistics(
+						statisticsResponse,
+					);
+
+					if (statistics) {
+						statisticsBySerial.set(
+							device.serialNumber,
+							statistics,
+						);
+					}
+				} catch (error) {
+					this.log.warn(
+						`Statistics request failed for ${device.serialNumber}: ${this.formatError(error)}`,
+					);
+				}
+
+				try {
+					const historyResponse =
+						await this.apiClient.getHistory(
+							device.serialNumber,
+						);
+
+					const metadata = createDeviceHistoryMetadata(
+						historyResponse,
+					);
+
+					metadataBySerial.set(
+						device.serialNumber,
+						metadata,
+					);
+				} catch (error) {
+					this.log.warn(
+						`History request failed for ${device.serialNumber}: ${this.formatError(error)}`,
+					);
+				}
+			}
+
+			const aggregatedMetadata =
+				aggregateHistoryMetadata(
+					devices,
+					metadataBySerial,
 				);
 
-			this.log.debug(
-				`SAX Power statistics updated successfully for ${Object.keys(deviceStatistics).length} device(s).`,
-			);
-		} catch (error) {
-			const message =
-this.formatError(error);
-
-			this.log.warn(
-				`Unable to update SAX Power statistics: ${message}`,
-			);
-
-			await this.stateEngine
-				.writeStatisticsError(
-					message,
+			const aggregatedStatistics =
+				aggregateStatistics(
+					devices,
+					statisticsBySerial,
 				);
+
+			await this.stateEngine.updateHistory(
+				aggregatedMetadata,
+				aggregatedStatistics,
+			);
 		} finally {
 			this.historyPollRunning = false;
 		}
 	}
 
-
-
 	private async applyConnectionResult(
 		result: SaxPowerConnectionResult,
 	): Promise<void> {
-		const values =
-createConnectionStateValues(result);
+		const values = createConnectionStateValues(result);
 
-		await Promise.all([
-			this.setStateAsync(
-				"info.connection",
-				values.connection,
-				true,
-			),
-			this.setStateAsync(
-				"info.connectionState",
-				values.connectionState,
-				true,
-			),
-			this.setStateAsync(
-				"info.lastError",
-				values.lastError,
-				true,
-			),
-			this.setStateAsync(
-				"info.lastHttpStatus",
-				values.lastHttpStatus,
-				true,
-			),
-		]);
+		await this.setStateAsync("info.connection", {
+			val: values.connection,
+			ack: true,
+		});
+
+		await this.setStateAsync("info.connectionState", {
+			val: values.connectionState,
+			ack: true,
+		});
+
+		await this.setStateAsync("info.connectionMessage", {
+			val: values.connectionMessage,
+			ack: true,
+		});
+
+		await this.setStateAsync("info.connectionHttpStatus", {
+			val: values.connectionHttpStatus,
+			ack: true,
+		});
+	}
+
+	private async handleApiError(error: unknown): Promise<void> {
+		if (error instanceof SaxPowerApiError) {
+			await this.applyConnectionResult(
+				SaxPowerErrorClassifier.classifyApiError(error),
+			);
+			return;
+		}
+
+		await this.applyConnectionResult(
+			SaxPowerErrorClassifier.classifyUnknown(error),
+		);
 	}
 
 	private formatError(error: unknown): string {
-		if (error instanceof SaxPowerApiError) {
-			const status =
-error.statusCode !== undefined
-	? ` HTTP ${error.statusCode}.`
-	: "";
-
-			return `${error.message}${status}`;
-		}
-
-		if (error instanceof Error) {
-			return error.message;
-		}
-
-		return String(error);
+		return error instanceof Error
+			? error.message
+			: String(error);
 	}
 
 	private async onMessage(
-		message: ioBroker.Message,
+		obj: ioBroker.Message,
 	): Promise<void> {
-		if (
-			!message.callback ||
-!message.from
-		) {
+		if (!obj?.command) {
 			return;
 		}
 
-		if (message.command === "getModbusInstances") {
-			this.log.info(
-				`Modbus discovery request received from ${message.from}.`,
-			);
+		if (obj.command === "discoverModbus") {
 			try {
-				const view = await this.getObjectViewAsync(
-					"system",
-					"instance",
-					{
-						startkey: "system.adapter.modbus.",
-						endkey: "system.adapter.modbus.\u9999",
-					},
-				);
-
-				const objects = Object.fromEntries(
-					view.rows.map(row => [
-						row.id,
-						row.value,
-					]),
-				);
-
-				const options = discoverModbusInstances(objects);
-
-				this.log.info(
-					`Modbus discovery found ${view.rows.length} instance row(s) and produced ${options.length} option(s).`,
-				);
+				const instances = await discoverModbusInstances(this);
 
 				this.sendTo(
-					message.from,
-					message.command,
-					options,
-					message.callback,
+					obj.from,
+					obj.command,
+					instances,
+					obj.callback,
 				);
 			} catch (error) {
 				this.log.warn(
-					`Unable to discover Modbus instances: ${this.formatError(error)}`,
+					`Modbus discovery failed: ${this.formatError(error)}`,
 				);
-				this.sendTo(message.from, message.command, [], message.callback);
+
+				this.sendTo(
+					obj.from,
+					obj.command,
+					[],
+					obj.callback,
+				);
 			}
 			return;
 		}
 
-		if (message.command === "getStrategyCapabilities") {
-			const payload = typeof message.message === "object"
-				&& message.message !== null
-				? message.message as { instance?: unknown }
-				: {};
-			const instance = typeof payload.instance === "string"
-				? payload.instance
-				: "";
-			if (!/^modbus\.\d+$/.test(instance)) {
-				this.sendTo(message.from, message.command, null, message.callback);
+		if (obj.command === "discoverModbusStates") {
+			const instance = typeof obj.message === "string"
+				? obj.message
+				: typeof obj.message === "object" && obj.message !== null
+					? (obj.message as { instance?: unknown }).instance
+					: undefined;
+
+			if (typeof instance !== "string") {
+				this.sendTo(
+					obj.from,
+					obj.command,
+					[],
+					obj.callback,
+				);
 				return;
 			}
+
 			try {
-				const objects = await this.getForeignObjectsAsync(
-					`${instance}.*`,
-					"state",
-				);
+				const states = await discoverModbusStates(this, instance);
+
 				this.sendTo(
-					message.from,
-					message.command,
-					discoverStrategyCapabilities(instance, objects) ?? null,
-					message.callback,
+					obj.from,
+					obj.command,
+					states,
+					obj.callback,
 				);
 			} catch (error) {
 				this.log.warn(
-					`Unable to discover strategy capabilities: ${this.formatError(error)}`,
+					`Modbus state discovery failed: ${this.formatError(error)}`,
 				);
-				this.sendTo(message.from, message.command, null, message.callback);
+
+				this.sendTo(
+					obj.from,
+					obj.command,
+					[],
+					obj.callback,
+				);
 			}
-			return;
-		}
-
-		if (message.command !== "getModbusStates") return;
-
-		try {
-			const payload =
-typeof message.message === "object" &&
-message.message !== null
-	? message.message as {
-instance?: unknown;
-purpose?: unknown;
-}
-	: {};
-
-			const instance =
-typeof payload.instance === "string"
-	? payload.instance
-	: "";
-
-			const purpose =
-payload.purpose === "discharge"
-	? "discharge"
-	: "charge";
-
-			const preferredRegister =
-purpose === "discharge"
-	? 43
-	: 44;
-
-			const options =
-await discoverModbusStates(
-	async (pattern) => {
-		const objects =
-await this
-	.getForeignObjectsAsync(
-		pattern,
-		"state",
-	);
-
-		return objects as unknown as
-Record<string, unknown>;
-	},
-	{
-		instance,
-		preferredRegister,
-	},
-);
-
-			this.sendTo(
-				message.from,
-				message.command,
-				options,
-				message.callback,
-			);
-		} catch (error) {
-			this.log.warn(
-				`Unable to discover Modbus states: ${
-					error instanceof Error
-						? error.message
-						: String(error)
-				}`,
-			);
-
-			this.sendTo(
-				message.from,
-				message.command,
-				[],
-				message.callback,
-			);
 		}
 	}
 
@@ -962,33 +717,24 @@ Record<string, unknown>;
 			this.strategyReadinessRetry = undefined;
 			this.strategyBinding?.lifecycle?.stop();
 			this.strategyBinding = undefined;
-
 			if (this.pollTimer) {
 				this.clearTimeout(this.pollTimer);
 				this.pollTimer = undefined;
 			}
 
 			if (this.historyTimer) {
-				this.clearTimeout(
-					this.historyTimer,
-				);
-
+				this.clearTimeout(this.historyTimer);
 				this.historyTimer = undefined;
 			}
-
-			this.apiClient?.clearTokens();
-
-			callback();
-		} catch {
+		} finally {
 			callback();
 		}
 	}
 }
 
 if (require.main !== module) {
-	module.exports = (
-		options: Partial<utils.AdapterOptions> | undefined,
-	) => new SaxPower(options);
+	module.exports = (options: Partial<utils.AdapterOptions> | undefined) =>
+		new SaxPower(options);
 } else {
 	(() => new SaxPower())();
 }
