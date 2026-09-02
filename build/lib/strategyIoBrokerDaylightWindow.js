@@ -28,6 +28,7 @@ function createStrategyIoBrokerDaylightWindowProvider(adapter) {
         return null;
       }
       const cycleDate = new Date(cycleTimestamp);
+      cycleDate.setHours(12, 0, 0, 0);
       const sunrise = adapter.getAstroDate("sunrise", cycleDate);
       const sunset = adapter.getAstroDate("sunset", cycleDate);
       const startsAt = sunrise.getTime();
