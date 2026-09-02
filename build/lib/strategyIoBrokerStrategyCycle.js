@@ -23,19 +23,22 @@ __export(strategyIoBrokerStrategyCycle_exports, {
 module.exports = __toCommonJS(strategyIoBrokerStrategyCycle_exports);
 var import_strategyIoBrokerDaylightCycle = require("./strategyIoBrokerDaylightCycle");
 var import_strategyIoBrokerManualChargeCycle = require("./strategyIoBrokerManualChargeCycle");
-var import_strategyIoBrokerChargingShadowCycle = require("./strategyIoBrokerChargingShadowCycle");
+var import_strategyIoBrokerAutomaticChargingCycle = require("./strategyIoBrokerAutomaticChargingCycle");
+var import_strategyManualChargeStates = require("./strategyManualChargeStates");
 var import_strategyIntegrationContract = require("./strategyIntegrationContract");
 var import_strategyModes = require("./strategyModes");
 async function executeStrategyIoBrokerStrategyCycle(adapter, configuration, maximumForecastAgeMs, requestedDischargePowerW, contract = import_strategyIntegrationContract.STRATEGY_INTEGRATION_CONTRACT, resolverOptions = {}, modes = import_strategyModes.DEFAULT_STRATEGY_MODES) {
   var _a, _b;
+  const manualInput = modes.chargingControlEnabled ? await (0, import_strategyManualChargeStates.readStrategyManualChargeInput)(adapter) : null;
+  if (modes.chargingControlEnabled && manualInput === null) return null;
   const manualCharge = modes.chargingControlEnabled ? await (0, import_strategyIoBrokerManualChargeCycle.executeStrategyIoBrokerManualChargeCycle)(
     adapter,
     configuration,
     contract,
     resolverOptions
   ) : null;
-  if (modes.chargingControlEnabled && manualCharge === null) return null;
-  if (manualCharge !== null && !manualCharge.control.automaticStrategyAllowed) {
+  if ((manualInput == null ? void 0 : manualInput.enabled) === true) {
+    if (manualCharge === null) return null;
     return Object.freeze({
       createdAt: manualCharge.createdAt,
       manualCharge,
@@ -43,7 +46,19 @@ async function executeStrategyIoBrokerStrategyCycle(adapter, configuration, maxi
       automatic: null
     });
   }
-  const chargingShadow = modes.chargingControlEnabled ? await (0, import_strategyIoBrokerChargingShadowCycle.executeStrategyIoBrokerChargingShadowCycle)(
+  if (modes.chargingControlEnabled && manualCharge === null) {
+    await Promise.all([
+      adapter.setStateAsync(
+        import_strategyManualChargeStates.STRATEGY_MANUAL_CHARGE_STATE_IDS.operatingMode,
+        { val: "automatic", ack: true }
+      ),
+      adapter.setStateAsync(
+        import_strategyManualChargeStates.STRATEGY_MANUAL_CHARGE_STATE_IDS.automaticStrategyAllowed,
+        { val: true, ack: true }
+      )
+    ]);
+  }
+  const chargingControl = modes.chargingControlEnabled ? await (0, import_strategyIoBrokerAutomaticChargingCycle.executeStrategyIoBrokerAutomaticChargingCycle)(
     adapter,
     configuration,
     contract,
@@ -53,7 +68,7 @@ async function executeStrategyIoBrokerStrategyCycle(adapter, configuration, maxi
     return Object.freeze({
       createdAt: (_b = (_a = manualCharge == null ? void 0 : manualCharge.createdAt) != null ? _a : resolverOptions.now) != null ? _b : Date.now(),
       manualCharge,
-      chargingShadow,
+      chargingShadow: chargingControl,
       automatic: null
     });
   }
@@ -71,7 +86,7 @@ async function executeStrategyIoBrokerStrategyCycle(adapter, configuration, maxi
   return Object.freeze({
     createdAt: automatic.createdAt,
     manualCharge,
-    chargingShadow,
+    chargingShadow: chargingControl,
     automatic
   });
 }
