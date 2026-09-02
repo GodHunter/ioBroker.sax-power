@@ -1,11 +1,12 @@
-const { expect } = require("chai") as typeof import("chai");
+import { expect } from "chai";
 
-type StrategyConfiguration = import("./strategyConfiguration").StrategyConfiguration;
-type StrategyIoBrokerChargingShadowAdapter = import("./strategyIoBrokerChargingShadowCycle").StrategyIoBrokerChargingShadowAdapter;
-
-const { STRATEGY_CHARGING_SHADOW_STATE_IDS } = require("./strategyChargingShadowStates") as typeof import("./strategyChargingShadowStates");
-const { executeStrategyIoBrokerChargingShadowCycle } = require("./strategyIoBrokerChargingShadowCycle") as typeof import("./strategyIoBrokerChargingShadowCycle");
-const { STRATEGY_INTEGRATION_CONTRACT } = require("./strategyIntegrationContract") as typeof import("./strategyIntegrationContract");
+import type { StrategyConfiguration } from "./strategyConfiguration";
+import { STRATEGY_CHARGING_SHADOW_STATE_IDS } from "./strategyChargingShadowStates";
+import {
+	executeStrategyIoBrokerChargingShadowCycle,
+	type StrategyIoBrokerChargingShadowAdapter,
+} from "./strategyIoBrokerChargingShadowCycle";
+import { STRATEGY_INTEGRATION_CONTRACT } from "./strategyIntegrationContract";
 
 const NOW = Date.UTC(2026, 5, 21, 12);
 const AFTER_SUNSET = Date.UTC(2026, 5, 21, 21);
