@@ -6,7 +6,7 @@ import {
 } from "./strategyIoBrokerStrategyLifecycle";
 import type { StrategyIoBrokerStrategyTimerAdapter } from "./strategyIoBrokerStrategyCycleScheduler";
 import { STRATEGY_MANUAL_CHARGE_STATE_DEFINITIONS } from "./strategyManualChargeStates";
-import { STRATEGY_CHARGING_SHADOW_STATE_IDS } from "./strategyChargingShadowStates";
+import { STRATEGY_CHARGING_STATE_IDS } from "./strategyChargingStates";
 import { STRATEGY_DAYLIGHT_DIAGNOSTIC_STATE_IDS } from "./strategyDaylightDiagnosticStates";
 
 const CONFIGURATION: StrategyConfiguration = {
@@ -105,8 +105,8 @@ describe("strategy ioBroker lifecycle", () => {
 			"strategy.status",
 			...STRATEGY_MANUAL_CHARGE_STATE_DEFINITIONS.map(({ id }) => id),
 			"strategy",
-			"strategy.shadowCharging",
-			...Object.values(STRATEGY_CHARGING_SHADOW_STATE_IDS),
+			"strategy.charging",
+			...Object.values(STRATEGY_CHARGING_STATE_IDS),
 			"strategy.dayDischarge",
 			"strategy.dayDischarge.allowed",
 			"strategy.dayDischarge.availablePowerW",
