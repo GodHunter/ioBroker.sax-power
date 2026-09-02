@@ -68,6 +68,8 @@ export function createStrategyIoBrokerDaylightWindowProvider(
 				coordinates.latitude,
 				coordinates.longitude,
 			);
+			if (times.sunrise == null || times.sunset == null) return null;
+
 			const startsAt = times.sunrise.getTime();
 			const endsAt = times.sunset.getTime();
 
