@@ -9,6 +9,10 @@ import {
 	type StrategyChargingShadowIoBrokerAdapter,
 } from "./strategyChargingShadowStates";
 import {
+	publishStrategyDaylightDiagnostics,
+	type StrategyDaylightDiagnosticAdapter,
+} from "./strategyDaylightDiagnosticStates";
+import {
 	STRATEGY_INTEGRATION_CONTRACT,
 	type StrategyIntegrationContract,
 } from "./strategyIntegrationContract";
@@ -28,7 +32,8 @@ import {
 export interface StrategyIoBrokerChargingShadowAdapter
 	extends StrategyIoBrokerRuntimeAdapter,
 	StrategyIoBrokerDaylightAdapter,
-	StrategyChargingShadowIoBrokerAdapter {}
+	StrategyChargingShadowIoBrokerAdapter,
+	StrategyDaylightDiagnosticAdapter {}
 
 export interface StrategyIoBrokerChargingShadowCycle {
 	readonly createdAt: number;
@@ -85,6 +90,7 @@ export async function executeStrategyIoBrokerChargingShadowCycle(
 	const daylightWindow = await daylightWindowProvider.getDaylightWindow(
 		createdAt,
 	);
+	await publishStrategyDaylightDiagnostics(adapter, createdAt, daylightWindow);
 
 	if (
 		daylightWindow == null
