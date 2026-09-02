@@ -14,7 +14,7 @@ import {
 } from "./strategyIntegrationContract";
 import {
 	createStrategyIoBrokerDaylightWindowProvider,
-	type StrategyIoBrokerAstroAdapter,
+	type StrategyIoBrokerDaylightAdapter,
 } from "./strategyIoBrokerDaylightWindow";
 import {
 	createStrategyIoBrokerRuntime,
@@ -27,7 +27,7 @@ import {
 
 export interface StrategyIoBrokerChargingShadowAdapter
 	extends StrategyIoBrokerRuntimeAdapter,
-	StrategyIoBrokerAstroAdapter,
+	StrategyIoBrokerDaylightAdapter,
 	StrategyChargingShadowIoBrokerAdapter {}
 
 export interface StrategyIoBrokerChargingShadowCycle {
