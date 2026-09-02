@@ -7,6 +7,11 @@ import {
 import { STRATEGY_INTEGRATION_CONTRACT } from "./strategyIntegrationContract";
 
 const NOW = Date.UTC(2026, 5, 21, 12);
+const ASTRO_QUERY_TIMESTAMP = (() => {
+	const date = new Date(NOW);
+	date.setHours(12, 0, 0, 0);
+	return date.getTime();
+})();
 const SUNRISE = Date.UTC(2026, 5, 21, 4, 17);
 const SUNSET = Date.UTC(2026, 5, 21, 19, 34);
 const CONFIGURATION: StrategyConfiguration = {
@@ -101,8 +106,8 @@ describe("strategy ioBroker daylight cycle runtime execution", () => {
 
 		expect(result?.createdAt).to.equal(NOW);
 		expect(astroCalls).to.deep.equal([
-			["sunrise", NOW, undefined],
-			["sunset", NOW, undefined],
+			["sunrise", ASTRO_QUERY_TIMESTAMP, undefined],
+			["sunset", ASTRO_QUERY_TIMESTAMP, undefined],
 		]);
 		expect(writes).to.deep.include([
 			"strategy.dayDischarge.availablePowerW", 2_000, true,
