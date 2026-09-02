@@ -9,10 +9,10 @@ import {
 	type StrategyIoBrokerManualChargeAdapter,
 } from "./strategyIoBrokerManualChargeCycle";
 import {
-	executeStrategyIoBrokerChargingShadowCycle,
-	type StrategyIoBrokerChargingShadowAdapter,
-	type StrategyIoBrokerChargingShadowCycle,
-} from "./strategyIoBrokerChargingShadowCycle";
+	executeStrategyIoBrokerAutomaticChargingCycle,
+	type StrategyIoBrokerAutomaticChargingAdapter,
+	type StrategyIoBrokerAutomaticChargingCycle,
+} from "./strategyIoBrokerAutomaticChargingCycle";
 import type { StrategyManualChargeCycle } from "./strategyManualChargeCycle";
 import {
 	STRATEGY_INTEGRATION_CONTRACT,
@@ -27,12 +27,12 @@ import {
 export interface StrategyIoBrokerStrategyCycleAdapter
 	extends StrategyIoBrokerDaylightCycleAdapter,
 	StrategyIoBrokerManualChargeAdapter,
-	StrategyIoBrokerChargingShadowAdapter {}
+	StrategyIoBrokerAutomaticChargingAdapter {}
 
 export interface StrategyIoBrokerStrategyCycle {
 	readonly createdAt: number;
 	readonly manualCharge: StrategyManualChargeCycle | null;
-	readonly chargingShadow: StrategyIoBrokerChargingShadowCycle | null;
+	readonly chargingShadow: StrategyIoBrokerAutomaticChargingCycle | null;
 	readonly automatic: StrategyDaylightWindowCycleExecution | null;
 }
 
@@ -65,8 +65,8 @@ export async function executeStrategyIoBrokerStrategyCycle(
 		});
 	}
 
-	const chargingShadow = modes.chargingControlEnabled
-		? await executeStrategyIoBrokerChargingShadowCycle(
+	const chargingControl = modes.chargingControlEnabled
+		? await executeStrategyIoBrokerAutomaticChargingCycle(
 			adapter,
 			configuration,
 			contract,
@@ -78,7 +78,7 @@ export async function executeStrategyIoBrokerStrategyCycle(
 		return Object.freeze({
 			createdAt: manualCharge?.createdAt ?? resolverOptions.now ?? Date.now(),
 			manualCharge,
-			chargingShadow,
+			chargingShadow: chargingControl,
 			automatic: null,
 		});
 	}
@@ -102,7 +102,7 @@ export async function executeStrategyIoBrokerStrategyCycle(
 	return Object.freeze({
 		createdAt: automatic.createdAt,
 		manualCharge,
-		chargingShadow,
+		chargingShadow: chargingControl,
 		automatic,
 	});
 }
