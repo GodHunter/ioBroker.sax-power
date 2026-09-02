@@ -31,9 +31,6 @@ function recordingAdapter() {
 	const cleared: ioBroker.Timeout[] = [];
 	let nextHandle = 1;
 	const adapter: StrategyIoBrokerStrategyTimerAdapter = {
-		getAstroDate() {
-			return new Date();
-		},
 		async extendObjectAsync(id) {
 			objects.push(id);
 		},
