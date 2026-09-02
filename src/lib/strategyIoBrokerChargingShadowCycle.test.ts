@@ -32,6 +32,19 @@ function state(
 	} as ioBroker.State;
 }
 
+function systemConfig(): ioBroker.Object {
+	return {
+		_id: "system.config",
+		type: "config",
+		common: {
+			name: "System configuration",
+			latitude: 49.0732312,
+			longitude: 9.1064578,
+		} as ioBroker.SystemConfigCommon,
+		native: {},
+	} as ioBroker.ConfigObject;
+}
+
 function runtime() {
 	const published = new Map<string, ioBroker.StateValue>();
 	const values = new Map<string, ioBroker.State>([
@@ -48,16 +61,12 @@ function runtime() {
 	]);
 
 	const adapter: StrategyIoBrokerChargingShadowAdapter = {
-		getAstroDate(pattern) {
-			return new Date(pattern === "sunrise"
-				? Date.UTC(2026, 5, 21, 4)
-				: Date.UTC(2026, 5, 21, 20));
-		},
 		async extendObjectAsync() {},
 		async setStateAsync(id, value) {
 			published.set(id, value.val ?? null);
 		},
 		async getForeignObjectAsync(id) {
+			if (id === "system.config") return systemConfig();
 			return {
 				_id: id,
 				type: "state",
