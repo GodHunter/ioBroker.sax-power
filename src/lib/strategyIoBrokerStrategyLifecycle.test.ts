@@ -7,6 +7,7 @@ import {
 import type { StrategyIoBrokerStrategyTimerAdapter } from "./strategyIoBrokerStrategyCycleScheduler";
 import { STRATEGY_MANUAL_CHARGE_STATE_DEFINITIONS } from "./strategyManualChargeStates";
 import { STRATEGY_CHARGING_SHADOW_STATE_IDS } from "./strategyChargingShadowStates";
+import { STRATEGY_DAYLIGHT_DIAGNOSTIC_STATE_IDS } from "./strategyDaylightDiagnosticStates";
 
 const CONFIGURATION: StrategyConfiguration = {
 	batteryModelId: "home-plus-7.7",
@@ -31,9 +32,6 @@ function recordingAdapter() {
 	let releaseObject: (() => void) | undefined;
 	let blockObjects = false;
 	const adapter: StrategyIoBrokerStrategyTimerAdapter = {
-		getAstroDate() {
-			return new Date();
-		},
 		async extendObjectAsync(id) {
 			objects.push(id);
 			if (blockObjects) {
@@ -99,6 +97,9 @@ describe("strategy ioBroker lifecycle", () => {
 		await lifecycle(run)?.start();
 
 		expect(run.objects).to.deep.equal([
+			"strategy",
+			"strategy.daylight",
+			...Object.values(STRATEGY_DAYLIGHT_DIAGNOSTIC_STATE_IDS),
 			"strategy",
 			"strategy.manualCharge",
 			"strategy.status",
