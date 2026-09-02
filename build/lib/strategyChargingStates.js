@@ -75,6 +75,10 @@ async function ensureStrategyChargingStates(adapter) {
       native: {}
     });
   }
+  await adapter.setStateAsync(STRATEGY_CHARGING_STATE_IDS.active, {
+    val: false,
+    ack: true
+  });
 }
 function strategyChargingPublicationFromDecision(decision, createdAt) {
   return Object.freeze({
