@@ -15,6 +15,10 @@ import {
 } from "./strategyIoBrokerAutomaticChargingCycle";
 import type { StrategyManualChargeCycle } from "./strategyManualChargeCycle";
 import {
+	readStrategyManualChargeInput,
+	STRATEGY_MANUAL_CHARGE_STATE_IDS,
+} from "./strategyManualChargeStates";
+import {
 	STRATEGY_INTEGRATION_CONTRACT,
 	type StrategyIntegrationContract,
 } from "./strategyIntegrationContract";
@@ -45,6 +49,12 @@ export async function executeStrategyIoBrokerStrategyCycle(
 	resolverOptions: StrategyStateResolverOptions = {},
 	modes: StrategyModes = DEFAULT_STRATEGY_MODES,
 ): Promise<StrategyIoBrokerStrategyCycle | null> {
+	const manualInput = modes.chargingControlEnabled
+		? await readStrategyManualChargeInput(adapter)
+		: null;
+
+	if (modes.chargingControlEnabled && manualInput === null) return null;
+
 	const manualCharge = modes.chargingControlEnabled
 		? await executeStrategyIoBrokerManualChargeCycle(
 			adapter,
@@ -54,15 +64,27 @@ export async function executeStrategyIoBrokerStrategyCycle(
 		)
 		: null;
 
-	if (modes.chargingControlEnabled && manualCharge === null) return null;
-
-	if (manualCharge !== null && !manualCharge.control.automaticStrategyAllowed) {
+	if (manualInput?.enabled === true) {
+		if (manualCharge === null) return null;
 		return Object.freeze({
 			createdAt: manualCharge.createdAt,
 			manualCharge,
 			chargingShadow: null,
 			automatic: null,
 		});
+	}
+
+	if (modes.chargingControlEnabled && manualCharge === null) {
+		await Promise.all([
+			adapter.setStateAsync(
+				STRATEGY_MANUAL_CHARGE_STATE_IDS.operatingMode,
+				{ val: "automatic", ack: true },
+			),
+			adapter.setStateAsync(
+				STRATEGY_MANUAL_CHARGE_STATE_IDS.automaticStrategyAllowed,
+				{ val: true, ack: true },
+			),
+		]);
 	}
 
 	const chargingControl = modes.chargingControlEnabled
