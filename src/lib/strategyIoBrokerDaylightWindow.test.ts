@@ -17,9 +17,9 @@ function systemConfig(
 			name: "System configuration",
 			latitude,
 			longitude,
-		} as ioBroker.SystemConfigCommon,
+		},
 		native: {},
-	} as ioBroker.ConfigObject;
+	} as unknown as ioBroker.Object;
 }
 
 function adapter(
