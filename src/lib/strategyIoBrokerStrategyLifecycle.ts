@@ -15,6 +15,9 @@ import {
 	ensureStrategyChargingShadowStates,
 } from "./strategyChargingShadowStates";
 import {
+	ensureStrategyDaylightDiagnosticStates,
+} from "./strategyDaylightDiagnosticStates";
+import {
 	ensureStrategyDayDischargeAvailabilityStates,
 } from "./strategyDayDischargeAvailabilityStates";
 import type { StrategyStateResolverOptions } from "./strategyStateResolver";
@@ -64,6 +67,9 @@ export function createStrategyIoBrokerStrategyLifecycle(
 
 		startPromise = (async () => {
 			try {
+				if (modes.chargingControlEnabled || modes.dayAvailabilityEnabled) {
+					await ensureStrategyDaylightDiagnosticStates(adapter);
+				}
 				if (modes.chargingControlEnabled) {
 					await ensureStrategyManualChargeIoBrokerStates(adapter);
 					await ensureStrategyChargingShadowStates(adapter);
