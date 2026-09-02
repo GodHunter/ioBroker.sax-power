@@ -23,7 +23,7 @@ function state(value: ioBroker.StateValue): ioBroker.State {
 
 function runtime(manualEnabled: boolean, validSoc = true) {
 	const writes: Array<{ id: string; value: ioBroker.StateValue }> = [];
-	let astroCalls = 0;
+	let systemConfigReads = 0;
 	const values = new Map<string, ioBroker.State>([
 		[STRATEGY_INTEGRATION_CONTRACT.modbus.dischargePowerCommand.stateId, state(0)],
 		[STRATEGY_INTEGRATION_CONTRACT.modbus.chargePowerCommand.stateId, state(0)],
@@ -38,12 +38,6 @@ function runtime(manualEnabled: boolean, validSoc = true) {
 		[STRATEGY_INTEGRATION_CONTRACT.pvForecast.lastUpdated.stateId, state(NOW)],
 	]);
 	const adapter: StrategyIoBrokerStrategyCycleAdapter = {
-		getAstroDate(pattern) {
-			astroCalls += 1;
-			return new Date(pattern === "sunrise"
-				? Date.UTC(2026, 5, 21, 4)
-				: Date.UTC(2026, 5, 21, 20));
-		},
 		async extendObjectAsync() {},
 		async getStateAsync(id) {
 			return id === STRATEGY_MANUAL_CHARGE_STATE_IDS.enabled
@@ -54,6 +48,20 @@ function runtime(manualEnabled: boolean, validSoc = true) {
 			writes.push({ id, value: value.val ?? null });
 		},
 		async getForeignObjectAsync(id) {
+			if (id === "system.config") {
+				systemConfigReads += 1;
+				return {
+					_id: id,
+					type: "config",
+					common: {
+						name: "System configuration",
+						latitude: 49.0732312,
+						longitude: 9.1064578,
+					},
+					native: {},
+				} as unknown as ioBroker.Object;
+			}
+
 			return {
 				_id: id,
 				type: "state",
@@ -75,7 +83,7 @@ function runtime(manualEnabled: boolean, validSoc = true) {
 			writes.push({ id, value });
 		},
 	};
-	return { adapter, writes, astroCalls: () => astroCalls };
+	return { adapter, writes, systemConfigReads: () => systemConfigReads };
 }
 
 describe("strategy ioBroker operating-mode cycle", () => {
@@ -89,7 +97,7 @@ describe("strategy ioBroker operating-mode cycle", () => {
 		expect(result?.manualCharge?.control.operatingMode).to.equal("manual-charge");
 		expect(result?.chargingShadow).to.equal(null);
 		expect(result?.automatic).to.equal(null);
-		expect(run.astroCalls()).to.equal(0);
+		expect(run.systemConfigReads()).to.equal(0);
 		expect(run.writes.filter(({ id }) => id.startsWith("modbus."))).to.deep.equal([{
 			id: STRATEGY_INTEGRATION_CONTRACT.modbus.chargePowerCommand.stateId,
 			value: 1_800,
@@ -106,8 +114,8 @@ describe("strategy ioBroker operating-mode cycle", () => {
 		expect(result?.manualCharge?.control.operatingMode).to.equal("automatic");
 		expect(result?.chargingShadow?.decision.wouldWriteRegister44).to.equal(false);
 		expect(result?.automatic).not.to.equal(null);
-		// Shadow charging and daytime availability each resolve the daylight window.
-		expect(run.astroCalls()).to.equal(4);
+		// Shadow charging and daytime availability each resolve system coordinates once.
+		expect(run.systemConfigReads()).to.equal(2);
 		expect(run.writes).to.deep.include({
 			id: "strategy.dayDischarge.availablePowerW",
 			value: 2_000,
@@ -128,7 +136,7 @@ describe("strategy ioBroker operating-mode cycle", () => {
 		);
 
 		expect(result).to.equal(null);
-		expect(run.astroCalls()).to.equal(0);
+		expect(run.systemConfigReads()).to.equal(0);
 		expect(run.writes).to.deep.equal([]);
 	});
 
@@ -146,6 +154,7 @@ describe("strategy ioBroker operating-mode cycle", () => {
 		expect(result?.manualCharge).to.equal(null);
 		expect(result?.chargingShadow).to.equal(null);
 		expect(result?.automatic?.availability.availablePowerW).to.equal(2_000);
+		expect(run.systemConfigReads()).to.equal(1);
 		expect(run.writes.some(({ id }) => id ===
 			STRATEGY_INTEGRATION_CONTRACT.modbus.dischargePowerCommand.stateId,
 		)).to.equal(false);
@@ -165,8 +174,8 @@ describe("strategy ioBroker operating-mode cycle", () => {
 		expect(result?.manualCharge?.control.operatingMode).to.equal("automatic");
 		expect(result?.chargingShadow?.decision.wouldWriteRegister44).to.equal(false);
 		expect(result?.automatic).to.equal(null);
-		// Charging shadow still needs sunrise/sunset even without daytime availability.
-		expect(run.astroCalls()).to.equal(2);
+		// Charging shadow resolves system coordinates once for sunrise/sunset.
+		expect(run.systemConfigReads()).to.equal(1);
 		expect(run.writes.some(({ id }) => id ===
 			STRATEGY_INTEGRATION_CONTRACT.modbus.chargePowerCommand.stateId,
 		)).to.equal(false);
