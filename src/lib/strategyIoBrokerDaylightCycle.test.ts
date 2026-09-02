@@ -7,13 +7,6 @@ import {
 import { STRATEGY_INTEGRATION_CONTRACT } from "./strategyIntegrationContract";
 
 const NOW = Date.UTC(2026, 5, 21, 12);
-const ASTRO_QUERY_TIMESTAMP = (() => {
-	const date = new Date(NOW);
-	date.setHours(12, 0, 0, 0);
-	return date.getTime();
-})();
-const SUNRISE = Date.UTC(2026, 5, 21, 4, 17);
-const SUNSET = Date.UTC(2026, 5, 21, 19, 34);
 const CONFIGURATION: StrategyConfiguration = {
 	batteryModelId: "home-plus-7.7",
 	minimumStateOfChargePercent: 20,
@@ -38,6 +31,19 @@ function stateObject(stateId: string, write = false): ioBroker.Object {
 	};
 }
 
+function systemConfig(latitude: unknown = 49.0732312): ioBroker.Object {
+	return {
+		_id: "system.config",
+		type: "config",
+		common: {
+			name: "System configuration",
+			latitude,
+			longitude: 9.1064578,
+		} as ioBroker.SystemConfigCommon,
+		native: {},
+	} as ioBroker.ConfigObject;
+}
+
 function state(value: ioBroker.StateValue): ioBroker.State {
 	return {
 		val: value,
@@ -51,7 +57,7 @@ function state(value: ioBroker.StateValue): ioBroker.State {
 
 function adapter(
 	writes: Array<readonly unknown[]>,
-	astroCalls: Array<readonly unknown[]>,
+	config: ioBroker.Object | null = systemConfig(),
 ): StrategyIoBrokerDaylightCycleAdapter {
 	const values = new Map<string, ioBroker.State>([
 		[STRATEGY_INTEGRATION_CONTRACT.modbus.dischargePowerCommand.stateId, state(0)],
@@ -67,11 +73,8 @@ function adapter(
 	]);
 
 	return {
-		getAstroDate(pattern, date, offsetMinutes) {
-			astroCalls.push([pattern, date?.getTime(), offsetMinutes]);
-			return new Date(pattern === "sunrise" ? SUNRISE : SUNSET);
-		},
 		async getForeignObjectAsync(stateId) {
+			if (stateId === "system.config") return config;
 			return stateObject(
 				stateId,
 				stateId === STRATEGY_INTEGRATION_CONTRACT.modbus.dischargePowerCommand.stateId,
@@ -91,12 +94,10 @@ function adapter(
 }
 
 describe("strategy ioBroker daylight cycle runtime execution", () => {
-	it("uses one adapter for astro data, state reads, and availability output", async () => {
+	it("uses system coordinates, state reads, and availability output", async () => {
 		const writes: Array<readonly unknown[]> = [];
-		const astroCalls: Array<readonly unknown[]> = [];
-
 		const result = await executeStrategyIoBrokerDaylightCycle(
-			adapter(writes, astroCalls),
+			adapter(writes),
 			CONFIGURATION,
 			60 * 60 * 1_000,
 			2_000,
@@ -105,10 +106,6 @@ describe("strategy ioBroker daylight cycle runtime execution", () => {
 		);
 
 		expect(result?.createdAt).to.equal(NOW);
-		expect(astroCalls).to.deep.equal([
-			["sunrise", ASTRO_QUERY_TIMESTAMP, undefined],
-			["sunset", ASTRO_QUERY_TIMESTAMP, undefined],
-		]);
 		expect(writes).to.deep.include([
 			"strategy.dayDischarge.availablePowerW", 2_000, true,
 		]);
@@ -117,13 +114,10 @@ describe("strategy ioBroker daylight cycle runtime execution", () => {
 		)).to.equal(false);
 	});
 
-	it("fails closed without writing when astro boundaries are invalid", async () => {
+	it("fails closed without writing when system coordinates are invalid", async () => {
 		const writes: Array<readonly unknown[]> = [];
-		const invalidAdapter = adapter(writes, []);
-		invalidAdapter.getAstroDate = () => new Date(Number.NaN);
-
 		const result = await executeStrategyIoBrokerDaylightCycle(
-			invalidAdapter,
+			adapter(writes, systemConfig(200)),
 			CONFIGURATION,
 			60 * 60 * 1_000,
 			2_000,
@@ -135,33 +129,9 @@ describe("strategy ioBroker daylight cycle runtime execution", () => {
 		expect(writes).to.deep.equal([]);
 	});
 
-	it("propagates astro failures unchanged", async () => {
-		const expectedError = new Error("ioBroker astro failed");
-		const failingAdapter = adapter([], []);
-		failingAdapter.getAstroDate = () => {
-			throw expectedError;
-		};
-		let actualError: unknown;
-
-		try {
-			await executeStrategyIoBrokerDaylightCycle(
-				failingAdapter,
-				CONFIGURATION,
-				60 * 60 * 1_000,
-				2_000,
-				STRATEGY_INTEGRATION_CONTRACT,
-				{ now: NOW },
-			);
-		} catch (error) {
-			actualError = error;
-		}
-
-		expect(actualError).to.equal(expectedError);
-	});
-
 	it("propagates state reader failures unchanged", async () => {
 		const expectedError = new Error("ioBroker read failed");
-		const failingAdapter = adapter([], []);
+		const failingAdapter = adapter([]);
 		failingAdapter.getForeignStateAsync = async () => {
 			throw expectedError;
 		};
@@ -185,7 +155,7 @@ describe("strategy ioBroker daylight cycle runtime execution", () => {
 
 	it("propagates status writer failures unchanged", async () => {
 		const expectedError = new Error("ioBroker write failed");
-		const failingAdapter = adapter([], []);
+		const failingAdapter = adapter([]);
 		failingAdapter.setStateAsync = async () => {
 			throw expectedError;
 		};
