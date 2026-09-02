@@ -20,17 +20,28 @@ function adapter(
 }
 
 describe("strategy ioBroker daylight window provider", () => {
-	it("resolves sunrise and sunset for the same cycle date", async () => {
+	it("normalizes the requested cycle date to local noon before resolving sunrise and sunset", async () => {
 		const calls: Array<readonly unknown[]> = [];
 		const provider = createStrategyIoBrokerDaylightWindowProvider({
 			getAstroDate(pattern, date, offsetMinutes) {
-				calls.push([pattern, date?.getTime(), offsetMinutes]);
+				calls.push([
+					pattern,
+					date?.getFullYear(),
+					date?.getMonth(),
+					date?.getDate(),
+					date?.getHours(),
+					date?.getMinutes(),
+					date?.getSeconds(),
+					date?.getMilliseconds(),
+					offsetMinutes,
+				]);
 				return pattern === "sunrise"
 					? new Date(SUNRISE)
 					: new Date(SUNSET);
 			},
 		});
 
+		const cycleDate = new Date(CYCLE_TIMESTAMP);
 		const window = await provider.getDaylightWindow(CYCLE_TIMESTAMP);
 
 		expect(window).to.deep.equal({
@@ -38,8 +49,28 @@ describe("strategy ioBroker daylight window provider", () => {
 			endsAt: SUNSET,
 		});
 		expect(calls).to.deep.equal([
-			["sunrise", CYCLE_TIMESTAMP, undefined],
-			["sunset", CYCLE_TIMESTAMP, undefined],
+			[
+				"sunrise",
+				cycleDate.getFullYear(),
+				cycleDate.getMonth(),
+				cycleDate.getDate(),
+				12,
+				0,
+				0,
+				0,
+				undefined,
+			],
+			[
+				"sunset",
+				cycleDate.getFullYear(),
+				cycleDate.getMonth(),
+				cycleDate.getDate(),
+				12,
+				0,
+				0,
+				0,
+				undefined,
+			],
 		]);
 		expect(Object.isFrozen(window)).to.equal(true);
 	});
