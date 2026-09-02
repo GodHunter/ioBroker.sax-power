@@ -23,6 +23,7 @@ __export(strategyIoBrokerChargingShadowCycle_exports, {
 module.exports = __toCommonJS(strategyIoBrokerChargingShadowCycle_exports);
 var import_strategyChargingShadow = require("./strategyChargingShadow");
 var import_strategyChargingShadowStates = require("./strategyChargingShadowStates");
+var import_strategyDaylightDiagnosticStates = require("./strategyDaylightDiagnosticStates");
 var import_strategyIntegrationContract = require("./strategyIntegrationContract");
 var import_strategyIoBrokerDaylightWindow = require("./strategyIoBrokerDaylightWindow");
 var import_strategyIoBrokerRuntime = require("./strategyIoBrokerRuntime");
@@ -61,6 +62,11 @@ async function executeStrategyIoBrokerChargingShadowCycle(adapter, configuration
   const daylightWindowProvider = (0, import_strategyIoBrokerDaylightWindow.createStrategyIoBrokerDaylightWindowProvider)(adapter);
   const daylightWindow = await daylightWindowProvider.getDaylightWindow(
     createdAt
+  );
+  await (0, import_strategyDaylightDiagnosticStates.publishStrategyDaylightDiagnostics)(
+    adapter,
+    createdAt,
+    daylightWindow != null ? daylightWindow : null
   );
   if (daylightWindow == null || createdAt < daylightWindow.startsAt || createdAt >= daylightWindow.endsAt) {
     await (0, import_strategyChargingShadowStates.publishStrategyChargingShadowUnavailable)(

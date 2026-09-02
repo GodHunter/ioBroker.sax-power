@@ -33,7 +33,6 @@ var import_strategyCapabilities = require("./lib/strategyCapabilities");
 var import_saxPowerConstants = require("./lib/saxPowerConstants");
 var import_strategyIoBrokerStrategyBinding = require("./lib/strategyIoBrokerStrategyBinding");
 var import_strategyNativeConfiguration = require("./lib/strategyNativeConfiguration");
-var import_strategyAstroDate = require("./lib/strategyAstroDate");
 var import_strategyRuntimeStatus = require("./lib/strategyRuntimeStatus");
 var import_strategyIoBrokerReadiness = require("./lib/strategyIoBrokerReadiness");
 var import_strategyIoBrokerReadinessRetry = require("./lib/strategyIoBrokerReadinessRetry");
@@ -92,18 +91,8 @@ class SaxPower extends utils.Adapter {
     await this.pollLiveData();
     this.scheduleNextPoll();
   }
-  getAstroDate(event, date = /* @__PURE__ */ new Date(), offsetMinutes = 0) {
-    return (0, import_strategyAstroDate.resolveStrategyAstroDate)(
-      event,
-      date,
-      this.latitude,
-      this.longitude,
-      offsetMinutes
-    );
-  }
   strategyAdapter() {
     return {
-      getAstroDate: (event, date, offsetMinutes) => this.getAstroDate(event, date, offsetMinutes),
       extendObjectAsync: (id, object) => this.extendObjectAsync(id, object),
       getStateAsync: (id) => this.getStateAsync(id),
       setStateAsync: (id, state) => this.setStateAsync(id, state),
