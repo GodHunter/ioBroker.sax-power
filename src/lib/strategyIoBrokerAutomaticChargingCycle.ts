@@ -25,6 +25,7 @@ import {
 } from "./strategyIoBrokerRuntime";
 import {
 	resolveStrategyStates,
+	type StrategyStateResolution,
 	type StrategyStateResolverOptions,
 } from "./strategyStateResolver";
 
@@ -103,18 +104,40 @@ export async function executeStrategyIoBrokerAutomaticChargingCycle(
 	if (!Number.isFinite(createdAt)) return null;
 
 	const runtime = createStrategyIoBrokerRuntime(adapter);
-	const resolution = await resolveStrategyStates(
-		runtime.reader,
-		contract,
-		{ ...resolverOptions, now: createdAt },
-	);
+	let resolution: StrategyStateResolution;
+	try {
+		resolution = await resolveStrategyStates(
+			runtime.reader,
+			contract,
+			{ ...resolverOptions, now: createdAt },
+		);
+	} catch {
+		return applyChargePowerTarget(
+			adapter,
+			configuration,
+			contract,
+			fallbackPublication(configuration, createdAt, "inputs-not-ready"),
+		);
+	}
 
 	if (!resolution.modbus.chargePowerCommand.available) {
 		return null;
 	}
 
-	const daylightWindowProvider = createStrategyIoBrokerDaylightWindowProvider(adapter);
-	const daylightWindow = await daylightWindowProvider.getDaylightWindow(createdAt);
+	let daylightWindow: Awaited<ReturnType<ReturnType<
+		typeof createStrategyIoBrokerDaylightWindowProvider
+	>["getDaylightWindow"]>>;
+	try {
+		const daylightWindowProvider = createStrategyIoBrokerDaylightWindowProvider(adapter);
+		daylightWindow = await daylightWindowProvider.getDaylightWindow(createdAt);
+	} catch {
+		return applyChargePowerTarget(
+			adapter,
+			configuration,
+			contract,
+			fallbackPublication(configuration, createdAt, "daylight-unavailable"),
+		);
+	}
 	await publishStrategyDaylightDiagnostics(adapter, createdAt, daylightWindow ?? null);
 
 	const stateOfChargePercent = resolution.modbus.stateOfCharge.value;
