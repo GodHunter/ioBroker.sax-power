@@ -90,7 +90,11 @@ export async function executeStrategyIoBrokerChargingShadowCycle(
 	const daylightWindow = await daylightWindowProvider.getDaylightWindow(
 		createdAt,
 	);
-	await publishStrategyDaylightDiagnostics(adapter, createdAt, daylightWindow);
+	await publishStrategyDaylightDiagnostics(
+		adapter,
+		createdAt,
+		daylightWindow ?? null,
+	);
 
 	if (
 		daylightWindow == null
