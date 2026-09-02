@@ -40,6 +40,19 @@ function state(value: ioBroker.StateValue): ioBroker.State {
 	};
 }
 
+function systemConfig(): ioBroker.Object {
+	return {
+		_id: "system.config",
+		type: "config",
+		common: {
+			name: "System configuration",
+			latitude: 49.0732312,
+			longitude: 9.1064578,
+		},
+		native: {},
+	} as unknown as ioBroker.Object;
+}
+
 function recordingAdapter(): AdapterRecording {
 	const timers: TimerCall[] = [];
 	const cleared: ioBroker.Timeout[] = [];
@@ -59,12 +72,8 @@ function recordingAdapter(): AdapterRecording {
 	let nextHandle = 1;
 
 	const adapter: StrategyIoBrokerCycleTimerAdapter = {
-		getAstroDate(pattern) {
-			return new Date(pattern === "sunrise"
-				? NOW - 1_000
-				: NOW + 10 * 60 * 60 * 1_000);
-		},
 		async getForeignObjectAsync(stateId) {
+			if (stateId === "system.config") return systemConfig();
 			return {
 				_id: stateId,
 				type: "state",
@@ -178,8 +187,20 @@ describe("strategy ioBroker daylight cycle scheduler", () => {
 		const recording = recordingAdapter();
 		const expectedError = new Error("strategy cycle failed");
 		const errors: unknown[] = [];
-		recording.adapter.getAstroDate = () => {
-			throw expectedError;
+		recording.adapter.getForeignObjectAsync = async stateId => {
+			if (stateId === "system.config") throw expectedError;
+			return {
+				_id: stateId,
+				type: "state",
+				common: {
+					name: stateId,
+					type: "number",
+					role: "value",
+					read: true,
+					write: false,
+				},
+				native: {},
+			};
 		};
 		const scheduler = createScheduler(recording, error => errors.push(error));
 		scheduler?.start();
