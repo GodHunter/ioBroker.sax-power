@@ -27,6 +27,19 @@ function state(value: ioBroker.StateValue): ioBroker.State {
 	return { val: value, ack: true, q: 0, ts: NOW, lc: NOW } as ioBroker.State;
 }
 
+function systemConfigObject(): ioBroker.Object {
+	return {
+		_id: "system.config",
+		type: "config",
+		common: {
+			name: "System configuration",
+			latitude: 49.0732312,
+			longitude: 9.1064578,
+		} as unknown as ioBroker.ObjectCommon,
+		native: {},
+	} as unknown as ioBroker.Object;
+}
+
 function recordingAdapter(manualEnabled = false) {
 	const timers: TimerCall[] = [];
 	const cleared: ioBroker.Timeout[] = [];
@@ -45,11 +58,6 @@ function recordingAdapter(manualEnabled = false) {
 	]);
 	let nextHandle = 1;
 	const adapter: StrategyIoBrokerStrategyTimerAdapter = {
-		getAstroDate(pattern) {
-			return new Date(pattern === "sunrise"
-				? NOW - 60 * 60 * 1_000
-				: NOW + 10 * 60 * 60 * 1_000);
-		},
 		async extendObjectAsync() {},
 		async getStateAsync(id) {
 			return id === STRATEGY_MANUAL_CHARGE_STATE_IDS.enabled
@@ -60,6 +68,7 @@ function recordingAdapter(manualEnabled = false) {
 			writes.push({ id, value: value.val ?? null });
 		},
 		async getForeignObjectAsync(id) {
+			if (id === "system.config") return systemConfigObject();
 			return {
 				_id: id,
 				type: "state",
