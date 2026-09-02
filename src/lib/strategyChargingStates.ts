@@ -97,6 +97,13 @@ export async function ensureStrategyChargingStates(
 			native: {},
 		});
 	}
+
+	// Give the controller indicator a defined value immediately after startup.
+	// The first automatic charging decision will switch it to true.
+	await adapter.setStateAsync(STRATEGY_CHARGING_STATE_IDS.active, {
+		val: false,
+		ack: true,
+	});
 }
 
 export function strategyChargingPublicationFromDecision(
