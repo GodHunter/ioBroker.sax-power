@@ -1,7 +1,7 @@
-import { expect } from "chai";
+const { expect } = require("chai") as typeof import("chai");
 
-import type { StrategyConfiguration } from "./strategyConfiguration";
-import type { StrategyIoBrokerChargingShadowAdapter } from "./strategyIoBrokerChargingShadowCycle";
+type StrategyConfiguration = import("./strategyConfiguration").StrategyConfiguration;
+type StrategyIoBrokerChargingShadowAdapter = import("./strategyIoBrokerChargingShadowCycle").StrategyIoBrokerChargingShadowAdapter;
 
 const { STRATEGY_CHARGING_SHADOW_STATE_IDS } = require("./strategyChargingShadowStates") as typeof import("./strategyChargingShadowStates");
 const { executeStrategyIoBrokerChargingShadowCycle } = require("./strategyIoBrokerChargingShadowCycle") as typeof import("./strategyIoBrokerChargingShadowCycle");
