@@ -1,86 +1,57 @@
 import { expect } from "chai";
 import {
 	createStrategyIoBrokerDaylightWindowProvider,
-	type StrategyIoBrokerAstroAdapter,
+	type StrategyIoBrokerDaylightAdapter,
 } from "./strategyIoBrokerDaylightWindow";
 
-const CYCLE_TIMESTAMP = Date.UTC(2026, 5, 21, 12);
-const SUNRISE = Date.UTC(2026, 5, 21, 4, 17);
-const SUNSET = Date.UTC(2026, 5, 21, 19, 34);
+const CYCLE_TIMESTAMP = Date.UTC(2026, 8, 2, 6, 54);
+
+function systemConfig(
+	latitude: unknown = "49.07323120",
+	longitude: unknown = "9.10645780",
+): ioBroker.Object {
+	return {
+		_id: "system.config",
+		type: "config",
+		common: {
+			name: "System configuration",
+			latitude,
+			longitude,
+		} as ioBroker.SystemConfigCommon,
+		native: {},
+	} as ioBroker.ConfigObject;
+}
 
 function adapter(
-	sunrise = new Date(SUNRISE),
-	sunset = new Date(SUNSET),
-): StrategyIoBrokerAstroAdapter {
+	config: ioBroker.Object | null = systemConfig(),
+): StrategyIoBrokerDaylightAdapter {
 	return {
-		getAstroDate(pattern) {
-			return pattern === "sunrise" ? sunrise : sunset;
+		async getForeignObjectAsync(id) {
+			expect(id).to.equal("system.config");
+			return config;
 		},
 	};
 }
 
 describe("strategy ioBroker daylight window provider", () => {
-	it("normalizes the requested cycle date to local noon before resolving sunrise and sunset", async () => {
-		const calls: Array<readonly unknown[]> = [];
-		const provider = createStrategyIoBrokerDaylightWindowProvider({
-			getAstroDate(pattern, date, offsetMinutes) {
-				calls.push([
-					pattern,
-					date?.getFullYear(),
-					date?.getMonth(),
-					date?.getDate(),
-					date?.getHours(),
-					date?.getMinutes(),
-					date?.getSeconds(),
-					date?.getMilliseconds(),
-					offsetMinutes,
-				]);
-				return pattern === "sunrise"
-					? new Date(SUNRISE)
-					: new Date(SUNSET);
-			},
-		});
-
-		const cycleDate = new Date(CYCLE_TIMESTAMP);
+	it("derives sunrise and sunset from ioBroker system coordinates", async () => {
+		const provider = createStrategyIoBrokerDaylightWindowProvider(adapter());
 		const window = await provider.getDaylightWindow(CYCLE_TIMESTAMP);
 
-		expect(window).to.deep.equal({
-			startsAt: SUNRISE,
-			endsAt: SUNSET,
-		});
-		expect(calls).to.deep.equal([
-			[
-				"sunrise",
-				cycleDate.getFullYear(),
-				cycleDate.getMonth(),
-				cycleDate.getDate(),
-				12,
-				0,
-				0,
-				0,
-				undefined,
-			],
-			[
-				"sunset",
-				cycleDate.getFullYear(),
-				cycleDate.getMonth(),
-				cycleDate.getDate(),
-				12,
-				0,
-				0,
-				0,
-				undefined,
-			],
-		]);
+		expect(window).to.not.equal(null);
+		expect(window!.startsAt).to.be.lessThan(CYCLE_TIMESTAMP);
+		expect(window!.endsAt).to.be.greaterThan(CYCLE_TIMESTAMP);
+		expect(new Date(window!.startsAt).getUTCDate()).to.equal(2);
+		expect(new Date(window!.endsAt).getUTCDate()).to.equal(2);
 		expect(Object.isFrozen(window)).to.equal(true);
 	});
 
-	it("fails closed before querying astro data for an invalid timestamp", async () => {
+	it("fails closed before reading system configuration for an invalid timestamp", async () => {
 		let calls = 0;
 		const provider = createStrategyIoBrokerDaylightWindowProvider({
-			getAstroDate() {
+			async getForeignObjectAsync() {
 				calls += 1;
-				return new Date(SUNRISE);
+				return systemConfig();
 			},
 		});
 
@@ -88,26 +59,35 @@ describe("strategy ioBroker daylight window provider", () => {
 		expect(calls).to.equal(0);
 	});
 
-	it("fails closed for an invalid astro boundary", async () => {
-		const provider = createStrategyIoBrokerDaylightWindowProvider(
-			adapter(new Date(Number.NaN)),
-		);
-
+	it("fails closed when system coordinates are missing", async () => {
+		const provider = createStrategyIoBrokerDaylightWindowProvider(adapter(null));
 		expect(await provider.getDaylightWindow(CYCLE_TIMESTAMP)).to.equal(null);
 	});
 
-	it("fails closed when sunrise is not before sunset", async () => {
+	it("fails closed for invalid system coordinates", async () => {
 		const provider = createStrategyIoBrokerDaylightWindowProvider(
-			adapter(new Date(SUNSET), new Date(SUNRISE)),
+			adapter(systemConfig(200, 9.1)),
 		);
-
 		expect(await provider.getDaylightWindow(CYCLE_TIMESTAMP)).to.equal(null);
 	});
 
-	it("propagates astro provider failures unchanged", async () => {
-		const expectedError = new Error("ioBroker astro calculation failed");
+	it("accepts numeric and numeric-string coordinates", async () => {
+		const numeric = createStrategyIoBrokerDaylightWindowProvider(
+			adapter(systemConfig(49.0732312, 9.1064578)),
+		);
+		const strings = createStrategyIoBrokerDaylightWindowProvider(
+			adapter(systemConfig("49.07323120", "9.10645780")),
+		);
+
+		expect(await numeric.getDaylightWindow(CYCLE_TIMESTAMP)).to.deep.equal(
+			await strings.getDaylightWindow(CYCLE_TIMESTAMP),
+		);
+	});
+
+	it("propagates system configuration read failures unchanged", async () => {
+		const expectedError = new Error("system config read failed");
 		const provider = createStrategyIoBrokerDaylightWindowProvider({
-			getAstroDate() {
+			async getForeignObjectAsync() {
 				throw expectedError;
 			},
 		});
@@ -124,7 +104,6 @@ describe("strategy ioBroker daylight window provider", () => {
 
 	it("returns an immutable provider", () => {
 		const provider = createStrategyIoBrokerDaylightWindowProvider(adapter());
-
 		expect(Object.isFrozen(provider)).to.equal(true);
 	});
 });
