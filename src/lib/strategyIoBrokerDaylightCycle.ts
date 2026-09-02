@@ -5,7 +5,7 @@ import {
 } from "./strategyIoBrokerCycleExecution";
 import {
 	createStrategyIoBrokerDaylightWindowProvider,
-	type StrategyIoBrokerAstroAdapter,
+	type StrategyIoBrokerDaylightAdapter,
 } from "./strategyIoBrokerDaylightWindow";
 import type { StrategyIoBrokerRuntimeAdapter } from "./strategyIoBrokerRuntime";
 import type { StrategyDayDischargeAvailabilityAdapter } from "./strategyDayDischargeAvailabilityStates";
@@ -17,7 +17,7 @@ import type { StrategyStateResolverOptions } from "./strategyStateResolver";
 
 export interface StrategyIoBrokerDaylightCycleAdapter
 	extends StrategyIoBrokerRuntimeAdapter,
-		StrategyIoBrokerAstroAdapter,
+		StrategyIoBrokerDaylightAdapter,
 		StrategyDayDischargeAvailabilityAdapter {}
 
 export async function executeStrategyIoBrokerDaylightCycle(
