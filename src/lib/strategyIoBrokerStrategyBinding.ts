@@ -73,6 +73,7 @@ export function createStrategyIoBrokerStrategyBinding(
 		contract,
 		resolverOptions,
 		configuration.modes,
+		configuration.householdLearning,
 	);
 
 	if (lifecycle === null) {
