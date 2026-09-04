@@ -45,7 +45,7 @@ export function strategyRuntimeConfigurationFromNative(
 		chargingControlEnabled: native.strategyChargingControlEnabled ?? true,
 		dayAvailabilityEnabled: native.strategyDayAvailabilityEnabled ?? true,
 		nightDischargeEnabled: native.strategyNightDischargeEnabled ?? false,
-		householdLearningEnabled: native.strategyHouseholdLearningEnabled ?? true,
+		householdLearningEnabled: native.strategyHouseholdLearningEnabled ?? false,
 		pvPowerSourceMode: native.strategyPvPowerSourceMode ?? "none",
 		pvPowerStateId: native.strategyPvPowerStateId,
 		pvNominalPowerWp: native.strategyPvNominalPowerWp,
