@@ -4,6 +4,7 @@ import {
 	publishStrategyDayDischargeAvailability,
 	type StrategyDayDischargeAvailability,
 	type StrategyDayDischargeAvailabilityAdapter,
+	type StrategyDayDischargeChargingContext,
 } from "./strategyDayDischargeAvailabilityStates";
 import {
 	prepareStrategyDayDischargeCycleWithDaylightWindow,
@@ -34,6 +35,7 @@ export async function executeStrategyDayDischargeCycleWithDaylightWindow(
 	requestedDischargePowerW: number,
 	contract: StrategyIntegrationContract = STRATEGY_INTEGRATION_CONTRACT,
 	resolverOptions: StrategyStateResolverOptions = {},
+	chargingContext: StrategyDayDischargeChargingContext | null = null,
 ): Promise<StrategyDaylightWindowCycleExecution | null> {
 	const preparation =
 		await prepareStrategyDayDischargeCycleWithDaylightWindow(
@@ -50,7 +52,10 @@ export async function executeStrategyDayDischargeCycleWithDaylightWindow(
 		return null;
 	}
 
-	const availability = createStrategyDayDischargeAvailability(preparation);
+	const availability = createStrategyDayDischargeAvailability(
+		preparation,
+		chargingContext,
+	);
 	await publishStrategyDayDischargeAvailability(statusAdapter, availability);
 
 	return Object.freeze({
