@@ -102,7 +102,7 @@ export function createStrategyIoBrokerStrategyLifecycle(
 				try {
 					const daylight = await createStrategyIoBrokerDaylightWindowProvider(adapter)
 						.getDaylightWindow(now);
-					if (daylight !== null && daylight.endsAt > now) until = daylight.endsAt;
+					if (daylight != null && daylight.endsAt > now) until = daylight.endsAt;
 				} catch {
 					// Learning may continue without a planning horizon; control remains unaffected.
 				}
