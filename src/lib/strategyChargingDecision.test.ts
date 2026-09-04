@@ -99,6 +99,51 @@ describe("strategy charging decision", () => {
 		expect(decision.reason).to.equal("forecast-balanced");
 	});
 
+	it("keeps trajectory recovery active inside the corridor until the upper boundary is reached", () => {
+		const decision = createStrategyChargingDecision(configuration, {
+			stateOfChargePercent: 68,
+			forecastEnergyRemainingWh: 20_000,
+			remainingDaylightMs: 5 * HOUR,
+			elapsedDaylightMs: 5 * HOUR,
+			totalDaylightMs: 10 * HOUR,
+			previousDecisionReason: "trajectory-recovery",
+		});
+		expect(decision.reason).to.equal("trajectory-recovery");
+		expect(decision.chargePowerLimitW).to.be.greaterThan(decision.requiredAverageChargePowerW);
+	});
+
+	it("leaves trajectory recovery after the upper corridor boundary is reached", () => {
+		const reference = createStrategyChargingDecision(configuration, {
+			stateOfChargePercent: 68,
+			forecastEnergyRemainingWh: 20_000,
+			remainingDaylightMs: 5 * HOUR,
+			elapsedDaylightMs: 5 * HOUR,
+			totalDaylightMs: 10 * HOUR,
+		});
+		const decision = createStrategyChargingDecision(configuration, {
+			stateOfChargePercent: reference.plannedSocUpperPercent,
+			forecastEnergyRemainingWh: 20_000,
+			remainingDaylightMs: 5 * HOUR,
+			elapsedDaylightMs: 5 * HOUR,
+			totalDaylightMs: 10 * HOUR,
+			previousDecisionReason: "trajectory-recovery",
+		});
+		expect(decision.reason).to.equal("forecast-balanced");
+	});
+
+	it("forecast insufficiency overrides trajectory recovery hysteresis", () => {
+		const decision = createStrategyChargingDecision(configuration, {
+			stateOfChargePercent: 50,
+			forecastEnergyRemainingWh: 1000,
+			remainingDaylightMs: 5 * HOUR,
+			elapsedDaylightMs: 5 * HOUR,
+			totalDaylightMs: 10 * HOUR,
+			previousDecisionReason: "trajectory-recovery",
+		});
+		expect(decision.reason).to.equal("forecast-insufficient");
+		expect(decision.chargePowerLimitW).to.equal(configuration.maximumChargePowerW);
+	});
+
 	it("returns zero charging power once target SOC is reached", () => {
 		const decision = createStrategyChargingDecision(configuration, {
 			stateOfChargePercent: 100,
