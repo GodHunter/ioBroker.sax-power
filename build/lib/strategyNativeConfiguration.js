@@ -39,7 +39,7 @@ function strategyRuntimeConfigurationFromNative(native) {
     chargingControlEnabled: (_b = native.strategyChargingControlEnabled) != null ? _b : true,
     dayAvailabilityEnabled: (_c = native.strategyDayAvailabilityEnabled) != null ? _c : true,
     nightDischargeEnabled: (_d = native.strategyNightDischargeEnabled) != null ? _d : false,
-    householdLearningEnabled: (_e = native.strategyHouseholdLearningEnabled) != null ? _e : true,
+    householdLearningEnabled: (_e = native.strategyHouseholdLearningEnabled) != null ? _e : false,
     pvPowerSourceMode: (_f = native.strategyPvPowerSourceMode) != null ? _f : "none",
     pvPowerStateId: native.strategyPvPowerStateId,
     pvNominalPowerWp: native.strategyPvNominalPowerWp

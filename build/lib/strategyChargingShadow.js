@@ -25,6 +25,7 @@ var import_batteryAnalysis = require("./batteryAnalysis");
 const CHARGE_POWER_HEADROOM_FACTOR = 1.25;
 const MINIMUM_DAYLIGHT_MS = 6e4;
 function invalidDecision(configuration, input) {
+  var _a;
   return Object.freeze({
     valid: false,
     reason: "invalid-input",
@@ -33,6 +34,7 @@ function invalidDecision(configuration, input) {
     usableCapacityWh: 0,
     energyRequiredWh: 0,
     forecastEnergyRemainingWh: input.forecastEnergyRemainingWh,
+    householdEnergyRemainingWh: (_a = input.householdEnergyRemainingWh) != null ? _a : 0,
     forecastReserveWh: configuration.pvForecastReserveWh,
     usableForecastEnergyWh: 0,
     forecastMarginWh: 0,
@@ -47,8 +49,10 @@ function roundPower(value) {
   return Math.max(0, Math.round(value));
 }
 function createStrategyChargingShadowDecision(configuration, input) {
+  var _a;
   const model = (0, import_batteryAnalysis.getBatteryModel)(configuration.batteryModelId);
-  if (model === null || !Number.isFinite(input.stateOfChargePercent) || input.stateOfChargePercent < 0 || input.stateOfChargePercent > 100 || !Number.isFinite(input.forecastEnergyRemainingWh) || input.forecastEnergyRemainingWh < 0 || !Number.isFinite(input.remainingDaylightMs) || input.remainingDaylightMs < 0) {
+  const householdEnergyRemainingWh = (_a = input.householdEnergyRemainingWh) != null ? _a : 0;
+  if (model === null || !Number.isFinite(input.stateOfChargePercent) || input.stateOfChargePercent < 0 || input.stateOfChargePercent > 100 || !Number.isFinite(input.forecastEnergyRemainingWh) || input.forecastEnergyRemainingWh < 0 || !Number.isFinite(input.remainingDaylightMs) || input.remainingDaylightMs < 0 || !Number.isFinite(householdEnergyRemainingWh) || householdEnergyRemainingWh < 0) {
     return invalidDecision(configuration, input);
   }
   const usableCapacityWh = model.usableCapacityKwh * 1e3;
@@ -60,7 +64,7 @@ function createStrategyChargingShadowDecision(configuration, input) {
   const energyRequiredWh = usableCapacityWh * socGapPercent / 100;
   const usableForecastEnergyWh = Math.max(
     0,
-    input.forecastEnergyRemainingWh - configuration.pvForecastReserveWh
+    input.forecastEnergyRemainingWh - householdEnergyRemainingWh - configuration.pvForecastReserveWh
   );
   const forecastMarginWh = usableForecastEnergyWh - energyRequiredWh;
   const effectiveDaylightMs = Math.max(
@@ -78,6 +82,7 @@ function createStrategyChargingShadowDecision(configuration, input) {
       usableCapacityWh,
       energyRequiredWh,
       forecastEnergyRemainingWh: input.forecastEnergyRemainingWh,
+      householdEnergyRemainingWh,
       forecastReserveWh: configuration.pvForecastReserveWh,
       usableForecastEnergyWh,
       forecastMarginWh,
@@ -102,6 +107,7 @@ function createStrategyChargingShadowDecision(configuration, input) {
     usableCapacityWh,
     energyRequiredWh,
     forecastEnergyRemainingWh: input.forecastEnergyRemainingWh,
+    householdEnergyRemainingWh,
     forecastReserveWh: configuration.pvForecastReserveWh,
     usableForecastEnergyWh,
     forecastMarginWh,

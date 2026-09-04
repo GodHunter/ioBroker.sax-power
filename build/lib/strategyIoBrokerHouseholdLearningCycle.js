@@ -25,6 +25,8 @@ var import_strategyHouseholdLoadObservation = require("./strategyHouseholdLoadOb
 var import_strategyHouseholdLoadCollector = require("./strategyHouseholdLoadCollector");
 var import_strategyHouseholdLoadModel = require("./strategyHouseholdLoadModel");
 var import_strategyHouseholdLearningStates = require("./strategyHouseholdLearningStates");
+var import_strategyPlanning = require("./strategyPlanning");
+var import_strategyPlanningStates = require("./strategyPlanningStates");
 const MAXIMUM_INPUT_AGE_MS = 12e4;
 function numericFreshValue(state, nowMs) {
   if (state === null || state === void 0) return null;
@@ -32,6 +34,13 @@ function numericFreshValue(state, nowMs) {
   if (state.q !== void 0 && state.q !== 0) return null;
   if (state.ack !== true) return null;
   if (!Number.isFinite(state.ts) || nowMs - state.ts > MAXIMUM_INPUT_AGE_MS) return null;
+  return state.val;
+}
+function numericValue(state) {
+  if (state === null || state === void 0) return null;
+  if (typeof state.val !== "number" || !Number.isFinite(state.val)) return null;
+  if (state.q !== void 0 && state.q !== 0) return null;
+  if (state.ack !== true) return null;
   return state.val;
 }
 function parseSnapshot(value) {
@@ -58,6 +67,7 @@ function createStrategyIoBrokerHouseholdLearningCycle(adapter, configuration) {
   }
   return Object.freeze({
     runOnce: async (nowMs = Date.now(), untilMs = nowMs) => {
+      var _a;
       if (!configuration.enabled) return;
       const activeModel = await loadModel();
       let currentPowerW = null;
@@ -98,6 +108,17 @@ function createStrategyIoBrokerHouseholdLearningCycle(adapter, configuration) {
         source,
         lastUpdate: nowMs,
         modelSnapshot: JSON.stringify(activeModel.snapshot())
+      });
+      const forecastState = configuration.pvForecastEnergyStateId === void 0 ? null : await adapter.getForeignStateAsync(configuration.pvForecastEnergyStateId);
+      const planning = (0, import_strategyPlanning.createStrategyPlanningDiagnostics)({
+        forecastEnergyRemainingWh: numericValue(forecastState),
+        householdEnergyRemainingWh: status.expectedRemainingEnergyWh,
+        forecastReserveWh: (_a = configuration.forecastReserveWh) != null ? _a : 0,
+        householdLearningConfidence: status.confidence
+      });
+      await (0, import_strategyPlanningStates.publishStrategyPlanning)(adapter, {
+        ...planning,
+        lastUpdate: nowMs
       });
     }
   });

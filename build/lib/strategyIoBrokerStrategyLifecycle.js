@@ -30,6 +30,7 @@ var import_strategyManualChargeStates = require("./strategyManualChargeStates");
 var import_strategyChargingStates = require("./strategyChargingStates");
 var import_strategyDaylightDiagnosticStates = require("./strategyDaylightDiagnosticStates");
 var import_strategyDayDischargeAvailabilityStates = require("./strategyDayDischargeAvailabilityStates");
+var import_strategyPlanningStates = require("./strategyPlanningStates");
 var import_strategyModes = require("./strategyModes");
 const DISABLED_HOUSEHOLD_LEARNING = Object.freeze({
   enabled: false,
@@ -54,7 +55,9 @@ function createStrategyIoBrokerStrategyLifecycle(adapter, configuration, maximum
     enabled: householdLearning.enabled,
     pvPowerStateId: householdLearning.pvPowerStateId,
     batteryPowerStateId: contract.modbus.batteryPower.stateId,
-    gridPowerStateId: contract.modbus.smartMeterPower.stateId
+    gridPowerStateId: contract.modbus.smartMeterPower.stateId,
+    pvForecastEnergyStateId: contract.pvForecast.energyNowUntilEndOfDay.stateId,
+    forecastReserveWh: configuration.pvForecastReserveWh
   });
   let requested = false;
   let startPromise;
@@ -103,6 +106,7 @@ function createStrategyIoBrokerStrategyLifecycle(adapter, configuration, maximum
         }
         if (householdLearning.enabled) {
           await (0, import_strategyHouseholdLearningStates.ensureStrategyHouseholdLearningStates)(adapter);
+          await (0, import_strategyPlanningStates.ensureStrategyPlanningStates)(adapter);
         }
         if (requested) {
           scheduler.start();

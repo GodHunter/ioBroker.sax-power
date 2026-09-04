@@ -24,10 +24,12 @@ module.exports = __toCommonJS(strategyIoBrokerAutomaticChargingCycle_exports);
 var import_strategyChargingShadow = require("./strategyChargingShadow");
 var import_strategyChargingStates = require("./strategyChargingStates");
 var import_strategyDaylightDiagnosticStates = require("./strategyDaylightDiagnosticStates");
+var import_strategyHouseholdLearningStates = require("./strategyHouseholdLearningStates");
 var import_strategyIntegrationContract = require("./strategyIntegrationContract");
 var import_strategyIoBrokerDaylightWindow = require("./strategyIoBrokerDaylightWindow");
 var import_strategyIoBrokerRuntime = require("./strategyIoBrokerRuntime");
 var import_strategyStateResolver = require("./strategyStateResolver");
+const MAXIMUM_HOUSEHOLD_LEARNING_AGE_MS = 12e4;
 function fallbackPublication(configuration, createdAt, reason, remainingDaylightMinutes = null) {
   return Object.freeze({
     active: true,
@@ -41,6 +43,26 @@ function fallbackPublication(configuration, createdAt, reason, remainingDaylight
     lastUpdate: createdAt,
     lastCommandAt: createdAt
   });
+}
+async function readLearnedHouseholdEnergyRemainingWh(adapter, createdAt) {
+  try {
+    const [energyState, confidenceState, lastUpdateState] = await Promise.all([
+      adapter.getStateAsync(import_strategyHouseholdLearningStates.STRATEGY_HOUSEHOLD_LEARNING_STATE_IDS.expectedRemainingEnergyWh),
+      adapter.getStateAsync(import_strategyHouseholdLearningStates.STRATEGY_HOUSEHOLD_LEARNING_STATE_IDS.confidence),
+      adapter.getStateAsync(import_strategyHouseholdLearningStates.STRATEGY_HOUSEHOLD_LEARNING_STATE_IDS.lastUpdate)
+    ]);
+    const energy = energyState == null ? void 0 : energyState.val;
+    const confidence = confidenceState == null ? void 0 : confidenceState.val;
+    const lastUpdate = lastUpdateState == null ? void 0 : lastUpdateState.val;
+    if (typeof energy !== "number" || !Number.isFinite(energy) || energy < 0) return 0;
+    if (confidence !== "learning" && confidence !== "established") return 0;
+    if (typeof lastUpdate !== "number" || !Number.isFinite(lastUpdate)) return 0;
+    const ageMs = createdAt - lastUpdate;
+    if (ageMs < 0 || ageMs > MAXIMUM_HOUSEHOLD_LEARNING_AGE_MS) return 0;
+    return energy;
+  } catch {
+    return 0;
+  }
 }
 async function applyChargePowerTarget(adapter, configuration, contract, publication) {
   const runtime = (0, import_strategyIoBrokerRuntime.createStrategyIoBrokerRuntime)(adapter);
@@ -158,9 +180,14 @@ async function executeStrategyIoBrokerAutomaticChargingCycle(adapter, configurat
       )
     );
   }
+  const householdEnergyRemainingWh = await readLearnedHouseholdEnergyRemainingWh(
+    adapter,
+    createdAt
+  );
   const decision = (0, import_strategyChargingShadow.createStrategyChargingShadowDecision)(configuration, {
     stateOfChargePercent,
     forecastEnergyRemainingWh,
+    householdEnergyRemainingWh,
     remainingDaylightMs: daylightWindow.endsAt - createdAt
   });
   if (!decision.valid) {
