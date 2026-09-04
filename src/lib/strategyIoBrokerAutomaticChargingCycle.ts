@@ -12,6 +12,9 @@ import {
 	type StrategyDaylightDiagnosticAdapter,
 } from "./strategyDaylightDiagnosticStates";
 import {
+	STRATEGY_HOUSEHOLD_LEARNING_STATE_IDS,
+} from "./strategyHouseholdLearningStates";
+import {
 	STRATEGY_INTEGRATION_CONTRACT,
 	type StrategyIntegrationContract,
 } from "./strategyIntegrationContract";
@@ -29,11 +32,15 @@ import {
 	type StrategyStateResolverOptions,
 } from "./strategyStateResolver";
 
+const MAXIMUM_HOUSEHOLD_LEARNING_AGE_MS = 120_000;
+
 export interface StrategyIoBrokerAutomaticChargingAdapter
 	extends StrategyIoBrokerRuntimeAdapter,
 	StrategyIoBrokerDaylightAdapter,
 	StrategyChargingIoBrokerAdapter,
-	StrategyDaylightDiagnosticAdapter {}
+	StrategyDaylightDiagnosticAdapter {
+	getStateAsync(stateId: string): Promise<ioBroker.State | null | undefined>;
+}
 
 export interface StrategyIoBrokerAutomaticChargingCycle {
 	readonly createdAt: number;
@@ -60,6 +67,32 @@ function fallbackPublication(
 		lastUpdate: createdAt,
 		lastCommandAt: createdAt,
 	});
+}
+
+async function readLearnedHouseholdEnergyRemainingWh(
+	adapter: StrategyIoBrokerAutomaticChargingAdapter,
+	createdAt: number,
+): Promise<number> {
+	try {
+		const [energyState, confidenceState, lastUpdateState] = await Promise.all([
+			adapter.getStateAsync(STRATEGY_HOUSEHOLD_LEARNING_STATE_IDS.expectedRemainingEnergyWh),
+			adapter.getStateAsync(STRATEGY_HOUSEHOLD_LEARNING_STATE_IDS.confidence),
+			adapter.getStateAsync(STRATEGY_HOUSEHOLD_LEARNING_STATE_IDS.lastUpdate),
+		]);
+
+		const energy = energyState?.val;
+		const confidence = confidenceState?.val;
+		const lastUpdate = lastUpdateState?.val;
+		if (typeof energy !== "number" || !Number.isFinite(energy) || energy < 0) return 0;
+		if (confidence !== "learning" && confidence !== "established") return 0;
+		if (typeof lastUpdate !== "number" || !Number.isFinite(lastUpdate)) return 0;
+		const ageMs = createdAt - lastUpdate;
+		if (ageMs < 0 || ageMs > MAXIMUM_HOUSEHOLD_LEARNING_AGE_MS) return 0;
+
+		return energy;
+	} catch {
+		return 0;
+	}
 }
 
 async function applyChargePowerTarget(
@@ -207,9 +240,14 @@ export async function executeStrategyIoBrokerAutomaticChargingCycle(
 		);
 	}
 
+	const householdEnergyRemainingWh = await readLearnedHouseholdEnergyRemainingWh(
+		adapter,
+		createdAt,
+	);
 	const decision = createStrategyChargingShadowDecision(configuration, {
 		stateOfChargePercent,
 		forecastEnergyRemainingWh,
+		householdEnergyRemainingWh,
 		remainingDaylightMs: daylightWindow.endsAt - createdAt,
 	});
 
