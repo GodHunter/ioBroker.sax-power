@@ -5,6 +5,10 @@ import {
 	type StrategyConfigurationIssue,
 	validateStrategyConfiguration,
 } from "./strategyConfiguration";
+import {
+	type StrategyHouseholdLearningConfiguration,
+	validateStrategyHouseholdLearningConfiguration,
+} from "./strategyHouseholdLearningConfiguration";
 import type { StrategyModes } from "./strategyModes";
 
 export interface StrategyRuntimeConfigurationInput
@@ -18,6 +22,10 @@ export interface StrategyRuntimeConfigurationInput
 	readonly chargingControlEnabled: unknown;
 	readonly dayAvailabilityEnabled: unknown;
 	readonly nightDischargeEnabled: unknown;
+	readonly householdLearningEnabled: unknown;
+	readonly pvPowerSourceMode: unknown;
+	readonly pvPowerStateId: unknown;
+	readonly pvNominalPowerWp: unknown;
 }
 
 export type StrategyRuntimeConfiguration =
@@ -31,6 +39,7 @@ export type StrategyRuntimeConfiguration =
 		requestedDischargePowerW: number;
 		intervalMs: number;
 		modes: StrategyModes;
+		householdLearning: StrategyHouseholdLearningConfiguration;
 	}>;
 
 export type StrategyRuntimeConfigurationField =
@@ -43,13 +52,19 @@ export type StrategyRuntimeConfigurationField =
 	| "intervalMs"
 	| "chargingControlEnabled"
 	| "dayAvailabilityEnabled"
-	| "nightDischargeEnabled";
+	| "nightDischargeEnabled"
+	| "householdLearningEnabled"
+	| "pvPowerSourceMode"
+	| "pvPowerStateId"
+	| "pvNominalPowerWp";
 
 export interface StrategyRuntimeConfigurationIssue {
 	readonly field: StrategyRuntimeConfigurationField;
 	readonly reason: StrategyConfigurationIssue["reason"]
 		| "invalid-boolean"
 		| "invalid-instance"
+		| "invalid-source"
+		| "invalid-state-id"
 		| "unsupported-mode"
 		| "no-mode-enabled";
 }
@@ -92,8 +107,18 @@ export function validateStrategyRuntimeConfiguration(
 	}
 
 	const strategyValidation = validateStrategyConfiguration(input);
+	const householdLearningValidation = validateStrategyHouseholdLearningConfiguration({
+		enabled: input.householdLearningEnabled,
+		pvPowerSourceMode: input.pvPowerSourceMode,
+		pvPowerStateId: input.pvPowerStateId,
+		pvNominalPowerWp: input.pvNominalPowerWp,
+	});
 	const issues: StrategyRuntimeConfigurationIssue[] = [
 		...strategyValidation.issues,
+		...householdLearningValidation.issues.map(issue => ({
+			field: issue.field === "enabled" ? "householdLearningEnabled" as const : issue.field,
+			reason: issue.reason,
+		})),
 	];
 
 	if (
@@ -111,7 +136,6 @@ export function validateStrategyRuntimeConfiguration(
 			reason: "invalid-instance",
 		});
 	}
-
 
 	for (const field of [
 		"maximumForecastAgeMs",
@@ -149,7 +173,11 @@ export function validateStrategyRuntimeConfiguration(
 		issues.push({ field: "enabled", reason: "no-mode-enabled" });
 	}
 
-	if (!strategyValidation.valid || issues.length > 0) return invalid(issues);
+	if (
+		!strategyValidation.valid
+		|| !householdLearningValidation.valid
+		|| issues.length > 0
+	) return invalid(issues);
 
 	return Object.freeze({
 		valid: true as const,
@@ -166,6 +194,7 @@ export function validateStrategyRuntimeConfiguration(
 				dayAvailabilityEnabled: input.dayAvailabilityEnabled as boolean,
 				nightDischargeEnabled: false as const,
 			}),
+			householdLearning: householdLearningValidation.configuration,
 		}),
 		issues: Object.freeze([]) as readonly [],
 	});
