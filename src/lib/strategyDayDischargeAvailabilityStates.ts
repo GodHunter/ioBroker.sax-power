@@ -12,6 +12,13 @@ export interface StrategyDayDischargeAvailabilityAdapter {
 	setStateAsync(id: string, state: ioBroker.SettableState): Promise<unknown>;
 }
 
+export interface StrategyDayDischargeChargingContext {
+	readonly reason: string;
+	readonly currentSocPercent: number | null;
+	readonly plannedSocUpperPercent: number | null;
+	readonly forecastMarginWh: number | null;
+}
+
 export interface StrategyDayDischargeAvailability {
 	readonly createdAt: number;
 	readonly allowed: boolean;
@@ -90,17 +97,49 @@ export async function ensureStrategyDayDischargeAvailabilityStates(
 
 export function createStrategyDayDischargeAvailability(
 	preparation: StrategyDaylightWindowCyclePreparation,
+	chargingContext: StrategyDayDischargeChargingContext | null = null,
 ): StrategyDayDischargeAvailability {
 	const gate = preparation.cyclePreparation.cyclePlan.evaluation.windowGate;
-	const availablePowerW = gate.targetDischargePowerW;
+	let availablePowerW = gate.targetDischargePowerW;
+	let reason = gate.reason === "daylight-window-active"
+		? gate.decision.permission.reason
+		: gate.reason;
+
+	if (availablePowerW > 0 && chargingContext !== null) {
+		if (
+			chargingContext.reason === "forecast-insufficient"
+			|| chargingContext.reason === "trajectory-recovery"
+			|| chargingContext.reason === "target-deadline-recovery"
+			|| chargingContext.reason === "below-minimum-soc"
+			|| chargingContext.reason === "inputs-not-ready"
+			|| chargingContext.reason === "invalid-input"
+			|| chargingContext.reason === "daylight-unavailable"
+			|| chargingContext.reason === "outside-daylight"
+		) {
+			availablePowerW = 0;
+			reason = `charging-${chargingContext.reason}`;
+		} else if (
+			chargingContext.reason !== "target-soc-reached"
+			&& chargingContext.currentSocPercent !== null
+			&& chargingContext.plannedSocUpperPercent !== null
+			&& chargingContext.currentSocPercent <= chargingContext.plannedSocUpperPercent
+		) {
+			availablePowerW = 0;
+			reason = "soc-trajectory-reserve";
+		} else if (
+			chargingContext.forecastMarginWh !== null
+			&& chargingContext.forecastMarginWh <= 0
+		) {
+			availablePowerW = 0;
+			reason = "no-forecast-margin";
+		}
+	}
 
 	return Object.freeze({
 		createdAt: preparation.createdAt,
 		allowed: availablePowerW > 0,
 		availablePowerW,
-		reason: gate.reason === "daylight-window-active"
-			? gate.decision.permission.reason
-			: gate.reason,
+		reason,
 		validUntil: preparation.daylightWindow.endsAt,
 	});
 }
