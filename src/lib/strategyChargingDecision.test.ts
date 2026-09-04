@@ -25,15 +25,16 @@ describe("strategy charging decision", () => {
 		expect(decision.energyRequiredWh).to.equal(3500);
 	});
 
-	it("spreads charging across remaining daylight when forecast is sufficient", () => {
+	it("plans charging against a target deadline one hour before sunset", () => {
 		const decision = createStrategyChargingDecision(configuration, {
 			stateOfChargePercent: 50,
 			forecastEnergyRemainingWh: 10_000,
 			remainingDaylightMs: 5 * HOUR,
 		});
 		expect(decision.reason).to.equal("forecast-balanced");
-		expect(decision.requiredAverageChargePowerW).to.equal(700);
-		expect(decision.chargePowerLimitW).to.equal(875);
+		expect(decision.targetDeadlineRemainingMs).to.equal(4 * HOUR);
+		expect(decision.requiredAverageChargePowerW).to.equal(875);
+		expect(decision.chargePowerLimitW).to.equal(1094);
 	});
 
 	it("uses maximum charging power when remaining forecast cannot fill the battery", () => {
@@ -141,6 +142,29 @@ describe("strategy charging decision", () => {
 			previousDecisionReason: "trajectory-recovery",
 		});
 		expect(decision.reason).to.equal("forecast-insufficient");
+		expect(decision.chargePowerLimitW).to.equal(configuration.maximumChargePowerW);
+	});
+
+	it("forces maximum charge power once the completion deadline is reached", () => {
+		const decision = createStrategyChargingDecision(configuration, {
+			stateOfChargePercent: 92,
+			forecastEnergyRemainingWh: 5000,
+			remainingDaylightMs: 45 * 60 * 1000,
+			elapsedDaylightMs: 9.25 * HOUR,
+			totalDaylightMs: 10 * HOUR,
+		});
+		expect(decision.reason).to.equal("target-deadline-recovery");
+		expect(decision.chargePowerLimitW).to.equal(configuration.maximumChargePowerW);
+		expect(decision.targetDeadlineRemainingMs).to.equal(60_000);
+	});
+
+	it("forces deadline recovery when the required deadline power reaches the technical limit", () => {
+		const decision = createStrategyChargingDecision(configuration, {
+			stateOfChargePercent: 60,
+			forecastEnergyRemainingWh: 10_000,
+			remainingDaylightMs: 2 * HOUR,
+		});
+		expect(decision.reason).to.equal("target-deadline-recovery");
 		expect(decision.chargePowerLimitW).to.equal(configuration.maximumChargePowerW);
 	});
 
