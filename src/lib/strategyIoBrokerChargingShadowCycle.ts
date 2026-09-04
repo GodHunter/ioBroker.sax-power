@@ -1,8 +1,8 @@
 import type { StrategyConfiguration } from "./strategyConfiguration";
 import {
-	createStrategyChargingShadowDecision,
-	type StrategyChargingShadowDecision,
-} from "./strategyChargingShadow";
+	createStrategyChargingDecision,
+	type StrategyChargingDecision,
+} from "./strategyChargingDecision";
 import {
 	publishStrategyChargingShadowDecision,
 	publishStrategyChargingShadowUnavailable,
@@ -37,7 +37,7 @@ export interface StrategyIoBrokerChargingShadowAdapter
 
 export interface StrategyIoBrokerChargingShadowCycle {
 	readonly createdAt: number;
-	readonly decision: StrategyChargingShadowDecision;
+	readonly decision: StrategyChargingDecision;
 }
 
 export async function executeStrategyIoBrokerChargingShadowCycle(
@@ -47,94 +47,48 @@ export async function executeStrategyIoBrokerChargingShadowCycle(
 	resolverOptions: StrategyStateResolverOptions = {},
 ): Promise<StrategyIoBrokerChargingShadowCycle | null> {
 	const createdAt = resolverOptions.now ?? Date.now();
-
 	if (!Number.isFinite(createdAt)) return null;
 
 	const runtime = createStrategyIoBrokerRuntime(adapter);
-	const resolution = await resolveStrategyStates(
-		runtime.reader,
-		contract,
-		{
-			...resolverOptions,
-			now: createdAt,
-		},
-	);
+	const resolution = await resolveStrategyStates(runtime.reader, contract, {
+		...resolverOptions,
+		now: createdAt,
+	});
 
 	if (!resolution.strategyInputsReady) {
-		await publishStrategyChargingShadowUnavailable(
-			adapter,
-			"inputs-not-ready",
-			createdAt,
-		);
+		await publishStrategyChargingShadowUnavailable(adapter, "inputs-not-ready", createdAt);
 		return null;
 	}
 
 	const stateOfChargePercent = resolution.modbus.stateOfCharge.value;
-	const forecastEnergyRemainingWh =
-		resolution.pvForecast.energyNowUntilEndOfDay.value;
-
-	if (
-		stateOfChargePercent === null
-		|| forecastEnergyRemainingWh === null
-	) {
-		await publishStrategyChargingShadowUnavailable(
-			adapter,
-			"inputs-not-ready",
-			createdAt,
-		);
+	const forecastEnergyRemainingWh = resolution.pvForecast.energyNowUntilEndOfDay.value;
+	if (stateOfChargePercent === null || forecastEnergyRemainingWh === null) {
+		await publishStrategyChargingShadowUnavailable(adapter, "inputs-not-ready", createdAt);
 		return null;
 	}
 
-	const daylightWindowProvider =
-		createStrategyIoBrokerDaylightWindowProvider(adapter);
-	const daylightWindow = await daylightWindowProvider.getDaylightWindow(
-		createdAt,
-	);
-	await publishStrategyDaylightDiagnostics(
-		adapter,
-		createdAt,
-		daylightWindow ?? null,
-	);
+	const daylightWindowProvider = createStrategyIoBrokerDaylightWindowProvider(adapter);
+	const daylightWindow = await daylightWindowProvider.getDaylightWindow(createdAt);
+	await publishStrategyDaylightDiagnostics(adapter, createdAt, daylightWindow ?? null);
 
-	if (
-		daylightWindow == null
-		|| createdAt < daylightWindow.startsAt
-		|| createdAt >= daylightWindow.endsAt
-	) {
-		await publishStrategyChargingShadowUnavailable(
-			adapter,
-			"outside-daylight",
-			createdAt,
-		);
+	if (daylightWindow == null || createdAt < daylightWindow.startsAt || createdAt >= daylightWindow.endsAt) {
+		await publishStrategyChargingShadowUnavailable(adapter, "outside-daylight", createdAt);
 		return null;
 	}
 
-	const decision = createStrategyChargingShadowDecision(
-		configuration,
-		{
-			stateOfChargePercent,
-			forecastEnergyRemainingWh,
-			remainingDaylightMs: daylightWindow.endsAt - createdAt,
-		},
-	);
+	const decision = createStrategyChargingDecision(configuration, {
+		stateOfChargePercent,
+		forecastEnergyRemainingWh,
+		remainingDaylightMs: daylightWindow.endsAt - createdAt,
+		elapsedDaylightMs: createdAt - daylightWindow.startsAt,
+		totalDaylightMs: daylightWindow.endsAt - daylightWindow.startsAt,
+	});
 
 	if (!decision.valid) {
-		await publishStrategyChargingShadowUnavailable(
-			adapter,
-			"invalid-input",
-			createdAt,
-		);
+		await publishStrategyChargingShadowUnavailable(adapter, "invalid-input", createdAt);
 		return null;
 	}
 
-	await publishStrategyChargingShadowDecision(
-		adapter,
-		decision,
-		createdAt,
-	);
-
-	return Object.freeze({
-		createdAt,
-		decision,
-	});
+	await publishStrategyChargingShadowDecision(adapter, decision, createdAt);
+	return Object.freeze({ createdAt, decision });
 }
