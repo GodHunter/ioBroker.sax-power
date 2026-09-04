@@ -30,6 +30,7 @@ import {
 import {
 	ensureStrategyDayDischargeAvailabilityStates,
 } from "./strategyDayDischargeAvailabilityStates";
+import { ensureStrategyPlanningStates } from "./strategyPlanningStates";
 import type { StrategyStateResolverOptions } from "./strategyStateResolver";
 import {
 	DEFAULT_STRATEGY_MODES,
@@ -80,6 +81,8 @@ export function createStrategyIoBrokerStrategyLifecycle(
 		pvPowerStateId: householdLearning.pvPowerStateId,
 		batteryPowerStateId: contract.modbus.batteryPower.stateId,
 		gridPowerStateId: contract.modbus.smartMeterPower.stateId,
+		pvForecastEnergyStateId: contract.pvForecast.energyNowUntilEndOfDay.stateId,
+		forecastReserveWh: configuration.pvForecastReserveWh,
 	});
 
 	let requested = false;
@@ -135,6 +138,7 @@ export function createStrategyIoBrokerStrategyLifecycle(
 				}
 				if (householdLearning.enabled) {
 					await ensureStrategyHouseholdLearningStates(adapter);
+					await ensureStrategyPlanningStates(adapter);
 				}
 				if (requested) {
 					scheduler.start();
