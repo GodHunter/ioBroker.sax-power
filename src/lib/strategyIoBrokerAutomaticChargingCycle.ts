@@ -67,6 +67,7 @@ function fallbackPublication(
 		forecastEnergyRemainingWh: null,
 		forecastMarginWh: null,
 		remainingDaylightMinutes,
+		targetDeadlineRemainingMinutes: null,
 		plannedSocPercent: null,
 		plannedSocLowerPercent: null,
 		plannedSocUpperPercent: null,
@@ -114,6 +115,7 @@ async function readPreviousDecisionReason(
 			|| value === "forecast-insufficient"
 			|| value === "forecast-balanced"
 			|| value === "trajectory-recovery"
+			|| value === "target-deadline-recovery"
 			|| value === "invalid-input"
 		) {
 			return value;
