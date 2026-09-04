@@ -94,6 +94,23 @@ describe("strategy configuration", () => {
 		});
 	});
 
+	it("enforces the lower Home 5.8 charge power limit", () => {
+		const result = validateStrategyConfiguration({
+			...validInput(),
+			batteryModelId: "home-5.8",
+			maximumChargePowerW: 2_501,
+		});
+
+		expect(result).to.deep.equal({
+			valid: false,
+			configuration: null,
+			issues: [{
+				field: "maximumChargePowerW",
+				reason: "exceeds-model-limit",
+			}],
+		});
+	});
+
 	it("rejects values outside their allowed ranges", () => {
 		const result = validateStrategyConfiguration({
 			...validInput(),
