@@ -10,6 +10,8 @@ import {
 	type StrategyHouseholdLearningIoBrokerAdapter,
 	type StrategyHouseholdLearningSource,
 } from "./strategyHouseholdLearningStates";
+import { createStrategyPlanningDiagnostics } from "./strategyPlanning";
+import { publishStrategyPlanning } from "./strategyPlanningStates";
 
 const MAXIMUM_INPUT_AGE_MS = 120_000;
 
@@ -23,6 +25,8 @@ export interface StrategyIoBrokerHouseholdLearningConfiguration {
 	readonly pvPowerStateId: string | null;
 	readonly batteryPowerStateId: string;
 	readonly gridPowerStateId: string;
+	readonly pvForecastEnergyStateId?: string;
+	readonly forecastReserveWh?: number;
 }
 
 export interface StrategyIoBrokerHouseholdLearningCycle {
@@ -35,6 +39,14 @@ function numericFreshValue(state: ioBroker.State | null | undefined, nowMs: numb
 	if (state.q !== undefined && state.q !== 0) return null;
 	if (state.ack !== true) return null;
 	if (!Number.isFinite(state.ts) || nowMs - state.ts > MAXIMUM_INPUT_AGE_MS) return null;
+	return state.val;
+}
+
+function numericValue(state: ioBroker.State | null | undefined): number | null {
+	if (state === null || state === undefined) return null;
+	if (typeof state.val !== "number" || !Number.isFinite(state.val)) return null;
+	if (state.q !== undefined && state.q !== 0) return null;
+	if (state.ack !== true) return null;
 	return state.val;
 }
 
@@ -113,6 +125,20 @@ export function createStrategyIoBrokerHouseholdLearningCycle(
 				source,
 				lastUpdate: nowMs,
 				modelSnapshot: JSON.stringify(activeModel.snapshot()),
+			});
+
+			const forecastState = configuration.pvForecastEnergyStateId === undefined
+				? null
+				: await adapter.getForeignStateAsync(configuration.pvForecastEnergyStateId);
+			const planning = createStrategyPlanningDiagnostics({
+				forecastEnergyRemainingWh: numericValue(forecastState),
+				householdEnergyRemainingWh: status.expectedRemainingEnergyWh,
+				forecastReserveWh: configuration.forecastReserveWh ?? 0,
+				householdLearningConfidence: status.confidence,
+			});
+			await publishStrategyPlanning(adapter, {
+				...planning,
+				lastUpdate: nowMs,
 			});
 		},
 	});
