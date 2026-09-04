@@ -112,6 +112,14 @@ export async function executeStrategyIoBrokerStrategyCycle(
 		requestedDischargePowerW,
 		contract,
 		resolverOptions,
+		chargingControl === null
+			? null
+			: {
+				reason: chargingControl.reason,
+				currentSocPercent: chargingControl.currentSocPercent,
+				plannedSocUpperPercent: chargingControl.plannedSocUpperPercent,
+				forecastMarginWh: chargingControl.forecastMarginWh,
+			},
 	);
 
 	if (
