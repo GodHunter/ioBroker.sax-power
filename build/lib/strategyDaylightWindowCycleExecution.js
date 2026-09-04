@@ -24,7 +24,7 @@ module.exports = __toCommonJS(strategyDaylightWindowCycleExecution_exports);
 var import_strategyDayDischargeAvailabilityStates = require("./strategyDayDischargeAvailabilityStates");
 var import_strategyDaylightWindowCyclePreparation = require("./strategyDaylightWindowCyclePreparation");
 var import_strategyIntegrationContract = require("./strategyIntegrationContract");
-async function executeStrategyDayDischargeCycleWithDaylightWindow(reader, daylightWindowProvider, statusAdapter, configuration, maximumForecastAgeMs, requestedDischargePowerW, contract = import_strategyIntegrationContract.STRATEGY_INTEGRATION_CONTRACT, resolverOptions = {}) {
+async function executeStrategyDayDischargeCycleWithDaylightWindow(reader, daylightWindowProvider, statusAdapter, configuration, maximumForecastAgeMs, requestedDischargePowerW, contract = import_strategyIntegrationContract.STRATEGY_INTEGRATION_CONTRACT, resolverOptions = {}, chargingContext = null) {
   const preparation = await (0, import_strategyDaylightWindowCyclePreparation.prepareStrategyDayDischargeCycleWithDaylightWindow)(
     reader,
     daylightWindowProvider,
@@ -37,7 +37,10 @@ async function executeStrategyDayDischargeCycleWithDaylightWindow(reader, daylig
   if (preparation === null) {
     return null;
   }
-  const availability = (0, import_strategyDayDischargeAvailabilityStates.createStrategyDayDischargeAvailability)(preparation);
+  const availability = (0, import_strategyDayDischargeAvailabilityStates.createStrategyDayDischargeAvailability)(
+    preparation,
+    chargingContext
+  );
   await (0, import_strategyDayDischargeAvailabilityStates.publishStrategyDayDischargeAvailability)(statusAdapter, availability);
   return Object.freeze({
     createdAt: preparation.createdAt,

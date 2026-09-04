@@ -23,18 +23,6 @@ __export(strategyBatteryChargeCapability_exports, {
   resolveStrategyBatteryTechnicalLimits: () => resolveStrategyBatteryTechnicalLimits
 });
 module.exports = __toCommonJS(strategyBatteryChargeCapability_exports);
-const TECHNICAL_LIMITS = Object.freeze({
-  "home-5.8": Object.freeze({
-    maximumChargePowerW: 2500,
-    maximumDischargePowerW: 4600,
-    source: "manufacturer-specification"
-  }),
-  "home-plus-7.7": Object.freeze({
-    maximumChargePowerW: 3500,
-    maximumDischargePowerW: 4600,
-    source: "manufacturer-specification"
-  })
-});
 const PROVISIONAL_SAX_CHARGE_POWER_SEGMENTS = Object.freeze([
   Object.freeze({
     minimumStateOfChargePercent: 0,
@@ -86,15 +74,18 @@ const PROVISIONAL_SAX_CHARGE_POWER_SEGMENTS = Object.freeze([
   })
 ]);
 function resolveStrategyBatteryTechnicalLimits(model) {
-  const limits = TECHNICAL_LIMITS[model.id];
   const usableCapacityWh = model.usableCapacityKwh * 1e3;
-  if (!limits || !Number.isFinite(usableCapacityWh) || usableCapacityWh <= 0) {
+  const maximumChargePowerW = model.maximumChargePowerW;
+  const maximumDischargePowerW = model.maximumDischargePowerW;
+  if (!Number.isFinite(usableCapacityWh) || usableCapacityWh <= 0 || !Number.isFinite(maximumChargePowerW) || maximumChargePowerW <= 0 || !Number.isFinite(maximumDischargePowerW) || maximumDischargePowerW <= 0) {
     return null;
   }
   return Object.freeze({
     batteryModelId: model.id,
     usableCapacityWh,
-    ...limits
+    maximumChargePowerW,
+    maximumDischargePowerW,
+    source: "manufacturer-specification"
   });
 }
 function estimateStrategyChargeDuration(model, currentStateOfChargePercent, targetStateOfChargePercent, configuredMaximumChargePowerW) {

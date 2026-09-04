@@ -24,7 +24,7 @@ module.exports = __toCommonJS(strategyIoBrokerCycleExecution_exports);
 var import_strategyDaylightWindowCycleExecution = require("./strategyDaylightWindowCycleExecution");
 var import_strategyIntegrationContract = require("./strategyIntegrationContract");
 var import_strategyIoBrokerRuntime = require("./strategyIoBrokerRuntime");
-async function executeStrategyIoBrokerDayDischargeCycle(adapter, daylightWindowProvider, configuration, maximumForecastAgeMs, requestedDischargePowerW, contract = import_strategyIntegrationContract.STRATEGY_INTEGRATION_CONTRACT, resolverOptions = {}) {
+async function executeStrategyIoBrokerDayDischargeCycle(adapter, daylightWindowProvider, configuration, maximumForecastAgeMs, requestedDischargePowerW, contract = import_strategyIntegrationContract.STRATEGY_INTEGRATION_CONTRACT, resolverOptions = {}, chargingContext = null) {
   const runtime = (0, import_strategyIoBrokerRuntime.createStrategyIoBrokerRuntime)(adapter);
   return (0, import_strategyDaylightWindowCycleExecution.executeStrategyDayDischargeCycleWithDaylightWindow)(
     runtime.reader,
@@ -34,7 +34,8 @@ async function executeStrategyIoBrokerDayDischargeCycle(adapter, daylightWindowP
     maximumForecastAgeMs,
     requestedDischargePowerW,
     contract,
-    resolverOptions
+    resolverOptions,
+    chargingContext
   );
 }
 // Annotate the CommonJS export names for ESM import in node:

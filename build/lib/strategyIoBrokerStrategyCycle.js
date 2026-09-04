@@ -78,7 +78,13 @@ async function executeStrategyIoBrokerStrategyCycle(adapter, configuration, maxi
     maximumForecastAgeMs,
     requestedDischargePowerW,
     contract,
-    resolverOptions
+    resolverOptions,
+    chargingControl === null ? null : {
+      reason: chargingControl.reason,
+      currentSocPercent: chargingControl.currentSocPercent,
+      plannedSocUpperPercent: chargingControl.plannedSocUpperPercent,
+      forecastMarginWh: chargingControl.forecastMarginWh
+    }
   );
   if (automatic === null || manualCharge !== null && automatic.createdAt !== manualCharge.createdAt) {
     return null;
