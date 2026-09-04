@@ -1,4 +1,14 @@
 import type { StrategyConfiguration } from "./strategyConfiguration";
+import type { StrategyHouseholdLearningConfiguration } from "./strategyHouseholdLearningConfiguration";
+import {
+	createStrategyIoBrokerHouseholdLearningCycle,
+} from "./strategyIoBrokerHouseholdLearningCycle";
+import {
+	ensureStrategyHouseholdLearningStates,
+} from "./strategyHouseholdLearningStates";
+import {
+	createStrategyIoBrokerDaylightWindowProvider,
+} from "./strategyIoBrokerDaylightWindow";
 import {
 	createStrategyIoBrokerStrategyCycleScheduler,
 	type StrategyIoBrokerStrategyCycleScheduler,
@@ -26,6 +36,13 @@ import {
 	type StrategyModes,
 } from "./strategyModes";
 
+const DISABLED_HOUSEHOLD_LEARNING: StrategyHouseholdLearningConfiguration = Object.freeze({
+	enabled: false,
+	pvPowerSourceMode: "none",
+	pvPowerStateId: null,
+	pvNominalPowerWp: null,
+});
+
 export interface StrategyIoBrokerStrategyLifecycle {
 	readonly start: () => Promise<void>;
 	readonly stop: () => void;
@@ -41,6 +58,7 @@ export function createStrategyIoBrokerStrategyLifecycle(
 	contract: StrategyIntegrationContract = STRATEGY_INTEGRATION_CONTRACT,
 	resolverOptions: StrategyStateResolverOptions = {},
 	modes: StrategyModes = DEFAULT_STRATEGY_MODES,
+	householdLearning: StrategyHouseholdLearningConfiguration = DISABLED_HOUSEHOLD_LEARNING,
 ): StrategyIoBrokerStrategyLifecycle | null {
 	const scheduler: StrategyIoBrokerStrategyCycleScheduler | null =
 		createStrategyIoBrokerStrategyCycleScheduler(
@@ -57,8 +75,46 @@ export function createStrategyIoBrokerStrategyLifecycle(
 
 	if (scheduler === null) return null;
 
+	const householdCycle = createStrategyIoBrokerHouseholdLearningCycle(adapter, {
+		enabled: householdLearning.enabled,
+		pvPowerStateId: householdLearning.pvPowerStateId,
+		batteryPowerStateId: contract.modbus.batteryPower.stateId,
+		gridPowerStateId: contract.modbus.smartMeterPower.stateId,
+	});
+
 	let requested = false;
 	let startPromise: Promise<void> | undefined;
+	let householdTimer: ioBroker.Timeout | undefined;
+	let householdRunning = false;
+
+	const scheduleHouseholdLearning = (): void => {
+		if (!requested || !householdLearning.enabled || householdTimer !== undefined) return;
+		householdTimer = adapter.setTimeout(async () => {
+			householdTimer = undefined;
+			if (!requested || householdRunning) {
+				scheduleHouseholdLearning();
+				return;
+			}
+			householdRunning = true;
+			try {
+				const now = Date.now();
+				let until = now;
+				try {
+					const daylight = await createStrategyIoBrokerDaylightWindowProvider(adapter)
+						.getDaylightWindow(now);
+					if (daylight !== null && daylight.endsAt > now) until = daylight.endsAt;
+				} catch {
+					// Learning may continue without a planning horizon; control remains unaffected.
+				}
+				await householdCycle.runOnce(now, until);
+			} catch (error) {
+				onError(error);
+			} finally {
+				householdRunning = false;
+				scheduleHouseholdLearning();
+			}
+		}, intervalMs);
+	};
 
 	const start = (): Promise<void> => {
 		requested = true;
@@ -67,7 +123,7 @@ export function createStrategyIoBrokerStrategyLifecycle(
 
 		startPromise = (async () => {
 			try {
-				if (modes.chargingControlEnabled || modes.dayAvailabilityEnabled) {
+				if (modes.chargingControlEnabled || modes.dayAvailabilityEnabled || householdLearning.enabled) {
 					await ensureStrategyDaylightDiagnosticStates(adapter);
 				}
 				if (modes.chargingControlEnabled) {
@@ -77,7 +133,13 @@ export function createStrategyIoBrokerStrategyLifecycle(
 				if (modes.dayAvailabilityEnabled) {
 					await ensureStrategyDayDischargeAvailabilityStates(adapter);
 				}
-				if (requested) scheduler.start();
+				if (householdLearning.enabled) {
+					await ensureStrategyHouseholdLearningStates(adapter);
+				}
+				if (requested) {
+					scheduler.start();
+					scheduleHouseholdLearning();
+				}
 			} catch (error) {
 				requested = false;
 				throw error;
@@ -94,6 +156,10 @@ export function createStrategyIoBrokerStrategyLifecycle(
 		stop(): void {
 			requested = false;
 			scheduler.stop();
+			if (householdTimer !== undefined) {
+				adapter.clearTimeout(householdTimer);
+				householdTimer = undefined;
+			}
 		},
 	});
 }
