@@ -50,6 +50,9 @@ export interface StrategyIoBrokerAutomaticChargingCycle {
 	readonly createdAt: number;
 	readonly targetChargePowerW: number;
 	readonly reason: StrategyChargingReason;
+	readonly currentSocPercent: number | null;
+	readonly plannedSocUpperPercent: number | null;
+	readonly forecastMarginWh: number | null;
 	readonly register44Written: true;
 }
 
@@ -131,6 +134,7 @@ async function applyChargePowerTarget(
 	configuration: StrategyConfiguration,
 	contract: StrategyIntegrationContract,
 	publication: StrategyChargingPublication,
+	currentSocPercent: number | null = null,
 ): Promise<StrategyIoBrokerAutomaticChargingCycle> {
 	const runtime = createStrategyIoBrokerRuntime(adapter);
 	const command = contract.modbus.chargePowerCommand;
@@ -150,6 +154,9 @@ async function applyChargePowerTarget(
 		createdAt: publication.lastUpdate,
 		targetChargePowerW,
 		reason: publication.decisionReason,
+		currentSocPercent,
+		plannedSocUpperPercent: publication.plannedSocUpperPercent,
+		forecastMarginWh: publication.forecastMarginWh,
 		register44Written: true as const,
 	});
 }
@@ -205,6 +212,7 @@ export async function executeStrategyIoBrokerAutomaticChargingCycle(
 			configuration,
 			contract,
 			fallbackPublication(configuration, createdAt, "below-minimum-soc"),
+			stateOfChargePercent,
 		);
 	}
 
@@ -214,6 +222,7 @@ export async function executeStrategyIoBrokerAutomaticChargingCycle(
 			configuration,
 			contract,
 			fallbackPublication(configuration, createdAt, "inputs-not-ready"),
+			stateOfChargePercent,
 		);
 	}
 
@@ -223,6 +232,7 @@ export async function executeStrategyIoBrokerAutomaticChargingCycle(
 			configuration,
 			contract,
 			fallbackPublication(configuration, createdAt, "daylight-unavailable"),
+			stateOfChargePercent,
 		);
 	}
 
@@ -233,6 +243,7 @@ export async function executeStrategyIoBrokerAutomaticChargingCycle(
 			configuration,
 			contract,
 			fallbackPublication(configuration, createdAt, "outside-daylight", remainingDaylightMinutes),
+			stateOfChargePercent,
 		);
 	}
 
@@ -243,6 +254,7 @@ export async function executeStrategyIoBrokerAutomaticChargingCycle(
 			configuration,
 			contract,
 			fallbackPublication(configuration, createdAt, "inputs-not-ready", remainingDaylightMinutes),
+			stateOfChargePercent,
 		);
 	}
 
@@ -268,6 +280,7 @@ export async function executeStrategyIoBrokerAutomaticChargingCycle(
 			configuration,
 			contract,
 			fallbackPublication(configuration, createdAt, "invalid-input", remainingDaylightMinutes),
+			stateOfChargePercent,
 		);
 	}
 
@@ -276,5 +289,6 @@ export async function executeStrategyIoBrokerAutomaticChargingCycle(
 		configuration,
 		contract,
 		strategyChargingPublicationFromDecision(decision, createdAt),
+		stateOfChargePercent,
 	);
 }
