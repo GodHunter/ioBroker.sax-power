@@ -145,7 +145,7 @@ describe("strategy ioBroker operating-mode cycle scheduler", () => {
 		});
 		expect(run.writes).to.deep.include({
 			id: "strategy.dayDischarge.reason",
-			value: "charging-trajectory-recovery",
+			value: "soc-trajectory-reserve",
 		});
 		expect(run.writes.some(({ id }) => id ===
 			STRATEGY_INTEGRATION_CONTRACT.modbus.dischargePowerCommand.stateId,
