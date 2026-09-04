@@ -7,11 +7,27 @@ export interface SaxPowerBatteryModel {
 	name: string;
 	nominalCapacityKwh: number;
 	usableCapacityKwh: number;
+	maximumChargePowerW: number;
+	maximumDischargePowerW: number;
 }
 
 export const SAX_POWER_BATTERY_MODELS: readonly SaxPowerBatteryModel[] = [
-	{ id: "home-5.8", name: "SAX Power Home 5.8 kWh", nominalCapacityKwh: 5.76, usableCapacityKwh: 5.2 },
-	{ id: "home-plus-7.7", name: "SAX Power Home Plus 7.7 kWh", nominalCapacityKwh: 7.68, usableCapacityKwh: 7 },
+	{
+		id: "home-5.8",
+		name: "SAX Power Home 5.8 kWh",
+		nominalCapacityKwh: 5.76,
+		usableCapacityKwh: 5.2,
+		maximumChargePowerW: 2500,
+		maximumDischargePowerW: 4600,
+	},
+	{
+		id: "home-plus-7.7",
+		name: "SAX Power Home Plus 7.7 kWh",
+		nominalCapacityKwh: 7.68,
+		usableCapacityKwh: 7,
+		maximumChargePowerW: 3500,
+		maximumDischargePowerW: 4600,
+	},
 ] as const;
 
 export function getBatteryModel(id: string | null | undefined): SaxPowerBatteryModel | null {
