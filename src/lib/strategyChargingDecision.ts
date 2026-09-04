@@ -15,6 +15,7 @@ export interface StrategyChargingDecisionInput {
 	readonly elapsedDaylightMs?: number;
 	readonly totalDaylightMs?: number;
 	readonly householdEnergyRemainingWh?: number;
+	readonly previousDecisionReason?: StrategyChargingDecisionReason | null;
 }
 
 export interface StrategyChargingDecision {
@@ -179,8 +180,16 @@ export function createStrategyChargingDecision(
 		? "forecast-insufficient"
 		: "forecast-balanced";
 
-	if (!forecastInsufficient && input.stateOfChargePercent < trajectoryState.plannedSocLowerPercent) {
-		const deficitPercent = trajectoryState.plannedSocPercent - input.stateOfChargePercent;
+	const wasRecovering = input.previousDecisionReason === "trajectory-recovery";
+	const recoveryRequired = wasRecovering
+		? input.stateOfChargePercent < trajectoryState.plannedSocUpperPercent
+		: input.stateOfChargePercent < trajectoryState.plannedSocLowerPercent;
+
+	if (!forecastInsufficient && recoveryRequired) {
+		const recoveryTargetSocPercent = wasRecovering
+			? trajectoryState.plannedSocUpperPercent
+			: trajectoryState.plannedSocPercent;
+		const deficitPercent = recoveryTargetSocPercent - input.stateOfChargePercent;
 		const deficitEnergyWh = usableCapacityWh * Math.max(0, deficitPercent) / 100;
 		const recoveryWindowMs = Math.max(
 			MINIMUM_DAYLIGHT_MS,
