@@ -1,4 +1,5 @@
 import type { StrategyConfiguration } from "./strategyConfiguration";
+import type { StrategyDayDischargeChargingContext } from "./strategyDayDischargeAvailabilityStates";
 import type { StrategyDaylightWindowCycleExecution } from "./strategyDaylightWindowCycleExecution";
 import {
 	executeStrategyIoBrokerDayDischargeCycle,
@@ -27,6 +28,7 @@ export async function executeStrategyIoBrokerDaylightCycle(
 	requestedDischargePowerW: number,
 	contract: StrategyIntegrationContract = STRATEGY_INTEGRATION_CONTRACT,
 	resolverOptions: StrategyStateResolverOptions = {},
+	chargingContext: StrategyDayDischargeChargingContext | null = null,
 ): Promise<StrategyDaylightWindowCycleExecution | null> {
 	const daylightWindowProvider =
 		createStrategyIoBrokerDaylightWindowProvider(adapter);
@@ -39,5 +41,6 @@ export async function executeStrategyIoBrokerDaylightCycle(
 		requestedDischargePowerW,
 		contract,
 		resolverOptions,
+		chargingContext,
 	);
 }
