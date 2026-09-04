@@ -101,7 +101,7 @@ export function createStrategyDayDischargeAvailability(
 ): StrategyDayDischargeAvailability {
 	const gate = preparation.cyclePreparation.cyclePlan.evaluation.windowGate;
 	let availablePowerW = gate.targetDischargePowerW;
-	let reason = gate.reason === "daylight-window-active"
+	let reason: string = gate.reason === "daylight-window-active"
 		? gate.decision.permission.reason
 		: gate.reason;
 
