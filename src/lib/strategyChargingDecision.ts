@@ -6,6 +6,7 @@ export type StrategyChargingDecisionReason =
 	| "forecast-insufficient"
 	| "forecast-balanced"
 	| "trajectory-recovery"
+	| "target-deadline-recovery"
 	| "invalid-input";
 
 export interface StrategyChargingDecisionInput {
@@ -35,6 +36,7 @@ export interface StrategyChargingDecision {
 	readonly usableForecastEnergyWh: number;
 	readonly forecastMarginWh: number;
 	readonly remainingDaylightMs: number;
+	readonly targetDeadlineRemainingMs: number;
 	readonly requiredAverageChargePowerW: number;
 	readonly chargePowerLimitW: number;
 	readonly maximumChargePowerW: number;
@@ -44,6 +46,7 @@ const CHARGE_POWER_HEADROOM_FACTOR = 1.25;
 const TRAJECTORY_RECOVERY_HEADROOM_FACTOR = 1.15;
 const TRAJECTORY_CORRIDOR_PERCENT = 3;
 const TRAJECTORY_RECOVERY_WINDOW_MS = 2 * 60 * 60 * 1000;
+const TARGET_COMPLETION_BUFFER_MS = 60 * 60 * 1000;
 const MINIMUM_DAYLIGHT_MS = 60_000;
 
 function roundPower(value: number): number {
@@ -66,7 +69,6 @@ function trajectory(
 	const progress = totalDaylightMs > 0
 		? Math.max(0, Math.min(1, elapsedDaylightMs / totalDaylightMs))
 		: 0;
-	// Slightly front-loaded curve: creates useful SOC earlier while still preserving PV headroom.
 	const shapedProgress = Math.pow(progress, 0.85);
 	const plannedSocPercent = minimumSoc + (targetSoc - minimumSoc) * shapedProgress;
 	const plannedSocLowerPercent = Math.max(minimumSoc, plannedSocPercent - TRAJECTORY_CORRIDOR_PERCENT);
@@ -101,6 +103,7 @@ function invalidDecision(
 		usableForecastEnergyWh: 0,
 		forecastMarginWh: 0,
 		remainingDaylightMs: input.remainingDaylightMs,
+		targetDeadlineRemainingMs: 0,
 		requiredAverageChargePowerW: 0,
 		chargePowerLimitW: 0,
 		maximumChargePowerW: configuration.maximumChargePowerW,
@@ -148,8 +151,12 @@ export function createStrategyChargingDecision(
 	);
 	const forecastMarginWh = usableForecastEnergyWh - energyRequiredWh;
 	const effectiveDaylightMs = Math.max(MINIMUM_DAYLIGHT_MS, input.remainingDaylightMs);
-	const remainingHours = effectiveDaylightMs / 3_600_000;
-	const requiredAverageChargePowerW = energyRequiredWh / remainingHours;
+	const targetDeadlineRemainingMs = Math.max(
+		MINIMUM_DAYLIGHT_MS,
+		input.remainingDaylightMs - TARGET_COMPLETION_BUFFER_MS,
+	);
+	const remainingHoursToDeadline = targetDeadlineRemainingMs / 3_600_000;
+	const requiredAverageChargePowerW = energyRequiredWh / remainingHoursToDeadline;
 
 	if (energyRequiredWh <= 0) {
 		return Object.freeze({
@@ -166,6 +173,7 @@ export function createStrategyChargingDecision(
 			usableForecastEnergyWh,
 			forecastMarginWh,
 			remainingDaylightMs: input.remainingDaylightMs,
+			targetDeadlineRemainingMs,
 			requiredAverageChargePowerW: 0,
 			chargePowerLimitW: 0,
 			maximumChargePowerW: configuration.maximumChargePowerW,
@@ -173,19 +181,27 @@ export function createStrategyChargingDecision(
 	}
 
 	const forecastInsufficient = usableForecastEnergyWh < energyRequiredWh;
+	const deadlinePowerW = requiredAverageChargePowerW * CHARGE_POWER_HEADROOM_FACTOR;
 	let desiredPowerW = forecastInsufficient
 		? configuration.maximumChargePowerW
-		: requiredAverageChargePowerW * CHARGE_POWER_HEADROOM_FACTOR;
+		: deadlinePowerW;
 	let reason: StrategyChargingDecisionReason = forecastInsufficient
 		? "forecast-insufficient"
 		: "forecast-balanced";
+
+	const deadlineUnderPressure = input.remainingDaylightMs <= TARGET_COMPLETION_BUFFER_MS
+		|| deadlinePowerW >= configuration.maximumChargePowerW;
+	if (!forecastInsufficient && deadlineUnderPressure) {
+		desiredPowerW = configuration.maximumChargePowerW;
+		reason = "target-deadline-recovery";
+	}
 
 	const wasRecovering = input.previousDecisionReason === "trajectory-recovery";
 	const recoveryRequired = wasRecovering
 		? input.stateOfChargePercent < trajectoryState.plannedSocUpperPercent
 		: input.stateOfChargePercent < trajectoryState.plannedSocLowerPercent;
 
-	if (!forecastInsufficient && recoveryRequired) {
+	if (!forecastInsufficient && !deadlineUnderPressure && recoveryRequired) {
 		const recoveryTargetSocPercent = wasRecovering
 			? trajectoryState.plannedSocUpperPercent
 			: trajectoryState.plannedSocPercent;
@@ -222,6 +238,7 @@ export function createStrategyChargingDecision(
 		usableForecastEnergyWh,
 		forecastMarginWh,
 		remainingDaylightMs: input.remainingDaylightMs,
+		targetDeadlineRemainingMs,
 		requiredAverageChargePowerW: roundPower(requiredAverageChargePowerW),
 		chargePowerLimitW,
 		maximumChargePowerW: configuration.maximumChargePowerW,
