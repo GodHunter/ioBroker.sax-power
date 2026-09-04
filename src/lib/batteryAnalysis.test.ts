@@ -8,17 +8,17 @@ const energy = (chargedKwh: number, dischargedKwh: number) => ({
 describe("battery analysis", () => {
 	it("contains the documented capacities and technical power limits", () => {
 		expect(getBatteryModel("home-5.8")).to.include({
-		 nominalCapacityKwh: 5.76,
-		 usableCapacityKwh: 5.2,
-		 maximumChargePowerW: 2500,
-		 maximumDischargePowerW: 4600,
-	});
+			nominalCapacityKwh: 5.76,
+			usableCapacityKwh: 5.2,
+			maximumChargePowerW: 2500,
+			maximumDischargePowerW: 4600,
+		});
 		expect(getBatteryModel("home-plus-7.7")).to.include({
-		 nominalCapacityKwh: 7.68,
-		 usableCapacityKwh: 7,
-		 maximumChargePowerW: 3500,
-		 maximumDischargePowerW: 4600,
-	});
+			nominalCapacityKwh: 7.68,
+			usableCapacityKwh: 7,
+			maximumChargePowerW: 3500,
+			maximumDischargePowerW: 4600,
+		});
 	});
 
 	it("calculates equivalent full cycles", () => {
@@ -30,7 +30,7 @@ describe("battery analysis", () => {
 		expect(calculateAggregateEquivalentFullCycles([
 			{ energy: energy(5.76, 5.76), nominalCapacityKwh: 5.76 },
 			{ energy: energy(15.36, 15.36), nominalCapacityKwh: 7.68 },
-	])).to.equal(1.571);
+		])).to.equal(1.571);
 	});
 
 	it("does not invent a result without capacity", () => {
