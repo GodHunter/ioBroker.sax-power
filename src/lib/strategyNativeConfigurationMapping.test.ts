@@ -24,7 +24,7 @@ describe("strategy native configuration mapping", () => {
 			chargingControlEnabled: true,
 			dayAvailabilityEnabled: true,
 			nightDischargeEnabled: false,
-			householdLearningEnabled: true,
+			householdLearningEnabled: false,
 			pvPowerSourceMode: "none",
 			pvPowerStateId: undefined,
 			pvNominalPowerWp: undefined,
