@@ -52,7 +52,8 @@ function createStrategyIoBrokerStrategyBinding(adapter, input, onError, contract
     onError,
     contract,
     resolverOptions,
-    configuration.modes
+    configuration.modes,
+    configuration.householdLearning
   );
   if (lifecycle === null) {
     return Object.freeze({

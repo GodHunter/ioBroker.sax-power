@@ -22,6 +22,7 @@ __export(strategyRuntimeConfiguration_exports, {
 });
 module.exports = __toCommonJS(strategyRuntimeConfiguration_exports);
 var import_strategyConfiguration = require("./strategyConfiguration");
+var import_strategyHouseholdLearningConfiguration = require("./strategyHouseholdLearningConfiguration");
 function invalid(issues) {
   return Object.freeze({
     valid: false,
@@ -41,8 +42,18 @@ function validateStrategyRuntimeConfiguration(input) {
     });
   }
   const strategyValidation = (0, import_strategyConfiguration.validateStrategyConfiguration)(input);
+  const householdLearningValidation = (0, import_strategyHouseholdLearningConfiguration.validateStrategyHouseholdLearningConfiguration)({
+    enabled: input.householdLearningEnabled,
+    pvPowerSourceMode: input.pvPowerSourceMode,
+    pvPowerStateId: input.pvPowerStateId,
+    pvNominalPowerWp: input.pvNominalPowerWp
+  });
   const issues = [
-    ...strategyValidation.issues
+    ...strategyValidation.issues,
+    ...householdLearningValidation.issues.map((issue) => ({
+      field: issue.field === "enabled" ? "householdLearningEnabled" : issue.field,
+      reason: issue.reason
+    }))
   ];
   if (typeof input.modbusInstance !== "string" || !/^modbus\.\d+$/.test(input.modbusInstance)) {
     issues.push({ field: "modbusInstance", reason: "invalid-instance" });
@@ -80,7 +91,7 @@ function validateStrategyRuntimeConfiguration(input) {
   if (input.chargingControlEnabled === false && input.dayAvailabilityEnabled === false && input.nightDischargeEnabled === false) {
     issues.push({ field: "enabled", reason: "no-mode-enabled" });
   }
-  if (!strategyValidation.valid || issues.length > 0) return invalid(issues);
+  if (!strategyValidation.valid || !householdLearningValidation.valid || issues.length > 0) return invalid(issues);
   return Object.freeze({
     valid: true,
     configuration: Object.freeze({
@@ -95,7 +106,8 @@ function validateStrategyRuntimeConfiguration(input) {
         chargingControlEnabled: input.chargingControlEnabled,
         dayAvailabilityEnabled: input.dayAvailabilityEnabled,
         nightDischargeEnabled: false
-      })
+      }),
+      householdLearning: householdLearningValidation.configuration
     }),
     issues: Object.freeze([])
   });

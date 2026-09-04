@@ -21,6 +21,9 @@ __export(strategyIoBrokerStrategyLifecycle_exports, {
   createStrategyIoBrokerStrategyLifecycle: () => createStrategyIoBrokerStrategyLifecycle
 });
 module.exports = __toCommonJS(strategyIoBrokerStrategyLifecycle_exports);
+var import_strategyIoBrokerHouseholdLearningCycle = require("./strategyIoBrokerHouseholdLearningCycle");
+var import_strategyHouseholdLearningStates = require("./strategyHouseholdLearningStates");
+var import_strategyIoBrokerDaylightWindow = require("./strategyIoBrokerDaylightWindow");
 var import_strategyIoBrokerStrategyCycleScheduler = require("./strategyIoBrokerStrategyCycleScheduler");
 var import_strategyIntegrationContract = require("./strategyIntegrationContract");
 var import_strategyManualChargeStates = require("./strategyManualChargeStates");
@@ -28,7 +31,13 @@ var import_strategyChargingStates = require("./strategyChargingStates");
 var import_strategyDaylightDiagnosticStates = require("./strategyDaylightDiagnosticStates");
 var import_strategyDayDischargeAvailabilityStates = require("./strategyDayDischargeAvailabilityStates");
 var import_strategyModes = require("./strategyModes");
-function createStrategyIoBrokerStrategyLifecycle(adapter, configuration, maximumForecastAgeMs, requestedDischargePowerW, intervalMs, onError, contract = import_strategyIntegrationContract.STRATEGY_INTEGRATION_CONTRACT, resolverOptions = {}, modes = import_strategyModes.DEFAULT_STRATEGY_MODES) {
+const DISABLED_HOUSEHOLD_LEARNING = Object.freeze({
+  enabled: false,
+  pvPowerSourceMode: "none",
+  pvPowerStateId: null,
+  pvNominalPowerWp: null
+});
+function createStrategyIoBrokerStrategyLifecycle(adapter, configuration, maximumForecastAgeMs, requestedDischargePowerW, intervalMs, onError, contract = import_strategyIntegrationContract.STRATEGY_INTEGRATION_CONTRACT, resolverOptions = {}, modes = import_strategyModes.DEFAULT_STRATEGY_MODES, householdLearning = DISABLED_HOUSEHOLD_LEARNING) {
   const scheduler = (0, import_strategyIoBrokerStrategyCycleScheduler.createStrategyIoBrokerStrategyCycleScheduler)(
     adapter,
     configuration,
@@ -41,14 +50,48 @@ function createStrategyIoBrokerStrategyLifecycle(adapter, configuration, maximum
     modes
   );
   if (scheduler === null) return null;
+  const householdCycle = (0, import_strategyIoBrokerHouseholdLearningCycle.createStrategyIoBrokerHouseholdLearningCycle)(adapter, {
+    enabled: householdLearning.enabled,
+    pvPowerStateId: householdLearning.pvPowerStateId,
+    batteryPowerStateId: contract.modbus.batteryPower.stateId,
+    gridPowerStateId: contract.modbus.smartMeterPower.stateId
+  });
   let requested = false;
   let startPromise;
+  let householdTimer;
+  let householdRunning = false;
+  const scheduleHouseholdLearning = () => {
+    if (!requested || !householdLearning.enabled || householdTimer !== void 0) return;
+    householdTimer = adapter.setTimeout(async () => {
+      householdTimer = void 0;
+      if (!requested || householdRunning) {
+        scheduleHouseholdLearning();
+        return;
+      }
+      householdRunning = true;
+      try {
+        const now = Date.now();
+        let until = now;
+        try {
+          const daylight = await (0, import_strategyIoBrokerDaylightWindow.createStrategyIoBrokerDaylightWindowProvider)(adapter).getDaylightWindow(now);
+          if (daylight != null && daylight.endsAt > now) until = daylight.endsAt;
+        } catch {
+        }
+        await householdCycle.runOnce(now, until);
+      } catch (error) {
+        onError(error);
+      } finally {
+        householdRunning = false;
+        scheduleHouseholdLearning();
+      }
+    }, intervalMs);
+  };
   const start = () => {
     requested = true;
     if (startPromise !== void 0) return startPromise;
     startPromise = (async () => {
       try {
-        if (modes.chargingControlEnabled || modes.dayAvailabilityEnabled) {
+        if (modes.chargingControlEnabled || modes.dayAvailabilityEnabled || householdLearning.enabled) {
           await (0, import_strategyDaylightDiagnosticStates.ensureStrategyDaylightDiagnosticStates)(adapter);
         }
         if (modes.chargingControlEnabled) {
@@ -58,7 +101,13 @@ function createStrategyIoBrokerStrategyLifecycle(adapter, configuration, maximum
         if (modes.dayAvailabilityEnabled) {
           await (0, import_strategyDayDischargeAvailabilityStates.ensureStrategyDayDischargeAvailabilityStates)(adapter);
         }
-        if (requested) scheduler.start();
+        if (householdLearning.enabled) {
+          await (0, import_strategyHouseholdLearningStates.ensureStrategyHouseholdLearningStates)(adapter);
+        }
+        if (requested) {
+          scheduler.start();
+          scheduleHouseholdLearning();
+        }
       } catch (error) {
         requested = false;
         throw error;
@@ -73,6 +122,10 @@ function createStrategyIoBrokerStrategyLifecycle(adapter, configuration, maximum
     stop() {
       requested = false;
       scheduler.stop();
+      if (householdTimer !== void 0) {
+        adapter.clearTimeout(householdTimer);
+        householdTimer = void 0;
+      }
     }
   });
 }

@@ -22,7 +22,7 @@ __export(strategyNativeConfiguration_exports, {
 });
 module.exports = __toCommonJS(strategyNativeConfiguration_exports);
 function strategyRuntimeConfigurationFromNative(native) {
-  var _a, _b, _c, _d;
+  var _a, _b, _c, _d, _e, _f;
   return Object.freeze({
     enabled: (_a = native.strategyEnabled) != null ? _a : false,
     modbusInstance: native.strategyModbusInstance,
@@ -38,7 +38,11 @@ function strategyRuntimeConfigurationFromNative(native) {
     intervalMs: native.strategyIntervalMs,
     chargingControlEnabled: (_b = native.strategyChargingControlEnabled) != null ? _b : true,
     dayAvailabilityEnabled: (_c = native.strategyDayAvailabilityEnabled) != null ? _c : true,
-    nightDischargeEnabled: (_d = native.strategyNightDischargeEnabled) != null ? _d : false
+    nightDischargeEnabled: (_d = native.strategyNightDischargeEnabled) != null ? _d : false,
+    householdLearningEnabled: (_e = native.strategyHouseholdLearningEnabled) != null ? _e : true,
+    pvPowerSourceMode: (_f = native.strategyPvPowerSourceMode) != null ? _f : "none",
+    pvPowerStateId: native.strategyPvPowerStateId,
+    pvNominalPowerWp: native.strategyPvNominalPowerWp
   });
 }
 // Annotate the CommonJS export names for ESM import in node:
