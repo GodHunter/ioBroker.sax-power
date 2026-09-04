@@ -3,6 +3,7 @@ import {
 	executeStrategyDayDischargeCycleWithDaylightWindow,
 	type StrategyDaylightWindowCycleExecution,
 } from "./strategyDaylightWindowCycleExecution";
+import type { StrategyDayDischargeChargingContext } from "./strategyDayDischargeAvailabilityStates";
 import type { StrategyDaylightWindowProvider } from "./strategyDaylightWindowCyclePreparation";
 import {
 	STRATEGY_INTEGRATION_CONTRACT,
@@ -27,6 +28,7 @@ export async function executeStrategyIoBrokerDayDischargeCycle(
 	requestedDischargePowerW: number,
 	contract: StrategyIntegrationContract = STRATEGY_INTEGRATION_CONTRACT,
 	resolverOptions: StrategyStateResolverOptions = {},
+	chargingContext: StrategyDayDischargeChargingContext | null = null,
 ): Promise<StrategyDaylightWindowCycleExecution | null> {
 	const runtime = createStrategyIoBrokerRuntime(adapter);
 
@@ -39,5 +41,6 @@ export async function executeStrategyIoBrokerDayDischargeCycle(
 		requestedDischargePowerW,
 		contract,
 		resolverOptions,
+		chargingContext,
 	);
 }
