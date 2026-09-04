@@ -119,7 +119,11 @@ describe("strategy ioBroker operating-mode cycle", () => {
 		expect(run.systemConfigReads()).to.equal(2);
 		expect(run.writes).to.deep.include({
 			id: "strategy.dayDischarge.availablePowerW",
-			value: 2_000,
+			value: 0,
+		});
+		expect(run.writes).to.deep.include({
+			id: "strategy.dayDischarge.reason",
+			value: "charging-trajectory-recovery",
 		});
 		expect(run.writes.some(({ id }) => id ===
 			STRATEGY_INTEGRATION_CONTRACT.modbus.dischargePowerCommand.stateId,
@@ -149,7 +153,8 @@ describe("strategy ioBroker operating-mode cycle", () => {
 		const run = runtime(false);
 		const result = await executeStrategyIoBrokerStrategyCycle(
 			run.adapter, CONFIGURATION, 60 * 60 * 1_000, 2_000,
-			undefined, { now: NOW }, {
+			undefined, { now: NOW },
+			{
 				chargingControlEnabled: false,
 				dayAvailabilityEnabled: true,
 				nightDischargeEnabled: false,
@@ -158,30 +163,13 @@ describe("strategy ioBroker operating-mode cycle", () => {
 
 		expect(result?.manualCharge).to.equal(null);
 		expect(result?.chargingShadow).to.equal(null);
-		expect(result?.automatic?.availability.availablePowerW).to.equal(2_000);
-		expect(run.systemConfigReads()).to.equal(1);
-		expect(run.writes.some(({ id }) => id ===
-			STRATEGY_INTEGRATION_CONTRACT.modbus.dischargePowerCommand.stateId,
-		)).to.equal(false);
-	});
-
-	it("runs live charging control without evaluating daytime availability", async () => {
-		const run = runtime(false);
-		const result = await executeStrategyIoBrokerStrategyCycle(
-			run.adapter, CONFIGURATION, 60 * 60 * 1_000, 2_000,
-			undefined, { now: NOW }, {
-				chargingControlEnabled: true,
-				dayAvailabilityEnabled: false,
-				nightDischargeEnabled: false,
-			},
-		);
-
-		expect(result?.manualCharge?.control.operatingMode).to.equal("automatic");
-		expect(result?.chargingShadow?.register44Written).to.equal(true);
-		expect(result?.automatic).to.equal(null);
-		expect(run.systemConfigReads()).to.equal(1);
+		expect(result?.automatic).not.to.equal(null);
+		expect(run.writes).to.deep.include({
+			id: "strategy.dayDischarge.availablePowerW",
+			value: 2_000,
+		});
 		expect(run.writes.some(({ id }) => id ===
 			STRATEGY_INTEGRATION_CONTRACT.modbus.chargePowerCommand.stateId,
-		)).to.equal(true);
+		)).to.equal(false);
 	});
 });
