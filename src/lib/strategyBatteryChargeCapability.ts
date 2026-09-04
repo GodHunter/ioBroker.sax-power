@@ -39,24 +39,6 @@ export interface StrategyChargeDurationEstimate {
 	readonly provisional: boolean;
 }
 
-const TECHNICAL_LIMITS: Readonly<
-	Record<
-		SaxPowerBatteryModelId,
-		Omit<StrategyBatteryTechnicalLimits, "batteryModelId" | "usableCapacityWh">
-	>
-> = Object.freeze({
-	"home-5.8": Object.freeze({
-		maximumChargePowerW: 2_500,
-		maximumDischargePowerW: 4_600,
-		source: "manufacturer-specification",
-	}),
-	"home-plus-7.7": Object.freeze({
-		maximumChargePowerW: 3_500,
-		maximumDischargePowerW: 4_600,
-		source: "manufacturer-specification",
-	}),
-});
-
 /*
  * Provisional SAX charge taper derived from the ioBroker/Influx observations
  * made between 7 and 12 August 2026. It is intentionally kept separate from
@@ -118,13 +100,17 @@ export const PROVISIONAL_SAX_CHARGE_POWER_SEGMENTS: readonly StrategyChargePower
 export function resolveStrategyBatteryTechnicalLimits(
 	model: SaxPowerBatteryModel,
 ): StrategyBatteryTechnicalLimits | null {
-	const limits = TECHNICAL_LIMITS[model.id];
 	const usableCapacityWh = model.usableCapacityKwh * 1_000;
+	const maximumChargePowerW = model.maximumChargePowerW;
+	const maximumDischargePowerW = model.maximumDischargePowerW;
 
 	if (
-		!limits
-		|| !Number.isFinite(usableCapacityWh)
+		!Number.isFinite(usableCapacityWh)
 		|| usableCapacityWh <= 0
+		|| !Number.isFinite(maximumChargePowerW)
+		|| maximumChargePowerW <= 0
+		|| !Number.isFinite(maximumDischargePowerW)
+		|| maximumDischargePowerW <= 0
 	) {
 		return null;
 	}
@@ -132,7 +118,9 @@ export function resolveStrategyBatteryTechnicalLimits(
 	return Object.freeze({
 		batteryModelId: model.id,
 		usableCapacityWh,
-		...limits,
+		maximumChargePowerW,
+		maximumDischargePowerW,
+		source: "manufacturer-specification" as const,
 	});
 }
 
