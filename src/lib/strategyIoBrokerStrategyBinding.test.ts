@@ -22,6 +22,10 @@ function validInput(): StrategyRuntimeConfigurationInput {
 		chargingControlEnabled: true,
 		dayAvailabilityEnabled: true,
 		nightDischargeEnabled: false,
+		householdLearningEnabled: false,
+		pvPowerSourceMode: "none",
+		pvPowerStateId: undefined,
+		pvNominalPowerWp: undefined,
 	};
 }
 
@@ -120,6 +124,26 @@ describe("strategy ioBroker binding", () => {
 		expect(run.timers).to.deep.equal([30_000]);
 		result.lifecycle?.stop();
 		expect(run.cleared).to.have.length(1);
+	});
+
+	it("prepares household learning states and timer when enabled", async () => {
+		const run = recordingAdapter();
+		const result = createStrategyIoBrokerStrategyBinding(
+			run.adapter,
+			{
+				...validInput(),
+				householdLearningEnabled: true,
+				pvPowerSourceMode: "state",
+				pvPowerStateId: "pv.power",
+			},
+			() => undefined,
+		);
+
+		await result.lifecycle?.start();
+		expect(run.objects).to.include("strategy.learning.household");
+		expect(run.timers).to.deep.equal([30_000, 30_000]);
+		result.lifecycle?.stop();
+		expect(run.cleared).to.have.length(2);
 	});
 
 	it("preserves the validated configuration values", () => {
