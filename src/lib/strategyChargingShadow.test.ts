@@ -14,20 +14,7 @@ const configuration: StrategyConfiguration = Object.freeze({
 	pvForecastReserveWh: 0,
 });
 
-describe("strategy charging shadow", () => {
-	it("never authorizes a register 44 write", () => {
-		const decision = createStrategyChargingShadowDecision(
-			configuration,
-			{
-				stateOfChargePercent: 50,
-				forecastEnergyRemainingWh: 10_000,
-				remainingDaylightMs: 5 * 60 * 60 * 1000,
-			},
-		);
-
-		expect(decision.wouldWriteRegister44).to.equal(false);
-	});
-
+describe("strategy charging decision", () => {
 	it("calculates the remaining battery energy from usable capacity", () => {
 		const decision = createStrategyChargingShadowDecision(
 			configuration,
@@ -89,6 +76,24 @@ describe("strategy charging shadow", () => {
 		expect(decision.shadowChargePowerLimitW).to.equal(4600);
 	});
 
+	it("subtracts learned remaining household energy before assessing forecast coverage", () => {
+		const decision = createStrategyChargingShadowDecision(
+			configuration,
+			{
+				stateOfChargePercent: 50,
+				forecastEnergyRemainingWh: 5000,
+				householdEnergyRemainingWh: 2000,
+				remainingDaylightMs: 5 * 60 * 60 * 1000,
+			},
+		);
+
+		expect(decision.householdEnergyRemainingWh).to.equal(2000);
+		expect(decision.usableForecastEnergyWh).to.equal(3000);
+		expect(decision.forecastMarginWh).to.equal(-500);
+		expect(decision.reason).to.equal("forecast-insufficient");
+		expect(decision.shadowChargePowerLimitW).to.equal(4600);
+	});
+
 	it("returns zero charging power once the target SOC is reached", () => {
 		const decision = createStrategyChargingShadowDecision(
 			configuration,
@@ -116,6 +121,20 @@ describe("strategy charging shadow", () => {
 		expect(decision.valid).to.equal(false);
 		expect(decision.reason).to.equal("invalid-input");
 		expect(decision.shadowChargePowerLimitW).to.equal(0);
-		expect(decision.wouldWriteRegister44).to.equal(false);
+	});
+
+	it("fails closed for invalid learned household energy", () => {
+		const decision = createStrategyChargingShadowDecision(
+			configuration,
+			{
+				stateOfChargePercent: 50,
+				forecastEnergyRemainingWh: 10_000,
+				householdEnergyRemainingWh: Number.NaN,
+				remainingDaylightMs: 5 * 60 * 60 * 1000,
+			},
+		);
+
+		expect(decision.valid).to.equal(false);
+		expect(decision.reason).to.equal("invalid-input");
 	});
 });
