@@ -1,6 +1,10 @@
 import type { StrategyConfiguration } from "./strategyConfiguration";
-import { createStrategyChargingDecision } from "./strategyChargingDecision";
 import {
+	createStrategyChargingDecision,
+	type StrategyChargingDecisionReason,
+} from "./strategyChargingDecision";
+import {
+	STRATEGY_CHARGING_STATE_IDS,
 	publishStrategyCharging,
 	strategyChargingPublicationFromDecision,
 	type StrategyChargingIoBrokerAdapter,
@@ -97,6 +101,27 @@ async function readLearnedHouseholdEnergyRemainingWh(
 	} catch {
 		return 0;
 	}
+}
+
+async function readPreviousDecisionReason(
+	adapter: StrategyIoBrokerAutomaticChargingAdapter,
+): Promise<StrategyChargingDecisionReason | null> {
+	try {
+		const state = await adapter.getStateAsync(STRATEGY_CHARGING_STATE_IDS.decisionReason);
+		const value = state?.val;
+		if (
+			value === "target-soc-reached"
+			|| value === "forecast-insufficient"
+			|| value === "forecast-balanced"
+			|| value === "trajectory-recovery"
+			|| value === "invalid-input"
+		) {
+			return value;
+		}
+	} catch {
+		// Previous state is only used for hysteresis; failure must not stop control.
+	}
+	return null;
 }
 
 async function applyChargePowerTarget(
@@ -219,7 +244,10 @@ export async function executeStrategyIoBrokerAutomaticChargingCycle(
 		);
 	}
 
-	const householdEnergyRemainingWh = await readLearnedHouseholdEnergyRemainingWh(adapter, createdAt);
+	const [householdEnergyRemainingWh, previousDecisionReason] = await Promise.all([
+		readLearnedHouseholdEnergyRemainingWh(adapter, createdAt),
+		readPreviousDecisionReason(adapter),
+	]);
 	const totalDaylightMs = daylightWindow.endsAt - daylightWindow.startsAt;
 	const elapsedDaylightMs = createdAt - daylightWindow.startsAt;
 	const decision = createStrategyChargingDecision(configuration, {
@@ -229,6 +257,7 @@ export async function executeStrategyIoBrokerAutomaticChargingCycle(
 		remainingDaylightMs: daylightWindow.endsAt - createdAt,
 		elapsedDaylightMs,
 		totalDaylightMs,
+		previousDecisionReason,
 	});
 
 	if (!decision.valid) {
