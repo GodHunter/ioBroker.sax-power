@@ -9,6 +9,7 @@ export const STRATEGY_CHARGING_STATE_IDS = Object.freeze({
 	forecastEnergyRemainingWh: "strategy.charging.forecastEnergyRemainingWh",
 	forecastMarginWh: "strategy.charging.forecastMarginWh",
 	remainingDaylightMinutes: "strategy.charging.remainingDaylightMinutes",
+	targetDeadlineRemainingMinutes: "strategy.charging.targetDeadlineRemainingMinutes",
 	plannedSocPercent: "strategy.charging.plannedSocPercent",
 	plannedSocLowerPercent: "strategy.charging.plannedSocLowerPercent",
 	plannedSocUpperPercent: "strategy.charging.plannedSocUpperPercent",
@@ -24,6 +25,7 @@ export type StrategyChargingReason =
 	| "forecast-insufficient"
 	| "forecast-balanced"
 	| "trajectory-recovery"
+	| "target-deadline-recovery"
 	| "inputs-not-ready"
 	| "outside-daylight"
 	| "daylight-unavailable"
@@ -37,6 +39,7 @@ export interface StrategyChargingPublication {
 	readonly forecastEnergyRemainingWh: number | null;
 	readonly forecastMarginWh: number | null;
 	readonly remainingDaylightMinutes: number | null;
+	readonly targetDeadlineRemainingMinutes: number | null;
 	readonly plannedSocPercent: number | null;
 	readonly plannedSocLowerPercent: number | null;
 	readonly plannedSocUpperPercent: number | null;
@@ -81,11 +84,12 @@ export async function ensureStrategyChargingStates(
 	}>[] = [
 		{ id: STRATEGY_CHARGING_STATE_IDS.active, name: "Automatic charging active", desc: "Whether the automatic charging controller is active.", type: "boolean", role: "indicator" },
 		{ id: STRATEGY_CHARGING_STATE_IDS.targetChargePowerW, name: "Automatic charge power target", desc: "Charge power limit currently applied to SAX Power register 44.", type: "number", role: "value.power", unit: "W" },
-		{ id: STRATEGY_CHARGING_STATE_IDS.requiredAverageChargePowerW, name: "Required average charging power", desc: "Average charging power required to reach the configured target SOC during the remaining daylight window.", type: "number", role: "value.power", unit: "W" },
+		{ id: STRATEGY_CHARGING_STATE_IDS.requiredAverageChargePowerW, name: "Required average charging power", desc: "Average charging power required to reach the configured target SOC before the target completion deadline.", type: "number", role: "value.power", unit: "W" },
 		{ id: STRATEGY_CHARGING_STATE_IDS.energyRequiredWh, name: "Energy required to target SOC", desc: "Usable battery energy still required to reach the configured target SOC.", type: "number", role: "value.energy", unit: "Wh" },
 		{ id: STRATEGY_CHARGING_STATE_IDS.forecastEnergyRemainingWh, name: "Remaining PV forecast energy", desc: "PVForecast energy remaining until the end of the day.", type: "number", role: "value.energy", unit: "Wh" },
 		{ id: STRATEGY_CHARGING_STATE_IDS.forecastMarginWh, name: "Forecast energy margin", desc: "Remaining forecast energy after household consumption and reserve minus battery energy still required.", type: "number", role: "value.energy", unit: "Wh" },
 		{ id: STRATEGY_CHARGING_STATE_IDS.remainingDaylightMinutes, name: "Remaining daylight", desc: "Minutes remaining in the current daylight window.", type: "number", role: "value.interval", unit: "min" },
+		{ id: STRATEGY_CHARGING_STATE_IDS.targetDeadlineRemainingMinutes, name: "Target completion deadline", desc: "Minutes remaining until the controller wants the configured target SOC reached. The deadline is one hour before sunset.", type: "number", role: "value.interval", unit: "min" },
 		{ id: STRATEGY_CHARGING_STATE_IDS.plannedSocPercent, name: "Planned SOC", desc: "Dynamic SOC target for the current point in the daylight window.", type: "number", role: "value", unit: "%" },
 		{ id: STRATEGY_CHARGING_STATE_IDS.plannedSocLowerPercent, name: "Planned SOC lower corridor", desc: "Lower limit of the dynamic SOC corridor. Falling below it triggers trajectory recovery.", type: "number", role: "value", unit: "%" },
 		{ id: STRATEGY_CHARGING_STATE_IDS.plannedSocUpperPercent, name: "Planned SOC upper corridor", desc: "Upper limit of the dynamic SOC corridor.", type: "number", role: "value", unit: "%" },
@@ -129,6 +133,7 @@ export function strategyChargingPublicationFromDecision(
 		forecastEnergyRemainingWh: decision.forecastEnergyRemainingWh,
 		forecastMarginWh: decision.forecastMarginWh,
 		remainingDaylightMinutes: decision.remainingDaylightMs / 60_000,
+		targetDeadlineRemainingMinutes: decision.targetDeadlineRemainingMs / 60_000,
 		plannedSocPercent: decision.plannedSocPercent,
 		plannedSocLowerPercent: decision.plannedSocLowerPercent,
 		plannedSocUpperPercent: decision.plannedSocUpperPercent,
@@ -151,6 +156,7 @@ export async function publishStrategyCharging(
 		adapter.setStateAsync(STRATEGY_CHARGING_STATE_IDS.forecastEnergyRemainingWh, { val: publication.forecastEnergyRemainingWh, ack: true }),
 		adapter.setStateAsync(STRATEGY_CHARGING_STATE_IDS.forecastMarginWh, { val: publication.forecastMarginWh, ack: true }),
 		adapter.setStateAsync(STRATEGY_CHARGING_STATE_IDS.remainingDaylightMinutes, { val: publication.remainingDaylightMinutes, ack: true }),
+		adapter.setStateAsync(STRATEGY_CHARGING_STATE_IDS.targetDeadlineRemainingMinutes, { val: publication.targetDeadlineRemainingMinutes, ack: true }),
 		adapter.setStateAsync(STRATEGY_CHARGING_STATE_IDS.plannedSocPercent, { val: publication.plannedSocPercent, ack: true }),
 		adapter.setStateAsync(STRATEGY_CHARGING_STATE_IDS.plannedSocLowerPercent, { val: publication.plannedSocLowerPercent, ack: true }),
 		adapter.setStateAsync(STRATEGY_CHARGING_STATE_IDS.plannedSocUpperPercent, { val: publication.plannedSocUpperPercent, ack: true }),
