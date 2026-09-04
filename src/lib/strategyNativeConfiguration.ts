@@ -18,6 +18,10 @@ export interface StrategyNativeConfiguration {
 	readonly strategyChargingControlEnabled?: unknown;
 	readonly strategyDayAvailabilityEnabled?: unknown;
 	readonly strategyNightDischargeEnabled?: unknown;
+	readonly strategyHouseholdLearningEnabled?: unknown;
+	readonly strategyPvPowerSourceMode?: unknown;
+	readonly strategyPvPowerStateId?: unknown;
+	readonly strategyPvNominalPowerWp?: unknown;
 }
 
 export function strategyRuntimeConfigurationFromNative(
@@ -41,5 +45,9 @@ export function strategyRuntimeConfigurationFromNative(
 		chargingControlEnabled: native.strategyChargingControlEnabled ?? true,
 		dayAvailabilityEnabled: native.strategyDayAvailabilityEnabled ?? true,
 		nightDischargeEnabled: native.strategyNightDischargeEnabled ?? false,
+		householdLearningEnabled: native.strategyHouseholdLearningEnabled ?? true,
+		pvPowerSourceMode: native.strategyPvPowerSourceMode ?? "none",
+		pvPowerStateId: native.strategyPvPowerStateId,
+		pvNominalPowerWp: native.strategyPvNominalPowerWp,
 	});
 }
