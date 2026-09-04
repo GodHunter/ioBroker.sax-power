@@ -21,6 +21,10 @@ function validInput(): StrategyRuntimeConfigurationInput {
 		chargingControlEnabled: true,
 		dayAvailabilityEnabled: true,
 		nightDischargeEnabled: false,
+		householdLearningEnabled: true,
+		pvPowerSourceMode: "none",
+		pvPowerStateId: undefined,
+		pvNominalPowerWp: undefined,
 	};
 }
 
@@ -65,22 +69,14 @@ describe("strategy runtime configuration", () => {
 	});
 
 	it("requires a selected PVForecast adapter instance when enabled", () => {
-		for (const pvForecastInstance of [
-			undefined,
-			"",
-			"javascript.0",
-			"pvforecast.x",
-		]) {
+		for (const pvForecastInstance of [undefined, "", "javascript.0", "pvforecast.x"]) {
 			const result = validateStrategyRuntimeConfiguration({
 				...validInput(),
 				pvForecastInstance,
 			});
 
 			expect(result.issues).to.include.deep.members([
-				{
-					field: "pvForecastInstance",
-					reason: "invalid-instance",
-				},
+				{ field: "pvForecastInstance", reason: "invalid-instance" },
 			]);
 		}
 	});
@@ -99,10 +95,39 @@ describe("strategy runtime configuration", () => {
 			dayAvailabilityEnabled: true,
 			nightDischargeEnabled: false,
 		});
+		expect(result.configuration.householdLearning).to.deep.equal({
+			enabled: true,
+			pvPowerSourceMode: "none",
+			pvPowerStateId: null,
+			pvNominalPowerWp: null,
+		});
 		expect(Object.isFrozen(result)).to.equal(true);
 		expect(Object.isFrozen(result.configuration)).to.equal(true);
 		expect(Object.isFrozen(result.configuration.configuration)).to.equal(true);
+		expect(Object.isFrozen(result.configuration.householdLearning)).to.equal(true);
 		expect(Object.isFrozen(result.issues)).to.equal(true);
+	});
+
+	it("accepts an optional direct PV power state for household learning", () => {
+		const result = validateStrategyRuntimeConfiguration({
+			...validInput(),
+			pvPowerSourceMode: "state",
+			pvPowerStateId: "solaredge.0.pvPower",
+			pvNominalPowerWp: 9_900,
+		});
+		expect(result.valid).to.equal(true);
+		if (!result.valid || !result.configuration.enabled) return;
+		expect(result.configuration.householdLearning.pvPowerStateId).to.equal("solaredge.0.pvPower");
+		expect(result.configuration.householdLearning.pvNominalPowerWp).to.equal(9_900);
+	});
+
+	it("rejects an invalid household learning source", () => {
+		const result = validateStrategyRuntimeConfiguration({
+			...validInput(),
+			pvPowerSourceMode: "invalid",
+		});
+		expect(result.valid).to.equal(false);
+		expect(result.issues).to.deep.include({ field: "pvPowerSourceMode", reason: "invalid-source" });
 	});
 
 	it("rejects night discharge until its guarded execution exists", () => {
@@ -126,10 +151,7 @@ describe("strategy runtime configuration", () => {
 		});
 
 		expect(result.valid).to.equal(false);
-		expect(result.issues).to.deep.include({
-			field: "enabled",
-			reason: "no-mode-enabled",
-		});
+		expect(result.issues).to.deep.include({ field: "enabled", reason: "no-mode-enabled" });
 	});
 
 	it("includes core strategy configuration issues when enabled", () => {
