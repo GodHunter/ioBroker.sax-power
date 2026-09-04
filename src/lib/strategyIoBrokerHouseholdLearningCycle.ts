@@ -8,6 +8,7 @@ import {
 	STRATEGY_HOUSEHOLD_LEARNING_STATE_IDS,
 	publishStrategyHouseholdLearning,
 	type StrategyHouseholdLearningIoBrokerAdapter,
+	type StrategyHouseholdLearningSource,
 } from "./strategyHouseholdLearningStates";
 
 const MAXIMUM_INPUT_AGE_MS = 120_000;
@@ -72,7 +73,7 @@ export function createStrategyIoBrokerHouseholdLearningCycle(
 
 			const activeModel = await loadModel();
 			let currentPowerW: number | null = null;
-			let source = "unavailable" as const | "pv-grid-battery";
+			let source: StrategyHouseholdLearningSource = "unavailable";
 
 			if (configuration.pvPowerStateId !== null) {
 				const [pvState, batteryState, gridState] = await Promise.all([
@@ -86,15 +87,15 @@ export function createStrategyIoBrokerHouseholdLearningCycle(
 
 				if (pvPowerW !== null && batteryPowerW !== null && gridPowerW !== null) {
 					const observation = createStrategyHouseholdLoadObservation({
-						timestampMs: nowMs,
 						pvPowerW,
 						gridPowerW,
 						batteryPowerW,
 					});
-					if (observation.available) {
-						currentPowerW = observation.householdPowerW;
+					const observedPowerW = observation.householdPowerW;
+					if (observation.available && observedPowerW !== null) {
+						currentPowerW = observedPowerW;
 						source = "pv-grid-battery";
-						const completed = collector.addObservation(nowMs, currentPowerW);
+						const completed = collector.addObservation(nowMs, observedPowerW);
 						if (completed !== null) {
 							activeModel.addObservation(completed.timestampMs, completed.averagePowerW);
 						}
