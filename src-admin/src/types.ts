@@ -19,6 +19,10 @@ strategyIntervalMs?: unknown;
 strategyChargingControlEnabled?: boolean;
 strategyDayAvailabilityEnabled?: boolean;
 strategyNightDischargeEnabled?: boolean;
+strategyHouseholdLearningEnabled?: boolean;
+strategyPvPowerSourceMode?: "state" | "none";
+strategyPvPowerStateId?: string;
+strategyPvNominalPowerWp?: number;
 }
 
 export type SaxPowerConnectionState =
