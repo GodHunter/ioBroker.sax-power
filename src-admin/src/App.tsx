@@ -97,6 +97,7 @@ resolveStrategyBatteryTechnicalLimits,
 } from "../../src/lib/strategyBatteryChargeCapability";
 
 import { LocalizedContent, translate } from "./localization";
+import { StrategyLearningSettings } from "./StrategyLearningSettings";
 
 import de from "../../admin/i18n/de.json";
 import en from "../../admin/i18n/en.json";
@@ -2497,29 +2498,15 @@ step: 50,
 variant="outlined"
 sx={{
 borderRadius: 2.5,
-borderStyle: "dashed",
 }}
 >
 <CardContent sx={{ paddingBottom: "16px !important" }}>
-<Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
-<Savings color="primary" />
-<Box>
-<Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-Adaptive PV safety model
-</Typography>
-<Typography variant="body2" sx={{ color: "text.secondary" }}>
-The planned learning model separates expected household consumption from
-PV-forecast error. This will later allow daytime availability to adapt to
-the individual installation instead of relying on a fixed reserve.
-</Typography>
-<Typography
-variant="caption"
-sx={{ display: "block", marginTop: 0.5, color: "text.secondary" }}
->
-Anonymous opt-in fleet statistics are planned separately; no data is sent by this configuration today.
-</Typography>
-</Box>
-</Stack>
+<StrategyLearningSettings
+socket={this.socket}
+native={native}
+hasIssue={hasStrategyIssue}
+onChange={(key, value) => this.updateNativeField(key, value)}
+/>
 </CardContent>
 </Card>
 
