@@ -1,5 +1,5 @@
 import type { StrategyConfiguration } from "./strategyConfiguration";
-import { createStrategyChargingShadowDecision } from "./strategyChargingShadow";
+import { createStrategyChargingDecision } from "./strategyChargingDecision";
 import {
 	publishStrategyCharging,
 	strategyChargingPublicationFromDecision,
@@ -63,6 +63,10 @@ function fallbackPublication(
 		forecastEnergyRemainingWh: null,
 		forecastMarginWh: null,
 		remainingDaylightMinutes,
+		plannedSocPercent: null,
+		plannedSocLowerPercent: null,
+		plannedSocUpperPercent: null,
+		socDeviationPercent: null,
 		decisionReason: reason,
 		lastUpdate: createdAt,
 		lastCommandAt: createdAt,
@@ -108,11 +112,7 @@ async function applyChargePowerTarget(
 		Math.min(configuration.maximumChargePowerW, Math.round(publication.targetChargePowerW)),
 	);
 
-	await runtime.writer.setForeignState(
-		command.stateId,
-		targetChargePowerW,
-		false,
-	);
+	await runtime.writer.setForeignState(command.stateId, targetChargePowerW, false);
 	await publishStrategyCharging(adapter, {
 		...publication,
 		targetChargePowerW,
@@ -153,9 +153,7 @@ export async function executeStrategyIoBrokerAutomaticChargingCycle(
 		);
 	}
 
-	if (!resolution.modbus.chargePowerCommand.available) {
-		return null;
-	}
+	if (!resolution.modbus.chargePowerCommand.available) return null;
 
 	let daylightWindow: Awaited<ReturnType<ReturnType<
 		typeof createStrategyIoBrokerDaylightWindowProvider
@@ -174,10 +172,7 @@ export async function executeStrategyIoBrokerAutomaticChargingCycle(
 	await publishStrategyDaylightDiagnostics(adapter, createdAt, daylightWindow ?? null);
 
 	const stateOfChargePercent = resolution.modbus.stateOfCharge.value;
-	if (
-		stateOfChargePercent !== null
-		&& stateOfChargePercent < configuration.minimumStateOfChargePercent
-	) {
+	if (stateOfChargePercent !== null && stateOfChargePercent < configuration.minimumStateOfChargePercent) {
 		return applyChargePowerTarget(
 			adapter,
 			configuration,
@@ -204,24 +199,13 @@ export async function executeStrategyIoBrokerAutomaticChargingCycle(
 		);
 	}
 
-	const remainingDaylightMinutes = Math.max(
-		0,
-		(daylightWindow.endsAt - createdAt) / 60_000,
-	);
-	if (
-		createdAt < daylightWindow.startsAt
-		|| createdAt >= daylightWindow.endsAt
-	) {
+	const remainingDaylightMinutes = Math.max(0, (daylightWindow.endsAt - createdAt) / 60_000);
+	if (createdAt < daylightWindow.startsAt || createdAt >= daylightWindow.endsAt) {
 		return applyChargePowerTarget(
 			adapter,
 			configuration,
 			contract,
-			fallbackPublication(
-				configuration,
-				createdAt,
-				"outside-daylight",
-				remainingDaylightMinutes,
-			),
+			fallbackPublication(configuration, createdAt, "outside-daylight", remainingDaylightMinutes),
 		);
 	}
 
@@ -231,24 +215,20 @@ export async function executeStrategyIoBrokerAutomaticChargingCycle(
 			adapter,
 			configuration,
 			contract,
-			fallbackPublication(
-				configuration,
-				createdAt,
-				"inputs-not-ready",
-				remainingDaylightMinutes,
-			),
+			fallbackPublication(configuration, createdAt, "inputs-not-ready", remainingDaylightMinutes),
 		);
 	}
 
-	const householdEnergyRemainingWh = await readLearnedHouseholdEnergyRemainingWh(
-		adapter,
-		createdAt,
-	);
-	const decision = createStrategyChargingShadowDecision(configuration, {
+	const householdEnergyRemainingWh = await readLearnedHouseholdEnergyRemainingWh(adapter, createdAt);
+	const totalDaylightMs = daylightWindow.endsAt - daylightWindow.startsAt;
+	const elapsedDaylightMs = createdAt - daylightWindow.startsAt;
+	const decision = createStrategyChargingDecision(configuration, {
 		stateOfChargePercent,
 		forecastEnergyRemainingWh,
 		householdEnergyRemainingWh,
 		remainingDaylightMs: daylightWindow.endsAt - createdAt,
+		elapsedDaylightMs,
+		totalDaylightMs,
 	});
 
 	if (!decision.valid) {
@@ -256,12 +236,7 @@ export async function executeStrategyIoBrokerAutomaticChargingCycle(
 			adapter,
 			configuration,
 			contract,
-			fallbackPublication(
-				configuration,
-				createdAt,
-				"invalid-input",
-				remainingDaylightMinutes,
-			),
+			fallbackPublication(configuration, createdAt, "invalid-input", remainingDaylightMinutes),
 		);
 	}
 
