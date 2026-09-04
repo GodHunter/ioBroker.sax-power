@@ -160,11 +160,11 @@ describe("strategy charging decision", () => {
 
 	it("forces deadline recovery when the required deadline power reaches the technical limit", () => {
 		const decision = createStrategyChargingDecision(configuration, {
-			stateOfChargePercent: 50,
+			stateOfChargePercent: 45,
 			forecastEnergyRemainingWh: 10_000,
 			remainingDaylightMs: 2 * HOUR,
 		});
-		expect(decision.requiredAverageChargePowerW).to.equal(3500);
+		expect(decision.requiredAverageChargePowerW).to.equal(3850);
 		expect(decision.reason).to.equal("target-deadline-recovery");
 		expect(decision.chargePowerLimitW).to.equal(configuration.maximumChargePowerW);
 	});
