@@ -24,6 +24,10 @@ describe("strategy native configuration mapping", () => {
 			chargingControlEnabled: true,
 			dayAvailabilityEnabled: true,
 			nightDischargeEnabled: false,
+			householdLearningEnabled: true,
+			pvPowerSourceMode: "none",
+			pvPowerStateId: undefined,
+			pvNominalPowerWp: undefined,
 		});
 	});
 
@@ -44,6 +48,10 @@ describe("strategy native configuration mapping", () => {
 			strategyChargingControlEnabled: false,
 			strategyDayAvailabilityEnabled: true,
 			strategyNightDischargeEnabled: false,
+			strategyHouseholdLearningEnabled: true,
+			strategyPvPowerSourceMode: "state",
+			strategyPvPowerStateId: "modbus.0.pv.power",
+			strategyPvNominalPowerWp: 9_900,
 		};
 
 		const result = strategyRuntimeConfigurationFromNative(native);
@@ -63,6 +71,10 @@ describe("strategy native configuration mapping", () => {
 			chargingControlEnabled: false,
 			dayAvailabilityEnabled: true,
 			nightDischargeEnabled: false,
+			householdLearningEnabled: true,
+			pvPowerSourceMode: "state",
+			pvPowerStateId: "modbus.0.pv.power",
+			pvNominalPowerWp: 9_900,
 		});
 		expect(Object.isFrozen(result)).to.equal(true);
 	});
