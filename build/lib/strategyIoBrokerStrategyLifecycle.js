@@ -23,6 +23,8 @@ __export(strategyIoBrokerStrategyLifecycle_exports, {
 module.exports = __toCommonJS(strategyIoBrokerStrategyLifecycle_exports);
 var import_strategyIoBrokerHouseholdLearningCycle = require("./strategyIoBrokerHouseholdLearningCycle");
 var import_strategyHouseholdLearningStates = require("./strategyHouseholdLearningStates");
+var import_strategyIoBrokerPvForecastErrorCycle = require("./strategyIoBrokerPvForecastErrorCycle");
+var import_strategyPvForecastErrorStates = require("./strategyPvForecastErrorStates");
 var import_strategyIoBrokerDaylightWindow = require("./strategyIoBrokerDaylightWindow");
 var import_strategyIoBrokerStrategyCycleScheduler = require("./strategyIoBrokerStrategyCycleScheduler");
 var import_strategyIntegrationContract = require("./strategyIntegrationContract");
@@ -59,6 +61,11 @@ function createStrategyIoBrokerStrategyLifecycle(adapter, configuration, maximum
     pvForecastEnergyStateId: contract.pvForecast.energyNowUntilEndOfDay.stateId,
     forecastReserveWh: configuration.pvForecastReserveWh
   });
+  const forecastErrorCycle = (0, import_strategyIoBrokerPvForecastErrorCycle.createStrategyIoBrokerPvForecastErrorCycle)(adapter, {
+    enabled: householdLearning.enabled,
+    pvPowerStateId: householdLearning.pvPowerStateId,
+    forecastTodayStateId: contract.pvForecast.energyToday.stateId
+  });
   let requested = false;
   let startPromise;
   let householdTimer;
@@ -75,12 +82,16 @@ function createStrategyIoBrokerStrategyLifecycle(adapter, configuration, maximum
       try {
         const now = Date.now();
         let until = now;
+        let daylight = null;
         try {
-          const daylight = await (0, import_strategyIoBrokerDaylightWindow.createStrategyIoBrokerDaylightWindowProvider)(adapter).getDaylightWindow(now);
+          daylight = await (0, import_strategyIoBrokerDaylightWindow.createStrategyIoBrokerDaylightWindowProvider)(adapter).getDaylightWindow(now);
           if (daylight != null && daylight.endsAt > now) until = daylight.endsAt;
         } catch {
         }
         await householdCycle.runOnce(now, until);
+        if (daylight != null) {
+          await forecastErrorCycle.runOnce(now, daylight.startsAt, daylight.endsAt);
+        }
       } catch (error) {
         onError(error);
       } finally {
@@ -106,6 +117,7 @@ function createStrategyIoBrokerStrategyLifecycle(adapter, configuration, maximum
         }
         if (householdLearning.enabled) {
           await (0, import_strategyHouseholdLearningStates.ensureStrategyHouseholdLearningStates)(adapter);
+          await (0, import_strategyPvForecastErrorStates.ensureStrategyPvForecastErrorStates)(adapter);
           await (0, import_strategyPlanningStates.ensureStrategyPlanningStates)(adapter);
         }
         if (requested) {
