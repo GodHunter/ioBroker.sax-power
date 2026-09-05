@@ -119,11 +119,11 @@ describe("strategy ioBroker operating-mode cycle", () => {
 		expect(run.systemConfigReads()).to.equal(2);
 		expect(run.writes).to.deep.include({
 			id: "strategy.dayDischarge.availablePowerW",
-			value: 0,
+			value: 2_000,
 		});
 		expect(run.writes).to.deep.include({
 			id: "strategy.dayDischarge.reason",
-			value: "soc-trajectory-reserve",
+			value: "trajectory-budget-available",
 		});
 		expect(run.writes.some(({ id }) => id ===
 			STRATEGY_INTEGRATION_CONTRACT.modbus.dischargePowerCommand.stateId,
