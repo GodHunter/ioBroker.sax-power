@@ -31,47 +31,19 @@ async function executeStrategyIoBrokerStrategyCycle(adapter, configuration, maxi
   var _a, _b;
   const manualInput = modes.chargingControlEnabled ? await (0, import_strategyManualChargeStates.readStrategyManualChargeInput)(adapter) : null;
   if (modes.chargingControlEnabled && manualInput === null) return null;
-  const manualCharge = modes.chargingControlEnabled ? await (0, import_strategyIoBrokerManualChargeCycle.executeStrategyIoBrokerManualChargeCycle)(
-    adapter,
-    configuration,
-    contract,
-    resolverOptions
-  ) : null;
+  const manualCharge = modes.chargingControlEnabled ? await (0, import_strategyIoBrokerManualChargeCycle.executeStrategyIoBrokerManualChargeCycle)(adapter, configuration, contract, resolverOptions) : null;
   if ((manualInput == null ? void 0 : manualInput.enabled) === true) {
     if (manualCharge === null) return null;
-    return Object.freeze({
-      createdAt: manualCharge.createdAt,
-      manualCharge,
-      chargingShadow: null,
-      automatic: null
-    });
+    return Object.freeze({ createdAt: manualCharge.createdAt, manualCharge, chargingShadow: null, automatic: null });
   }
   if (modes.chargingControlEnabled && manualCharge === null) {
     await Promise.all([
-      adapter.setStateAsync(
-        import_strategyManualChargeStates.STRATEGY_MANUAL_CHARGE_STATE_IDS.operatingMode,
-        { val: "automatic", ack: true }
-      ),
-      adapter.setStateAsync(
-        import_strategyManualChargeStates.STRATEGY_MANUAL_CHARGE_STATE_IDS.automaticStrategyAllowed,
-        { val: true, ack: true }
-      )
+      adapter.setStateAsync(import_strategyManualChargeStates.STRATEGY_MANUAL_CHARGE_STATE_IDS.operatingMode, { val: "automatic", ack: true }),
+      adapter.setStateAsync(import_strategyManualChargeStates.STRATEGY_MANUAL_CHARGE_STATE_IDS.automaticStrategyAllowed, { val: true, ack: true })
     ]);
   }
-  const chargingControl = modes.chargingControlEnabled ? await (0, import_strategyIoBrokerAutomaticChargingCycle.executeStrategyIoBrokerAutomaticChargingCycle)(
-    adapter,
-    configuration,
-    contract,
-    resolverOptions
-  ) : null;
-  if (!modes.dayAvailabilityEnabled) {
-    return Object.freeze({
-      createdAt: (_b = (_a = manualCharge == null ? void 0 : manualCharge.createdAt) != null ? _a : resolverOptions.now) != null ? _b : Date.now(),
-      manualCharge,
-      chargingShadow: chargingControl,
-      automatic: null
-    });
-  }
+  const chargingControl = modes.chargingControlEnabled ? await (0, import_strategyIoBrokerAutomaticChargingCycle.executeStrategyIoBrokerAutomaticChargingCycle)(adapter, configuration, contract, resolverOptions) : null;
+  if (!modes.dayAvailabilityEnabled) return Object.freeze({ createdAt: (_b = (_a = manualCharge == null ? void 0 : manualCharge.createdAt) != null ? _a : resolverOptions.now) != null ? _b : Date.now(), manualCharge, chargingShadow: chargingControl, automatic: null });
   const automatic = await (0, import_strategyIoBrokerDaylightCycle.executeStrategyIoBrokerDaylightCycle)(
     adapter,
     configuration,
@@ -83,18 +55,13 @@ async function executeStrategyIoBrokerStrategyCycle(adapter, configuration, maxi
       reason: chargingControl.reason,
       currentSocPercent: chargingControl.currentSocPercent,
       plannedSocUpperPercent: chargingControl.plannedSocUpperPercent,
-      forecastMarginWh: chargingControl.forecastMarginWh
+      forecastMarginWh: chargingControl.forecastMarginWh,
+      requiredAverageChargePowerW: chargingControl.requiredAverageChargePowerW,
+      maximumChargePowerW: chargingControl.maximumChargePowerW
     }
   );
-  if (automatic === null || manualCharge !== null && automatic.createdAt !== manualCharge.createdAt) {
-    return null;
-  }
-  return Object.freeze({
-    createdAt: automatic.createdAt,
-    manualCharge,
-    chargingShadow: chargingControl,
-    automatic
-  });
+  if (automatic === null || manualCharge !== null && automatic.createdAt !== manualCharge.createdAt) return null;
+  return Object.freeze({ createdAt: automatic.createdAt, manualCharge, chargingShadow: chargingControl, automatic });
 }
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {

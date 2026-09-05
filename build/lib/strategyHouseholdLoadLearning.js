@@ -37,11 +37,13 @@ function roundEnergy(value) {
 }
 function percentile(sorted, fraction) {
   var _a;
-  if (sorted.length === 0) {
-    return 0;
-  }
+  if (sorted.length === 0) return 0;
   const index = Math.min(sorted.length - 1, Math.ceil(sorted.length * fraction) - 1);
   return (_a = sorted[index]) != null ? _a : 0;
+}
+function conservativeFallbackWh(slots, dayClass) {
+  const learned = slots.filter((slot) => slot.dayClass === dayClass && slot.samplesWh.length > 0).map((slot) => estimateStrategyHouseholdLoad(slot).expectedWh).filter((value) => Number.isFinite(value) && value >= 0).sort((a, b) => a - b);
+  return roundEnergy(percentile(learned, 0.75));
 }
 function resolveStrategyHouseholdDayClass(date) {
   const day = date.getDay();
@@ -57,60 +59,37 @@ function createEmptyStrategyHouseholdLoadSlot(dayClass, slotIndex) {
   return Object.freeze({ dayClass, slotIndex, samplesWh: Object.freeze([]) });
 }
 function addStrategyHouseholdLoadSample(slot, sample) {
-  if (!Number.isFinite(sample.timestampMs) || !Number.isFinite(sample.averagePowerW) || sample.averagePowerW < 0) {
-    return slot;
-  }
+  if (!Number.isFinite(sample.timestampMs) || !Number.isFinite(sample.averagePowerW) || sample.averagePowerW < 0) return slot;
   const date = new Date(sample.timestampMs);
-  if (resolveStrategyHouseholdDayClass(date) !== slot.dayClass || resolveStrategyHouseholdLoadSlotIndex(date) !== slot.slotIndex) {
-    return slot;
-  }
+  if (resolveStrategyHouseholdDayClass(date) !== slot.dayClass || resolveStrategyHouseholdLoadSlotIndex(date) !== slot.slotIndex) return slot;
   const energyWh = sample.averagePowerW * HOUSEHOLD_LOAD_SLOT_MINUTES / 60;
   const samplesWh = [...slot.samplesWh, roundEnergy(energyWh)].slice(-HOUSEHOLD_LOAD_MAX_SAMPLES_PER_SLOT);
-  return Object.freeze({
-    dayClass: slot.dayClass,
-    slotIndex: slot.slotIndex,
-    samplesWh: Object.freeze(samplesWh)
-  });
+  return Object.freeze({ dayClass: slot.dayClass, slotIndex: slot.slotIndex, samplesWh: Object.freeze(samplesWh) });
 }
 function estimateStrategyHouseholdLoad(slot) {
   var _a, _b, _c;
   const samples = slot.samplesWh.length;
   if (samples === 0) {
-    return Object.freeze({
-      available: false,
-      samples: 0,
-      meanWh: 0,
-      medianWh: 0,
-      p75Wh: 0,
-      expectedWh: 0
-    });
+    return Object.freeze({ available: false, samples: 0, meanWh: 0, medianWh: 0, p75Wh: 0, expectedWh: 0 });
   }
   const sorted = [...slot.samplesWh].sort((a, b) => a - b);
   const meanWh = sorted.reduce((sum, value) => sum + value, 0) / samples;
   const medianWh = samples % 2 === 0 ? (((_a = sorted[samples / 2 - 1]) != null ? _a : 0) + ((_b = sorted[samples / 2]) != null ? _b : 0)) / 2 : (_c = sorted[Math.floor(samples / 2)]) != null ? _c : 0;
   const p75Wh = percentile(sorted, 0.75);
   const expectedWh = samples >= 4 ? p75Wh : meanWh;
-  return Object.freeze({
-    available: true,
-    samples,
-    meanWh: roundEnergy(meanWh),
-    medianWh: roundEnergy(medianWh),
-    p75Wh: roundEnergy(p75Wh),
-    expectedWh: roundEnergy(expectedWh)
-  });
+  return Object.freeze({ available: true, samples, meanWh: roundEnergy(meanWh), medianWh: roundEnergy(medianWh), p75Wh: roundEnergy(p75Wh), expectedWh: roundEnergy(expectedWh) });
 }
 function estimateRemainingStrategyHouseholdEnergyWh(slots, from, until) {
-  if (until.getTime() <= from.getTime()) {
-    return 0;
-  }
+  if (until.getTime() <= from.getTime()) return 0;
   const dayClass = resolveStrategyHouseholdDayClass(from);
   const firstSlot = resolveStrategyHouseholdLoadSlotIndex(from);
   const lastSlot = resolveStrategyHouseholdLoadSlotIndex(until);
+  const fallbackWh = conservativeFallbackWh(slots, dayClass);
   let totalWh = 0;
   for (const slot of slots) {
-    if (slot.dayClass === dayClass && slot.slotIndex >= firstSlot && slot.slotIndex <= lastSlot) {
-      totalWh += estimateStrategyHouseholdLoad(slot).expectedWh;
-    }
+    if (slot.dayClass !== dayClass || slot.slotIndex < firstSlot || slot.slotIndex > lastSlot) continue;
+    const estimate = estimateStrategyHouseholdLoad(slot);
+    totalWh += estimate.available ? estimate.expectedWh : fallbackWh;
   }
   return roundEnergy(totalWh);
 }
