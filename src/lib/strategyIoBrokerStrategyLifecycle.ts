@@ -7,6 +7,12 @@ import {
 	ensureStrategyHouseholdLearningStates,
 } from "./strategyHouseholdLearningStates";
 import {
+	createStrategyIoBrokerPvForecastErrorCycle,
+} from "./strategyIoBrokerPvForecastErrorCycle";
+import {
+	ensureStrategyPvForecastErrorStates,
+} from "./strategyPvForecastErrorStates";
+import {
 	createStrategyIoBrokerDaylightWindowProvider,
 } from "./strategyIoBrokerDaylightWindow";
 import {
@@ -84,6 +90,11 @@ export function createStrategyIoBrokerStrategyLifecycle(
 		pvForecastEnergyStateId: contract.pvForecast.energyNowUntilEndOfDay.stateId,
 		forecastReserveWh: configuration.pvForecastReserveWh,
 	});
+	const forecastErrorCycle = createStrategyIoBrokerPvForecastErrorCycle(adapter, {
+		enabled: householdLearning.enabled,
+		pvPowerStateId: householdLearning.pvPowerStateId,
+		forecastTodayStateId: contract.pvForecast.energyToday.stateId,
+	});
 
 	let requested = false;
 	let startPromise: Promise<void> | undefined;
@@ -102,14 +113,18 @@ export function createStrategyIoBrokerStrategyLifecycle(
 			try {
 				const now = Date.now();
 				let until = now;
+				let daylight: Awaited<ReturnType<ReturnType<typeof createStrategyIoBrokerDaylightWindowProvider>["getDaylightWindow"]>> = null;
 				try {
-					const daylight = await createStrategyIoBrokerDaylightWindowProvider(adapter)
+					daylight = await createStrategyIoBrokerDaylightWindowProvider(adapter)
 						.getDaylightWindow(now);
 					if (daylight != null && daylight.endsAt > now) until = daylight.endsAt;
 				} catch {
 					// Learning may continue without a planning horizon; control remains unaffected.
 				}
 				await householdCycle.runOnce(now, until);
+				if (daylight != null) {
+					await forecastErrorCycle.runOnce(now, daylight.startsAt, daylight.endsAt);
+				}
 			} catch (error) {
 				onError(error);
 			} finally {
@@ -138,6 +153,7 @@ export function createStrategyIoBrokerStrategyLifecycle(
 				}
 				if (householdLearning.enabled) {
 					await ensureStrategyHouseholdLearningStates(adapter);
+					await ensureStrategyPvForecastErrorStates(adapter);
 					await ensureStrategyPlanningStates(adapter);
 				}
 				if (requested) {
