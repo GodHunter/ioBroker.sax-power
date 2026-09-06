@@ -1,0 +1,7 @@
+{
+  "version": 3,
+  "sources": ["../../src/lib/strategyChargingInputGrace.ts"],
+  "sourcesContent": ["export interface StrategyChargingInputGraceSnapshot {\n\treadonly recordedAt: number;\n\treadonly targetChargePowerW: number;\n}\n\nexport const STRATEGY_CHARGING_INPUT_GRACE_MS = 60_000;\n\nexport function selectStrategyChargingInputGraceTarget(\n\tsnapshot: StrategyChargingInputGraceSnapshot | null,\n\tnowMs: number,\n\tmaximumChargePowerW: number,\n): number | null {\n\tif (snapshot === null) return null;\n\tif (!Number.isFinite(nowMs) || !Number.isFinite(maximumChargePowerW) || maximumChargePowerW <= 0) return null;\n\tif (!Number.isFinite(snapshot.recordedAt) || !Number.isFinite(snapshot.targetChargePowerW)) return null;\n\tconst ageMs = nowMs - snapshot.recordedAt;\n\tif (ageMs < 0 || ageMs > STRATEGY_CHARGING_INPUT_GRACE_MS) return null;\n\treturn Math.max(0, Math.min(maximumChargePowerW, Math.round(snapshot.targetChargePowerW)));\n}\n"],
+  "mappings": ";;;;;;;;;;;;;;;;;;AAAA;AAAA;AAAA;AAAA;AAAA;AAAA;AAKO,MAAM,mCAAmC;AAEzC,SAAS,uCACf,UACA,OACA,qBACgB;AAChB,MAAI,aAAa,KAAM,QAAO;AAC9B,MAAI,CAAC,OAAO,SAAS,KAAK,KAAK,CAAC,OAAO,SAAS,mBAAmB,KAAK,uBAAuB,EAAG,QAAO;AACzG,MAAI,CAAC,OAAO,SAAS,SAAS,UAAU,KAAK,CAAC,OAAO,SAAS,SAAS,kBAAkB,EAAG,QAAO;AACnG,QAAM,QAAQ,QAAQ,SAAS;AAC/B,MAAI,QAAQ,KAAK,QAAQ,iCAAkC,QAAO;AAClE,SAAO,KAAK,IAAI,GAAG,KAAK,IAAI,qBAAqB,KAAK,MAAM,SAAS,kBAAkB,CAAC,CAAC;AAC1F;",
+  "names": []
+}
