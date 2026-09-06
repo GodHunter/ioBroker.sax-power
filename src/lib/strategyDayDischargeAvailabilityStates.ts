@@ -82,7 +82,7 @@ export function createStrategyDayDischargeAvailability(preparation: StrategyDayl
 	// but only inside this specific daylight case. Other base safety blocks remain untouched.
 	if (
 		availablePowerW <= 0
-		&& gate.reason === "insufficient-charge-time"
+		&& reason === "insufficient-charge-time"
 		&& chargingContext !== null
 		&& Number.isFinite(chargingContext.requestedDischargePowerW)
 		&& chargingContext.requestedDischargePowerW > 0
