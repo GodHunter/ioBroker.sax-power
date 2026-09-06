@@ -47,7 +47,9 @@ export async function executeStrategyIoBrokerStrategyCycle(adapter: StrategyIoBr
 			plannedSocUpperPercent: chargingControl.plannedSocUpperPercent,
 			forecastMarginWh: chargingControl.forecastMarginWh,
 			requiredAverageChargePowerW: chargingControl.requiredAverageChargePowerW,
+			targetChargePowerW: chargingControl.targetChargePowerW,
 			maximumChargePowerW: chargingControl.maximumChargePowerW,
+			requestedDischargePowerW,
 		},
 	);
 	if (automatic === null || (manualCharge !== null && automatic.createdAt !== manualCharge.createdAt)) return null;
