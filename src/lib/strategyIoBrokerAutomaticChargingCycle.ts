@@ -1,5 +1,6 @@
 import type { StrategyConfiguration } from "./strategyConfiguration";
 import { createStrategyChargingDecision, type StrategyChargingDecisionReason } from "./strategyChargingDecision";
+import { selectStrategyChargingInputGraceTarget, type StrategyChargingInputGraceSnapshot } from "./strategyChargingInputGrace";
 import { STRATEGY_CHARGING_STATE_IDS, publishStrategyCharging, strategyChargingPublicationFromDecision, type StrategyChargingIoBrokerAdapter, type StrategyChargingPublication, type StrategyChargingReason } from "./strategyChargingStates";
 import { publishStrategyDaylightDiagnostics, type StrategyDaylightDiagnosticAdapter } from "./strategyDaylightDiagnosticStates";
 import { STRATEGY_HOUSEHOLD_LEARNING_STATE_IDS } from "./strategyHouseholdLearningStates";
@@ -9,6 +10,7 @@ import { createStrategyIoBrokerRuntime, type StrategyIoBrokerRuntimeAdapter } fr
 import { resolveStrategyStates, type StrategyStateResolution, type StrategyStateResolverOptions } from "./strategyStateResolver";
 
 const MAXIMUM_HOUSEHOLD_LEARNING_AGE_MS = 120_000;
+const recentStableTargets = new Map<string, StrategyChargingInputGraceSnapshot>();
 
 export interface StrategyIoBrokerAutomaticChargingAdapter extends StrategyIoBrokerRuntimeAdapter, StrategyIoBrokerDaylightAdapter, StrategyChargingIoBrokerAdapter, StrategyDaylightDiagnosticAdapter {
 	getStateAsync(stateId: string): Promise<ioBroker.State | null | undefined>;
@@ -26,8 +28,8 @@ export interface StrategyIoBrokerAutomaticChargingCycle {
 	readonly register44Written: true;
 }
 
-function fallbackPublication(configuration: StrategyConfiguration, createdAt: number, reason: StrategyChargingReason, remainingDaylightMinutes: number | null = null): StrategyChargingPublication {
-	return Object.freeze({ active: true, targetChargePowerW: configuration.maximumChargePowerW, requiredAverageChargePowerW: null, energyRequiredWh: null, forecastEnergyRemainingWh: null, forecastMarginWh: null, remainingDaylightMinutes, targetDeadlineRemainingMinutes: null, plannedSocPercent: null, plannedSocLowerPercent: null, plannedSocUpperPercent: null, socDeviationPercent: null, decisionReason: reason, lastUpdate: createdAt, lastCommandAt: createdAt });
+function fallbackPublication(configuration: StrategyConfiguration, createdAt: number, reason: StrategyChargingReason, remainingDaylightMinutes: number | null = null, targetChargePowerW: number = configuration.maximumChargePowerW): StrategyChargingPublication {
+	return Object.freeze({ active: true, targetChargePowerW, requiredAverageChargePowerW: null, energyRequiredWh: null, forecastEnergyRemainingWh: null, forecastMarginWh: null, remainingDaylightMinutes, targetDeadlineRemainingMinutes: null, plannedSocPercent: null, plannedSocLowerPercent: null, plannedSocUpperPercent: null, socDeviationPercent: null, decisionReason: reason, lastUpdate: createdAt, lastCommandAt: createdAt });
 }
 
 async function readLearnedHouseholdEnergyRemainingWh(adapter: StrategyIoBrokerAutomaticChargingAdapter, createdAt: number): Promise<number> {
@@ -90,7 +92,26 @@ export async function executeStrategyIoBrokerAutomaticChargingCycle(adapter: Str
 	await publishStrategyDaylightDiagnostics(adapter, createdAt, daylightWindow ?? null);
 	const stateOfChargePercent = resolution.modbus.stateOfCharge.value;
 	if (stateOfChargePercent !== null && stateOfChargePercent < configuration.minimumStateOfChargePercent) return applyChargePowerTarget(adapter, configuration, contract, fallbackPublication(configuration, createdAt, "below-minimum-soc"), stateOfChargePercent);
-	if (!resolution.strategyInputsReady) return applyChargePowerTarget(adapter, configuration, contract, fallbackPublication(configuration, createdAt, "inputs-not-ready"), stateOfChargePercent);
+	if (!resolution.strategyInputsReady) {
+		const graceTarget = selectStrategyChargingInputGraceTarget(
+			recentStableTargets.get(contract.modbus.chargePowerCommand.stateId) ?? null,
+			createdAt,
+			configuration.maximumChargePowerW,
+		);
+		return applyChargePowerTarget(
+			adapter,
+			configuration,
+			contract,
+			fallbackPublication(
+				configuration,
+				createdAt,
+				"inputs-not-ready",
+				null,
+				graceTarget ?? configuration.maximumChargePowerW,
+			),
+			stateOfChargePercent,
+		);
+	}
 	if (daylightWindow == null) return applyChargePowerTarget(adapter, configuration, contract, fallbackPublication(configuration, createdAt, "daylight-unavailable"), stateOfChargePercent);
 	const remainingDaylightMinutes = Math.max(0, (daylightWindow.endsAt - createdAt) / 60_000);
 	if (createdAt < daylightWindow.startsAt || createdAt >= daylightWindow.endsAt) return applyChargePowerTarget(adapter, configuration, contract, fallbackPublication(configuration, createdAt, "outside-daylight", remainingDaylightMinutes), stateOfChargePercent);
@@ -108,5 +129,10 @@ export async function executeStrategyIoBrokerAutomaticChargingCycle(adapter: Str
 		previousDecisionReason,
 	});
 	if (!decision.valid) return applyChargePowerTarget(adapter, configuration, contract, fallbackPublication(configuration, createdAt, "invalid-input", remainingDaylightMinutes), stateOfChargePercent);
-	return applyChargePowerTarget(adapter, configuration, contract, strategyChargingPublicationFromDecision(decision, createdAt), stateOfChargePercent);
+	const publication = strategyChargingPublicationFromDecision(decision, createdAt);
+	recentStableTargets.set(contract.modbus.chargePowerCommand.stateId, Object.freeze({
+		recordedAt: createdAt,
+		targetChargePowerW: publication.targetChargePowerW,
+	}));
+	return applyChargePowerTarget(adapter, configuration, contract, publication, stateOfChargePercent);
 }
