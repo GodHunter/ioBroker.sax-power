@@ -18,7 +18,9 @@ export interface StrategyDayDischargeChargingContext {
 	readonly plannedSocUpperPercent: number | null;
 	readonly forecastMarginWh: number | null;
 	readonly requiredAverageChargePowerW: number | null;
+	readonly targetChargePowerW: number;
 	readonly maximumChargePowerW: number;
+	readonly requestedDischargePowerW: number;
 }
 
 export interface StrategyDayDischargeAvailability {
@@ -42,9 +44,14 @@ const DISCHARGE_OBSERVATION_FACTOR = 0.4;
 const DISCHARGE_STOP_FACTOR = 0.5;
 
 function chargingComfortFactor(context: StrategyDayDischargeChargingContext): number {
-	const required = context.requiredAverageChargePowerW;
+	const requiredAverage = context.requiredAverageChargePowerW;
+	const target = context.targetChargePowerW;
 	const maximum = context.maximumChargePowerW;
-	if (required === null || !Number.isFinite(required) || !Number.isFinite(maximum) || maximum <= 0) return 0;
+	if (!Number.isFinite(target) || !Number.isFinite(maximum) || maximum <= 0) return 0;
+	const required = Math.max(
+		Number.isFinite(requiredAverage) && requiredAverage !== null ? requiredAverage : 0,
+		Math.max(0, target),
+	);
 	const observeAt = maximum * DISCHARGE_OBSERVATION_FACTOR;
 	const stopAt = maximum * DISCHARGE_STOP_FACTOR;
 	if (required <= observeAt) return 1;
@@ -69,6 +76,20 @@ export function createStrategyDayDischargeAvailability(preparation: StrategyDayl
 	const gate = preparation.cyclePreparation.cyclePlan.evaluation.windowGate;
 	let availablePowerW = gate.targetDischargePowerW;
 	let reason: string = gate.reason === "daylight-window-active" ? gate.decision.permission.reason : gate.reason;
+
+	// The legacy base gate used "insufficient-charge-time" as a binary stop.
+	// The charging-aware budget can make this decision continuously instead,
+	// but only inside this specific daylight case. Other base safety blocks remain untouched.
+	if (
+		availablePowerW <= 0
+		&& gate.reason === "insufficient-charge-time"
+		&& chargingContext !== null
+		&& Number.isFinite(chargingContext.requestedDischargePowerW)
+		&& chargingContext.requestedDischargePowerW > 0
+	) {
+		availablePowerW = Math.round(chargingContext.requestedDischargePowerW);
+		reason = "charging-budget-reconsidered";
+	}
 
 	if (availablePowerW > 0 && chargingContext !== null) {
 		const hardBlock = chargingContext.reason === "forecast-insufficient"
