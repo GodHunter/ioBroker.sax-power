@@ -10,7 +10,7 @@ import { createStrategyIoBrokerRuntime, type StrategyIoBrokerRuntimeAdapter } fr
 import { resolveStrategyStates, type StrategyStateResolution, type StrategyStateResolverOptions } from "./strategyStateResolver";
 
 const MAXIMUM_HOUSEHOLD_LEARNING_AGE_MS = 120_000;
-const recentStableTargets = new Map<string, StrategyChargingInputGraceSnapshot>();
+const recentStableTargetsByAdapter = new WeakMap<object, Map<string, StrategyChargingInputGraceSnapshot>>();
 
 export interface StrategyIoBrokerAutomaticChargingAdapter extends StrategyIoBrokerRuntimeAdapter, StrategyIoBrokerDaylightAdapter, StrategyChargingIoBrokerAdapter, StrategyDaylightDiagnosticAdapter {
 	getStateAsync(stateId: string): Promise<ioBroker.State | null | undefined>;
@@ -26,6 +26,15 @@ export interface StrategyIoBrokerAutomaticChargingCycle {
 	readonly requiredAverageChargePowerW: number | null;
 	readonly maximumChargePowerW: number;
 	readonly register44Written: true;
+}
+
+function recentStableTargets(adapter: StrategyIoBrokerAutomaticChargingAdapter): Map<string, StrategyChargingInputGraceSnapshot> {
+	let targets = recentStableTargetsByAdapter.get(adapter);
+	if (targets === undefined) {
+		targets = new Map<string, StrategyChargingInputGraceSnapshot>();
+		recentStableTargetsByAdapter.set(adapter, targets);
+	}
+	return targets;
 }
 
 function fallbackPublication(configuration: StrategyConfiguration, createdAt: number, reason: StrategyChargingReason, remainingDaylightMinutes: number | null = null, targetChargePowerW: number = configuration.maximumChargePowerW): StrategyChargingPublication {
@@ -94,7 +103,7 @@ export async function executeStrategyIoBrokerAutomaticChargingCycle(adapter: Str
 	if (stateOfChargePercent !== null && stateOfChargePercent < configuration.minimumStateOfChargePercent) return applyChargePowerTarget(adapter, configuration, contract, fallbackPublication(configuration, createdAt, "below-minimum-soc"), stateOfChargePercent);
 	if (!resolution.strategyInputsReady) {
 		const graceTarget = selectStrategyChargingInputGraceTarget(
-			recentStableTargets.get(contract.modbus.chargePowerCommand.stateId) ?? null,
+			recentStableTargets(adapter).get(contract.modbus.chargePowerCommand.stateId) ?? null,
 			createdAt,
 			configuration.maximumChargePowerW,
 		);
@@ -130,7 +139,7 @@ export async function executeStrategyIoBrokerAutomaticChargingCycle(adapter: Str
 	});
 	if (!decision.valid) return applyChargePowerTarget(adapter, configuration, contract, fallbackPublication(configuration, createdAt, "invalid-input", remainingDaylightMinutes), stateOfChargePercent);
 	const publication = strategyChargingPublicationFromDecision(decision, createdAt);
-	recentStableTargets.set(contract.modbus.chargePowerCommand.stateId, Object.freeze({
+	recentStableTargets(adapter).set(contract.modbus.chargePowerCommand.stateId, Object.freeze({
 		recordedAt: createdAt,
 		targetChargePowerW: publication.targetChargePowerW,
 	}));
