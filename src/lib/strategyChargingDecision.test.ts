@@ -76,17 +76,17 @@ describe("strategy charging decision", () => {
 		expect(decision.reason).to.equal("forecast-balanced");
 	});
 
-	it("raises the SOC corridor backwards from the completion deadline", () => {
+	it("respects minimum SOC while working backwards from the completion deadline", () => {
 		const decision = createStrategyChargingDecision(configuration, {
 			stateOfChargePercent: 60,
 			forecastEnergyRemainingWh: 20_000,
 			remainingDaylightMs: 2.5 * HOUR,
 		});
-		// 1.5 h to deadline at 4600 / 1.25 = 3680 W can replace 5520 Wh,
-		// equivalent to 78.857... % of the usable 7 kWh capacity.
-		expect(decision.plannedSocPercent).to.be.closeTo(21.142857, 0.000001);
-		// The configured minimum SOC remains the hard floor.
+		// 1.5 h to deadline at 4600 / 1.25 = 3680 W can still replace
+		// more energy than is needed above the configured 30 % minimum SOC.
 		expect(decision.plannedSocPercent).to.equal(30);
+		expect(decision.plannedSocLowerPercent).to.equal(30);
+		expect(decision.plannedSocUpperPercent).to.equal(33);
 	});
 
 	it("raises the corridor once safe replacement capacity becomes scarce", () => {
