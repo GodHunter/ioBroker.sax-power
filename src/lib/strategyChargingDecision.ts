@@ -72,10 +72,11 @@ function trajectory(
 	const targetSoc = configuration.maximumStateOfChargePercent;
 
 	// Work backwards from the completion deadline instead of distributing SOC
-	// over daylight progress. The sustainable planning power reserves the same
-	// headroom used by the charging decision. A higher SOC is therefore only
-	// required once the remaining time can no longer safely replace the energy.
-	const sustainablePlanningPowerW = configuration.maximumChargePowerW / CHARGE_POWER_HEADROOM_FACTOR;
+	// over daylight progress. Keep both normal charging headroom and an extra
+	// recovery reserve so trajectory recovery starts before the hard technical
+	// deadline limit is reached.
+	const sustainablePlanningPowerW = configuration.maximumChargePowerW
+		/ (CHARGE_POWER_HEADROOM_FACTOR * TRAJECTORY_RECOVERY_HEADROOM_FACTOR);
 	const replaceableEnergyWh = sustainablePlanningPowerW * deadlineRemainingMs / 3_600_000;
 	const replaceableSocPercent = usableCapacityWh > 0
 		? replaceableEnergyWh / usableCapacityWh * 100
