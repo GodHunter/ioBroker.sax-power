@@ -61,22 +61,7 @@ describe("strategy charging decision", () => {
 		expect(decision.forecastMarginWh).to.equal(0);
 	});
 
-	it("builds a dynamic SOC corridor from daylight progress", () => {
-		const decision = createStrategyChargingDecision(configuration, {
-			stateOfChargePercent: 70,
-			forecastEnergyRemainingWh: 10_000,
-			remainingDaylightMs: 5 * HOUR,
-			elapsedDaylightMs: 5 * HOUR,
-			totalDaylightMs: 10 * HOUR,
-		});
-		expect(decision.plannedSocPercent).to.be.greaterThan(65);
-		expect(decision.plannedSocPercent).to.be.lessThan(70);
-		expect(decision.plannedSocLowerPercent).to.equal(decision.plannedSocPercent - 3);
-		expect(decision.plannedSocUpperPercent).to.equal(decision.plannedSocPercent + 3);
-		expect(decision.socDeviationPercent).to.equal(70 - decision.plannedSocPercent);
-	});
-
-	it("increases charging when SOC falls below the dynamic trajectory corridor", () => {
+	it("keeps the SOC corridor at minimum while the target remains comfortably reachable", () => {
 		const decision = createStrategyChargingDecision(configuration, {
 			stateOfChargePercent: 45,
 			forecastEnergyRemainingWh: 20_000,
@@ -84,29 +69,64 @@ describe("strategy charging decision", () => {
 			elapsedDaylightMs: 5 * HOUR,
 			totalDaylightMs: 10 * HOUR,
 		});
+		expect(decision.plannedSocPercent).to.equal(30);
+		expect(decision.plannedSocLowerPercent).to.equal(30);
+		expect(decision.plannedSocUpperPercent).to.equal(33);
+		expect(decision.socDeviationPercent).to.equal(15);
+		expect(decision.reason).to.equal("forecast-balanced");
+	});
+
+	it("raises the SOC corridor backwards from the completion deadline", () => {
+		const decision = createStrategyChargingDecision(configuration, {
+			stateOfChargePercent: 60,
+			forecastEnergyRemainingWh: 20_000,
+			remainingDaylightMs: 2.5 * HOUR,
+		});
+		// 1.5 h to deadline at 4600 / 1.25 = 3680 W can replace 5520 Wh,
+		// equivalent to 78.857... % of the usable 7 kWh capacity.
+		expect(decision.plannedSocPercent).to.be.closeTo(21.142857, 0.000001);
+		// The configured minimum SOC remains the hard floor.
+		expect(decision.plannedSocPercent).to.equal(30);
+	});
+
+	it("raises the corridor once safe replacement capacity becomes scarce", () => {
+		const decision = createStrategyChargingDecision(configuration, {
+			stateOfChargePercent: 60,
+			forecastEnergyRemainingWh: 20_000,
+			remainingDaylightMs: 2 * HOUR,
+		});
+		// One hour remains to the target deadline. Sustainable planning power
+		// can replace 3680 Wh = 52.57 % SOC, so the planned floor is ~47.43 %.
+		expect(decision.plannedSocPercent).to.be.closeTo(47.428571, 0.000001);
+		expect(decision.plannedSocLowerPercent).to.be.closeTo(44.428571, 0.000001);
+		expect(decision.plannedSocUpperPercent).to.be.closeTo(50.428571, 0.000001);
+	});
+
+	it("increases charging when SOC falls below the deadline-based trajectory corridor", () => {
+		const decision = createStrategyChargingDecision(configuration, {
+			stateOfChargePercent: 40,
+			forecastEnergyRemainingWh: 20_000,
+			remainingDaylightMs: 2 * HOUR,
+		});
 		expect(decision.reason).to.equal("trajectory-recovery");
 		expect(decision.chargePowerLimitW).to.be.greaterThan(decision.requiredAverageChargePowerW);
 		expect(decision.chargePowerLimitW).to.be.at.most(configuration.maximumChargePowerW);
 	});
 
-	it("does not trigger trajectory recovery while inside the corridor", () => {
+	it("does not trigger trajectory recovery while inside the deadline-based corridor", () => {
 		const decision = createStrategyChargingDecision(configuration, {
-			stateOfChargePercent: 68,
+			stateOfChargePercent: 48,
 			forecastEnergyRemainingWh: 20_000,
-			remainingDaylightMs: 5 * HOUR,
-			elapsedDaylightMs: 5 * HOUR,
-			totalDaylightMs: 10 * HOUR,
+			remainingDaylightMs: 2 * HOUR,
 		});
 		expect(decision.reason).to.equal("forecast-balanced");
 	});
 
 	it("keeps trajectory recovery active inside the corridor until the upper boundary is reached", () => {
 		const decision = createStrategyChargingDecision(configuration, {
-			stateOfChargePercent: 68,
+			stateOfChargePercent: 48,
 			forecastEnergyRemainingWh: 20_000,
-			remainingDaylightMs: 5 * HOUR,
-			elapsedDaylightMs: 5 * HOUR,
-			totalDaylightMs: 10 * HOUR,
+			remainingDaylightMs: 2 * HOUR,
 			previousDecisionReason: "trajectory-recovery",
 		});
 		expect(decision.reason).to.equal("trajectory-recovery");
@@ -115,18 +135,14 @@ describe("strategy charging decision", () => {
 
 	it("leaves trajectory recovery after the upper corridor boundary is reached", () => {
 		const reference = createStrategyChargingDecision(configuration, {
-			stateOfChargePercent: 68,
+			stateOfChargePercent: 48,
 			forecastEnergyRemainingWh: 20_000,
-			remainingDaylightMs: 5 * HOUR,
-			elapsedDaylightMs: 5 * HOUR,
-			totalDaylightMs: 10 * HOUR,
+			remainingDaylightMs: 2 * HOUR,
 		});
 		const decision = createStrategyChargingDecision(configuration, {
 			stateOfChargePercent: reference.plannedSocUpperPercent,
 			forecastEnergyRemainingWh: 20_000,
-			remainingDaylightMs: 5 * HOUR,
-			elapsedDaylightMs: 5 * HOUR,
-			totalDaylightMs: 10 * HOUR,
+			remainingDaylightMs: 2 * HOUR,
 			previousDecisionReason: "trajectory-recovery",
 		});
 		expect(decision.reason).to.equal("forecast-balanced");
