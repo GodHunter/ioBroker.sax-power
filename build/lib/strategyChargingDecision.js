@@ -31,15 +31,16 @@ const MINIMUM_DAYLIGHT_MS = 6e4;
 function roundPower(value) {
   return Math.max(0, Math.round(value));
 }
-function trajectory(configuration, input) {
-  var _a, _b;
+function targetDeadlineRemainingMs(remainingDaylightMs) {
+  return Math.max(MINIMUM_DAYLIGHT_MS, remainingDaylightMs - TARGET_COMPLETION_BUFFER_MS);
+}
+function trajectory(configuration, input, usableCapacityWh, deadlineRemainingMs) {
   const minimumSoc = configuration.minimumStateOfChargePercent;
   const targetSoc = configuration.maximumStateOfChargePercent;
-  const totalDaylightMs = (_a = input.totalDaylightMs) != null ? _a : 0;
-  const elapsedDaylightMs = (_b = input.elapsedDaylightMs) != null ? _b : 0;
-  const progress = totalDaylightMs > 0 ? Math.max(0, Math.min(1, elapsedDaylightMs / totalDaylightMs)) : 0;
-  const shapedProgress = Math.pow(progress, 0.85);
-  const plannedSocPercent = minimumSoc + (targetSoc - minimumSoc) * shapedProgress;
+  const sustainablePlanningPowerW = configuration.maximumChargePowerW / (CHARGE_POWER_HEADROOM_FACTOR * TRAJECTORY_RECOVERY_HEADROOM_FACTOR);
+  const replaceableEnergyWh = sustainablePlanningPowerW * deadlineRemainingMs / 36e5;
+  const replaceableSocPercent = usableCapacityWh > 0 ? replaceableEnergyWh / usableCapacityWh * 100 : 0;
+  const plannedSocPercent = Math.max(minimumSoc, Math.min(targetSoc, targetSoc - replaceableSocPercent));
   const plannedSocLowerPercent = Math.max(minimumSoc, plannedSocPercent - TRAJECTORY_CORRIDOR_PERCENT);
   const plannedSocUpperPercent = Math.min(targetSoc, plannedSocPercent + TRAJECTORY_CORRIDOR_PERCENT);
   return Object.freeze({
@@ -83,8 +84,9 @@ function createStrategyChargingDecision(configuration, input) {
   if (model === null || !Number.isFinite(input.stateOfChargePercent) || input.stateOfChargePercent < 0 || input.stateOfChargePercent > 100 || !Number.isFinite(input.forecastEnergyRemainingWh) || input.forecastEnergyRemainingWh < 0 || !Number.isFinite(input.remainingDaylightMs) || input.remainingDaylightMs < 0 || !Number.isFinite(householdEnergyRemainingWh) || householdEnergyRemainingWh < 0 || !Number.isFinite(elapsedDaylightMs) || elapsedDaylightMs < 0 || !Number.isFinite(totalDaylightMs) || totalDaylightMs < 0) {
     return invalidDecision(configuration, input);
   }
-  const trajectoryState = trajectory(configuration, input);
   const usableCapacityWh = model.usableCapacityKwh * 1e3;
+  const deadlineRemainingMs = targetDeadlineRemainingMs(input.remainingDaylightMs);
+  const trajectoryState = trajectory(configuration, input, usableCapacityWh, deadlineRemainingMs);
   const targetSocPercent = configuration.maximumStateOfChargePercent;
   const socGapPercent = Math.max(0, targetSocPercent - input.stateOfChargePercent);
   const energyRequiredWh = usableCapacityWh * socGapPercent / 100;
@@ -94,11 +96,7 @@ function createStrategyChargingDecision(configuration, input) {
   );
   const forecastMarginWh = usableForecastEnergyWh - energyRequiredWh;
   const effectiveDaylightMs = Math.max(MINIMUM_DAYLIGHT_MS, input.remainingDaylightMs);
-  const targetDeadlineRemainingMs = Math.max(
-    MINIMUM_DAYLIGHT_MS,
-    input.remainingDaylightMs - TARGET_COMPLETION_BUFFER_MS
-  );
-  const remainingHoursToDeadline = targetDeadlineRemainingMs / 36e5;
+  const remainingHoursToDeadline = deadlineRemainingMs / 36e5;
   const requiredAverageChargePowerW = energyRequiredWh / remainingHoursToDeadline;
   if (energyRequiredWh <= 0) {
     return Object.freeze({
@@ -115,7 +113,7 @@ function createStrategyChargingDecision(configuration, input) {
       usableForecastEnergyWh,
       forecastMarginWh,
       remainingDaylightMs: input.remainingDaylightMs,
-      targetDeadlineRemainingMs,
+      targetDeadlineRemainingMs: deadlineRemainingMs,
       requiredAverageChargePowerW: 0,
       chargePowerLimitW: 0,
       maximumChargePowerW: configuration.maximumChargePowerW
@@ -165,7 +163,7 @@ function createStrategyChargingDecision(configuration, input) {
     usableForecastEnergyWh,
     forecastMarginWh,
     remainingDaylightMs: input.remainingDaylightMs,
-    targetDeadlineRemainingMs,
+    targetDeadlineRemainingMs: deadlineRemainingMs,
     requiredAverageChargePowerW: roundPower(requiredAverageChargePowerW),
     chargePowerLimitW,
     maximumChargePowerW: configuration.maximumChargePowerW
