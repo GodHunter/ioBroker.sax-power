@@ -53,9 +53,15 @@ function roundPower(value: number): number {
 	return Math.max(0, Math.round(value));
 }
 
+function targetDeadlineRemainingMs(remainingDaylightMs: number): number {
+	return Math.max(MINIMUM_DAYLIGHT_MS, remainingDaylightMs - TARGET_COMPLETION_BUFFER_MS);
+}
+
 function trajectory(
 	configuration: StrategyConfiguration,
 	input: StrategyChargingDecisionInput,
+	usableCapacityWh: number,
+	deadlineRemainingMs: number,
 ): Readonly<{
 	plannedSocPercent: number;
 	plannedSocLowerPercent: number;
@@ -64,13 +70,17 @@ function trajectory(
 }> {
 	const minimumSoc = configuration.minimumStateOfChargePercent;
 	const targetSoc = configuration.maximumStateOfChargePercent;
-	const totalDaylightMs = input.totalDaylightMs ?? 0;
-	const elapsedDaylightMs = input.elapsedDaylightMs ?? 0;
-	const progress = totalDaylightMs > 0
-		? Math.max(0, Math.min(1, elapsedDaylightMs / totalDaylightMs))
+
+	// Work backwards from the completion deadline instead of distributing SOC
+	// over daylight progress. The sustainable planning power reserves the same
+	// headroom used by the charging decision. A higher SOC is therefore only
+	// required once the remaining time can no longer safely replace the energy.
+	const sustainablePlanningPowerW = configuration.maximumChargePowerW / CHARGE_POWER_HEADROOM_FACTOR;
+	const replaceableEnergyWh = sustainablePlanningPowerW * deadlineRemainingMs / 3_600_000;
+	const replaceableSocPercent = usableCapacityWh > 0
+		? replaceableEnergyWh / usableCapacityWh * 100
 		: 0;
-	const shapedProgress = Math.pow(progress, 0.85);
-	const plannedSocPercent = minimumSoc + (targetSoc - minimumSoc) * shapedProgress;
+	const plannedSocPercent = Math.max(minimumSoc, Math.min(targetSoc, targetSoc - replaceableSocPercent));
 	const plannedSocLowerPercent = Math.max(minimumSoc, plannedSocPercent - TRAJECTORY_CORRIDOR_PERCENT);
 	const plannedSocUpperPercent = Math.min(targetSoc, plannedSocPercent + TRAJECTORY_CORRIDOR_PERCENT);
 
@@ -138,8 +148,9 @@ export function createStrategyChargingDecision(
 		return invalidDecision(configuration, input);
 	}
 
-	const trajectoryState = trajectory(configuration, input);
 	const usableCapacityWh = model.usableCapacityKwh * 1_000;
+	const deadlineRemainingMs = targetDeadlineRemainingMs(input.remainingDaylightMs);
+	const trajectoryState = trajectory(configuration, input, usableCapacityWh, deadlineRemainingMs);
 	const targetSocPercent = configuration.maximumStateOfChargePercent;
 	const socGapPercent = Math.max(0, targetSocPercent - input.stateOfChargePercent);
 	const energyRequiredWh = usableCapacityWh * socGapPercent / 100;
@@ -151,11 +162,7 @@ export function createStrategyChargingDecision(
 	);
 	const forecastMarginWh = usableForecastEnergyWh - energyRequiredWh;
 	const effectiveDaylightMs = Math.max(MINIMUM_DAYLIGHT_MS, input.remainingDaylightMs);
-	const targetDeadlineRemainingMs = Math.max(
-		MINIMUM_DAYLIGHT_MS,
-		input.remainingDaylightMs - TARGET_COMPLETION_BUFFER_MS,
-	);
-	const remainingHoursToDeadline = targetDeadlineRemainingMs / 3_600_000;
+	const remainingHoursToDeadline = deadlineRemainingMs / 3_600_000;
 	const requiredAverageChargePowerW = energyRequiredWh / remainingHoursToDeadline;
 
 	if (energyRequiredWh <= 0) {
@@ -173,7 +180,7 @@ export function createStrategyChargingDecision(
 			usableForecastEnergyWh,
 			forecastMarginWh,
 			remainingDaylightMs: input.remainingDaylightMs,
-			targetDeadlineRemainingMs,
+			targetDeadlineRemainingMs: deadlineRemainingMs,
 			requiredAverageChargePowerW: 0,
 			chargePowerLimitW: 0,
 			maximumChargePowerW: configuration.maximumChargePowerW,
@@ -238,7 +245,7 @@ export function createStrategyChargingDecision(
 		usableForecastEnergyWh,
 		forecastMarginWh,
 		remainingDaylightMs: input.remainingDaylightMs,
-		targetDeadlineRemainingMs,
+		targetDeadlineRemainingMs: deadlineRemainingMs,
 		requiredAverageChargePowerW: roundPower(requiredAverageChargePowerW),
 		chargePowerLimitW,
 		maximumChargePowerW: configuration.maximumChargePowerW,
