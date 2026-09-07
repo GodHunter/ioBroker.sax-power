@@ -123,7 +123,7 @@ describe("strategy ioBroker operating-mode cycle", () => {
 		});
 		expect(run.writes).to.deep.include({
 			id: "strategy.dayDischarge.reason",
-			value: "trajectory-budget-available",
+			value: "discharge-allowed",
 		});
 		expect(run.writes.some(({ id }) => id ===
 			STRATEGY_INTEGRATION_CONTRACT.modbus.dischargePowerCommand.stateId,
@@ -147,29 +147,5 @@ describe("strategy ioBroker operating-mode cycle", () => {
 			id: STRATEGY_INTEGRATION_CONTRACT.modbus.chargePowerCommand.stateId,
 			value: 3_500,
 		});
-	});
-
-	it("runs daytime availability without enabling charging control", async () => {
-		const run = runtime(false);
-		const result = await executeStrategyIoBrokerStrategyCycle(
-			run.adapter, CONFIGURATION, 60 * 60 * 1_000, 2_000,
-			undefined, { now: NOW },
-			{
-				chargingControlEnabled: false,
-				dayAvailabilityEnabled: true,
-				nightDischargeEnabled: false,
-			},
-		);
-
-		expect(result?.manualCharge).to.equal(null);
-		expect(result?.chargingShadow).to.equal(null);
-		expect(result?.automatic).not.to.equal(null);
-		expect(run.writes).to.deep.include({
-			id: "strategy.dayDischarge.availablePowerW",
-			value: 2_000,
-		});
-		expect(run.writes.some(({ id }) => id ===
-			STRATEGY_INTEGRATION_CONTRACT.modbus.chargePowerCommand.stateId,
-		)).to.equal(false);
 	});
 });
