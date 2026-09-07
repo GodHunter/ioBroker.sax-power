@@ -80,10 +80,8 @@ describe("strategy charging decision", () => {
 		const decision = createStrategyChargingDecision(configuration, {
 			stateOfChargePercent: 60,
 			forecastEnergyRemainingWh: 20_000,
-			remainingDaylightMs: 2.5 * HOUR,
+			remainingDaylightMs: 3 * HOUR,
 		});
-		// 1.5 h to deadline at 4600 / 1.25 = 3680 W can still replace
-		// more energy than is needed above the configured 30 % minimum SOC.
 		expect(decision.plannedSocPercent).to.equal(30);
 		expect(decision.plannedSocLowerPercent).to.equal(30);
 		expect(decision.plannedSocUpperPercent).to.equal(33);
@@ -95,16 +93,16 @@ describe("strategy charging decision", () => {
 			forecastEnergyRemainingWh: 20_000,
 			remainingDaylightMs: 2 * HOUR,
 		});
-		// One hour remains to the target deadline. Sustainable planning power
-		// can replace 3680 Wh = 52.57 % SOC, so the planned floor is ~47.43 %.
-		expect(decision.plannedSocPercent).to.be.closeTo(47.428571, 0.000001);
-		expect(decision.plannedSocLowerPercent).to.be.closeTo(44.428571, 0.000001);
-		expect(decision.plannedSocUpperPercent).to.be.closeTo(50.428571, 0.000001);
+		// One hour remains to the target deadline. The trajectory reserves both
+		// normal charging headroom and recovery headroom: 4600 / 1.25 / 1.15 = 3200 W.
+		expect(decision.plannedSocPercent).to.be.closeTo(54.285714, 0.000001);
+		expect(decision.plannedSocLowerPercent).to.be.closeTo(51.285714, 0.000001);
+		expect(decision.plannedSocUpperPercent).to.be.closeTo(57.285714, 0.000001);
 	});
 
 	it("increases charging when SOC falls below the deadline-based trajectory corridor", () => {
 		const decision = createStrategyChargingDecision(configuration, {
-			stateOfChargePercent: 40,
+			stateOfChargePercent: 50,
 			forecastEnergyRemainingWh: 20_000,
 			remainingDaylightMs: 2 * HOUR,
 		});
@@ -115,7 +113,7 @@ describe("strategy charging decision", () => {
 
 	it("does not trigger trajectory recovery while inside the deadline-based corridor", () => {
 		const decision = createStrategyChargingDecision(configuration, {
-			stateOfChargePercent: 48,
+			stateOfChargePercent: 55,
 			forecastEnergyRemainingWh: 20_000,
 			remainingDaylightMs: 2 * HOUR,
 		});
@@ -124,7 +122,7 @@ describe("strategy charging decision", () => {
 
 	it("keeps trajectory recovery active inside the corridor until the upper boundary is reached", () => {
 		const decision = createStrategyChargingDecision(configuration, {
-			stateOfChargePercent: 48,
+			stateOfChargePercent: 55,
 			forecastEnergyRemainingWh: 20_000,
 			remainingDaylightMs: 2 * HOUR,
 			previousDecisionReason: "trajectory-recovery",
@@ -135,7 +133,7 @@ describe("strategy charging decision", () => {
 
 	it("leaves trajectory recovery after the upper corridor boundary is reached", () => {
 		const reference = createStrategyChargingDecision(configuration, {
-			stateOfChargePercent: 48,
+			stateOfChargePercent: 55,
 			forecastEnergyRemainingWh: 20_000,
 			remainingDaylightMs: 2 * HOUR,
 		});
