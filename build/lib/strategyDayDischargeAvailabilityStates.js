@@ -68,14 +68,14 @@ function createStrategyDayDischargeAvailability(preparation, chargingContext = n
     reason = "charging-budget-reconsidered";
   }
   if (availablePowerW > 0 && chargingContext !== null) {
-    const hardBlock = chargingContext.reason === "forecast-insufficient" || chargingContext.reason === "target-deadline-recovery" || chargingContext.reason === "below-minimum-soc" || chargingContext.reason === "inputs-not-ready" || chargingContext.reason === "invalid-input" || chargingContext.reason === "daylight-unavailable" || chargingContext.reason === "outside-daylight";
+    const hardBlock = chargingContext.reason === "forecast-insufficient" || chargingContext.reason === "target-deadline-recovery" || chargingContext.reason === "target-soc-reached" || chargingContext.reason === "target-soc-maintenance" || chargingContext.reason === "below-minimum-soc" || chargingContext.reason === "inputs-not-ready" || chargingContext.reason === "invalid-input" || chargingContext.reason === "daylight-unavailable" || chargingContext.reason === "outside-daylight";
     if (hardBlock) {
       availablePowerW = 0;
       reason = `charging-${chargingContext.reason}`;
     } else if (chargingContext.forecastMarginWh !== null && chargingContext.forecastMarginWh <= 0) {
       availablePowerW = 0;
       reason = "no-forecast-margin";
-    } else if (chargingContext.reason !== "target-soc-reached") {
+    } else {
       const comfortFactor = chargingComfortFactor(chargingContext);
       availablePowerW = Math.round(availablePowerW * comfortFactor);
       if (availablePowerW <= 0) {
