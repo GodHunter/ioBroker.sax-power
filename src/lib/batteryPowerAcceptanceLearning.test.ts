@@ -43,6 +43,17 @@ describe("battery power acceptance learning", () => {
 		expect(result.stressIndex).to.equal(null);
 	});
 
+	it("does not learn an R44-limited sample even while exporting", () => {
+		const result = observeBatteryPowerAcceptance(
+			createBatteryPowerAcceptanceProgress("2026-09-08T12:00:00.000Z"),
+			sample(1, 95, -700, 700, 800),
+			7,
+		);
+		expect(result.progress.bins["94-96"].observedSamples).to.equal(1);
+		expect(result.progress.bins["94-96"].samples).to.deep.equal([]);
+		expect(result.stressIndex).to.equal(null);
+	});
+
 	it("publishes stress only after a learned SOC-specific baseline", () => {
 		let progress = createBatteryPowerAcceptanceProgress("2026-09-08T12:00:00.000Z");
 		for (let minute = 1; minute <= 5; minute += 1) {
@@ -54,6 +65,18 @@ describe("battery power acceptance learning", () => {
 		expect(result.acceptanceDeviationPercent).to.equal(-30);
 		expect(result.stressIndex).to.equal(30);
 		expect(result.stressStatus).to.equal("elevated");
+	});
+
+	it("does not report stress when the current sample is controller-limited", () => {
+		let progress = createBatteryPowerAcceptanceProgress("2026-09-08T12:00:00.000Z");
+		for (let minute = 1; minute <= 5; minute += 1) {
+			progress = observeBatteryPowerAcceptance(progress, sample(minute, 95, -2000), 7).progress;
+		}
+		const result = observeBatteryPowerAcceptance(progress, sample(6, 95, -700, 700, 800), 7);
+		expect(result.confidence).to.equal("established");
+		expect(result.acceptanceDeviationPercent).to.equal(-65);
+		expect(result.stressIndex).to.equal(null);
+		expect(result.stressStatus).to.equal("learning");
 	});
 
 	it("integrates charging and discharging throughput independently", () => {
