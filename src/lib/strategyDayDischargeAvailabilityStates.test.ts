@@ -75,9 +75,17 @@ describe("strategy day discharge availability states", () => {
 		expect(result.reason).to.equal("no-forecast-margin");
 	});
 
-	it("allows the configured day budget at the target SOC", () => {
+	it("blocks day discharge once target SOC has been reached", () => {
 		const result = createStrategyDayDischargeAvailability(preparation(), chargingContext({ reason: "target-soc-reached", currentSocPercent: 100, plannedSocUpperPercent: 100, requiredAverageChargePowerW: 0, targetChargePowerW: 0 }));
-		expect(result.allowed).to.equal(true);
-		expect(result.availablePowerW).to.equal(1_300);
+		expect(result.allowed).to.equal(false);
+		expect(result.availablePowerW).to.equal(0);
+		expect(result.reason).to.equal("charging-target-soc-reached");
+	});
+
+	it("blocks day discharge while target SOC is being maintained", () => {
+		const result = createStrategyDayDischargeAvailability(preparation(), chargingContext({ reason: "target-soc-maintenance", currentSocPercent: 99, plannedSocUpperPercent: 100, requiredAverageChargePowerW: 280, targetChargePowerW: 700 }));
+		expect(result.allowed).to.equal(false);
+		expect(result.availablePowerW).to.equal(0);
+		expect(result.reason).to.equal("charging-target-soc-maintenance");
 	});
 });
