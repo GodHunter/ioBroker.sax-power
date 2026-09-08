@@ -48,6 +48,7 @@ const TRAJECTORY_CORRIDOR_PERCENT = 3;
 const TRAJECTORY_RECOVERY_WINDOW_MS = 2 * 60 * 60 * 1000;
 const TARGET_COMPLETION_BUFFER_MS = 60 * 60 * 1000;
 const MINIMUM_DAYLIGHT_MS = 60_000;
+const COMFORT_TRAJECTORY_EXPONENT = 2;
 
 function roundPower(value: number): number {
 	return Math.max(0, Math.round(value));
@@ -71,17 +72,37 @@ function trajectory(
 	const minimumSoc = configuration.minimumStateOfChargePercent;
 	const targetSoc = configuration.maximumStateOfChargePercent;
 
-	// Work backwards from the completion deadline instead of distributing SOC
-	// over daylight progress. Keep both normal charging headroom and an extra
-	// recovery reserve so trajectory recovery starts before the hard technical
-	// deadline limit is reached.
+	// Hard reachability floor: work backwards from the completion deadline and
+	// reserve both normal charging headroom and an extra recovery reserve.
+	// Falling below this path means the target is becoming technically difficult
+	// to reach without stronger charging.
 	const sustainablePlanningPowerW = configuration.maximumChargePowerW
 		/ (CHARGE_POWER_HEADROOM_FACTOR * TRAJECTORY_RECOVERY_HEADROOM_FACTOR);
 	const replaceableEnergyWh = sustainablePlanningPowerW * deadlineRemainingMs / 3_600_000;
 	const replaceableSocPercent = usableCapacityWh > 0
 		? replaceableEnergyWh / usableCapacityWh * 100
 		: 0;
-	const plannedSocPercent = Math.max(minimumSoc, Math.min(targetSoc, targetSoc - replaceableSocPercent));
+	const reachabilityFloorSocPercent = Math.max(
+		minimumSoc,
+		Math.min(targetSoc, targetSoc - replaceableSocPercent),
+	);
+
+	// Comfort trajectory: unlike the former front-loaded daylight curve, this
+	// deliberately rises late. Squaring progress keeps plenty of battery room
+	// in the morning while still producing a meaningful plan through the
+	// afternoon. The hard reachability floor always wins if it becomes higher.
+	const elapsedDaylightMs = input.elapsedDaylightMs ?? 0;
+	const usableProgressDurationMs = elapsedDaylightMs + deadlineRemainingMs;
+	const progressToDeadline = elapsedDaylightMs > 0 && usableProgressDurationMs > 0
+		? Math.max(0, Math.min(1, elapsedDaylightMs / usableProgressDurationMs))
+		: 0;
+	const comfortProgress = Math.pow(progressToDeadline, COMFORT_TRAJECTORY_EXPONENT);
+	const comfortSocPercent = minimumSoc + (targetSoc - minimumSoc) * comfortProgress;
+
+	const plannedSocPercent = Math.max(
+		reachabilityFloorSocPercent,
+		Math.min(targetSoc, comfortSocPercent),
+	);
 	const plannedSocLowerPercent = Math.max(minimumSoc, plannedSocPercent - TRAJECTORY_CORRIDOR_PERCENT);
 	const plannedSocUpperPercent = Math.min(targetSoc, plannedSocPercent + TRAJECTORY_CORRIDOR_PERCENT);
 
