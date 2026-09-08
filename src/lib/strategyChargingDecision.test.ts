@@ -61,22 +61,24 @@ describe("strategy charging decision", () => {
 		expect(decision.forecastMarginWh).to.equal(0);
 	});
 
-	it("keeps the SOC corridor at minimum while the target remains comfortably reachable", () => {
+	it("uses a late-rising comfort trajectory instead of holding the plan at minimum", () => {
 		const decision = createStrategyChargingDecision(configuration, {
-			stateOfChargePercent: 45,
+			stateOfChargePercent: 55,
 			forecastEnergyRemainingWh: 20_000,
 			remainingDaylightMs: 5 * HOUR,
 			elapsedDaylightMs: 5 * HOUR,
 			totalDaylightMs: 10 * HOUR,
 		});
-		expect(decision.plannedSocPercent).to.equal(30);
-		expect(decision.plannedSocLowerPercent).to.equal(30);
-		expect(decision.plannedSocUpperPercent).to.equal(33);
-		expect(decision.socDeviationPercent).to.equal(15);
+		// Five elapsed hours and four hours to the target deadline give progress
+		// 5 / 9. Squared comfort progress moves the plan to about 51.6 % instead
+		// of either front-loading it or leaving it stuck at the 30 % minimum.
+		expect(decision.plannedSocPercent).to.be.closeTo(51.604938, 0.000001);
+		expect(decision.plannedSocLowerPercent).to.be.closeTo(48.604938, 0.000001);
+		expect(decision.plannedSocUpperPercent).to.be.closeTo(54.604938, 0.000001);
 		expect(decision.reason).to.equal("forecast-balanced");
 	});
 
-	it("respects minimum SOC while working backwards from the completion deadline", () => {
+	it("keeps the hard reachability floor when daylight progress is unavailable", () => {
 		const decision = createStrategyChargingDecision(configuration, {
 			stateOfChargePercent: 60,
 			forecastEnergyRemainingWh: 20_000,
@@ -87,20 +89,21 @@ describe("strategy charging decision", () => {
 		expect(decision.plannedSocUpperPercent).to.equal(33);
 	});
 
-	it("raises the corridor once safe replacement capacity becomes scarce", () => {
+	it("lets the hard reachability floor overtake the comfort trajectory near deadline", () => {
 		const decision = createStrategyChargingDecision(configuration, {
 			stateOfChargePercent: 60,
 			forecastEnergyRemainingWh: 20_000,
 			remainingDaylightMs: 2 * HOUR,
 		});
-		// One hour remains to the target deadline. The trajectory reserves both
-		// normal charging headroom and recovery headroom: 4600 / 1.25 / 1.15 = 3200 W.
+		// One hour remains to the target deadline. The reachability floor reserves
+		// both normal charging headroom and recovery headroom:
+		// 4600 / 1.25 / 1.15 = 3200 W.
 		expect(decision.plannedSocPercent).to.be.closeTo(54.285714, 0.000001);
 		expect(decision.plannedSocLowerPercent).to.be.closeTo(51.285714, 0.000001);
 		expect(decision.plannedSocUpperPercent).to.be.closeTo(57.285714, 0.000001);
 	});
 
-	it("increases charging when SOC falls below the deadline-based trajectory corridor", () => {
+	it("increases charging when SOC falls below the hybrid trajectory corridor", () => {
 		const decision = createStrategyChargingDecision(configuration, {
 			stateOfChargePercent: 50,
 			forecastEnergyRemainingWh: 20_000,
@@ -111,7 +114,7 @@ describe("strategy charging decision", () => {
 		expect(decision.chargePowerLimitW).to.be.at.most(configuration.maximumChargePowerW);
 	});
 
-	it("does not trigger trajectory recovery while inside the deadline-based corridor", () => {
+	it("does not trigger trajectory recovery while inside the hybrid corridor", () => {
 		const decision = createStrategyChargingDecision(configuration, {
 			stateOfChargePercent: 55,
 			forecastEnergyRemainingWh: 20_000,
