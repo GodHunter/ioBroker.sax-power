@@ -28,6 +28,7 @@ const TRAJECTORY_CORRIDOR_PERCENT = 3;
 const TRAJECTORY_RECOVERY_WINDOW_MS = 2 * 60 * 60 * 1e3;
 const TARGET_COMPLETION_BUFFER_MS = 60 * 60 * 1e3;
 const MINIMUM_DAYLIGHT_MS = 6e4;
+const COMFORT_TRAJECTORY_EXPONENT = 2;
 function roundPower(value) {
   return Math.max(0, Math.round(value));
 }
@@ -35,12 +36,25 @@ function targetDeadlineRemainingMs(remainingDaylightMs) {
   return Math.max(MINIMUM_DAYLIGHT_MS, remainingDaylightMs - TARGET_COMPLETION_BUFFER_MS);
 }
 function trajectory(configuration, input, usableCapacityWh, deadlineRemainingMs) {
+  var _a;
   const minimumSoc = configuration.minimumStateOfChargePercent;
   const targetSoc = configuration.maximumStateOfChargePercent;
   const sustainablePlanningPowerW = configuration.maximumChargePowerW / (CHARGE_POWER_HEADROOM_FACTOR * TRAJECTORY_RECOVERY_HEADROOM_FACTOR);
   const replaceableEnergyWh = sustainablePlanningPowerW * deadlineRemainingMs / 36e5;
   const replaceableSocPercent = usableCapacityWh > 0 ? replaceableEnergyWh / usableCapacityWh * 100 : 0;
-  const plannedSocPercent = Math.max(minimumSoc, Math.min(targetSoc, targetSoc - replaceableSocPercent));
+  const reachabilityFloorSocPercent = Math.max(
+    minimumSoc,
+    Math.min(targetSoc, targetSoc - replaceableSocPercent)
+  );
+  const elapsedDaylightMs = (_a = input.elapsedDaylightMs) != null ? _a : 0;
+  const usableProgressDurationMs = elapsedDaylightMs + deadlineRemainingMs;
+  const progressToDeadline = elapsedDaylightMs > 0 && usableProgressDurationMs > 0 ? Math.max(0, Math.min(1, elapsedDaylightMs / usableProgressDurationMs)) : 0;
+  const comfortProgress = Math.pow(progressToDeadline, COMFORT_TRAJECTORY_EXPONENT);
+  const comfortSocPercent = minimumSoc + (targetSoc - minimumSoc) * comfortProgress;
+  const plannedSocPercent = Math.max(
+    reachabilityFloorSocPercent,
+    Math.min(targetSoc, comfortSocPercent)
+  );
   const plannedSocLowerPercent = Math.max(minimumSoc, plannedSocPercent - TRAJECTORY_CORRIDOR_PERCENT);
   const plannedSocUpperPercent = Math.min(targetSoc, plannedSocPercent + TRAJECTORY_CORRIDOR_PERCENT);
   return Object.freeze({
