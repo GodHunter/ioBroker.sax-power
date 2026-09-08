@@ -60,12 +60,18 @@ describe("battery power acceptance learning", () => {
 		let progress = createBatteryPowerAcceptanceProgress("2026-09-08T12:00:00.000Z");
 		progress = observeBatteryPowerAcceptance(progress, sample(0, 80, -1000), 7).progress;
 		progress = observeBatteryPowerAcceptance(progress, sample(1, 80, -1000), 7).progress;
-		const discharge = {
+		const firstDischarge = {
 			...sample(2, 80, 1000, 0, 0),
 			direction: "discharging" as const,
 		};
-		const result = observeBatteryPowerAcceptance(progress, discharge, 7);
+		progress = observeBatteryPowerAcceptance(progress, firstDischarge, 7).progress;
+		const secondDischarge = {
+			...sample(3, 80, 1000, 0, 0),
+			direction: "discharging" as const,
+		};
+		const result = observeBatteryPowerAcceptance(progress, secondDischarge, 7);
 		expect(result.chargedEnergyTodayKwh).to.be.greaterThan(0);
+		expect(result.dischargedEnergyTodayKwh).to.be.greaterThan(0);
 		expect(result.throughputTodayKwh).to.be.greaterThan(result.chargedEnergyTodayKwh);
 		expect(result.equivalentFullCyclesToday).to.be.greaterThan(0);
 	});
