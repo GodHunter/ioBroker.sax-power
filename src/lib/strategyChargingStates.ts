@@ -22,6 +22,7 @@ export const STRATEGY_CHARGING_STATE_IDS = Object.freeze({
 export type StrategyChargingReason =
 	| "below-minimum-soc"
 	| "target-soc-reached"
+	| "target-soc-maintenance"
 	| "forecast-insufficient"
 	| "forecast-balanced"
 	| "trajectory-recovery"
