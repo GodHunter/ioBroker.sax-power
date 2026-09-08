@@ -23,6 +23,7 @@ __export(statisticsStateEngine_exports, {
 module.exports = __toCommonJS(statisticsStateEngine_exports);
 var import_batteryAnalysis = require("./batteryAnalysis");
 var import_batteryHealth = require("./batteryHealth");
+var import_batteryPowerAcceptanceStateEngine = require("./batteryPowerAcceptanceStateEngine");
 const STATISTICS_PERIODS = [
   "day",
   "week",
@@ -45,8 +46,10 @@ class SaxPowerStatisticsStateEngine {
   stateCache = /* @__PURE__ */ new Map();
   healthProgress = /* @__PURE__ */ new Map();
   loadedHealthProgress = /* @__PURE__ */ new Set();
+  powerAcceptance;
   constructor(adapter) {
     this.adapter = adapter;
+    this.powerAcceptance = new import_batteryPowerAcceptanceStateEngine.BatteryPowerAcceptanceStateEngine(adapter);
   }
   async ensureObjects(devices) {
     if (!this.aggregateInitialized) {
@@ -85,6 +88,7 @@ class SaxPowerStatisticsStateEngine {
       "summary.statistics.info.deviceCount",
       devices.length
     );
+    await this.powerAcceptance.ensureObjects(devices);
   }
   async writeStatistics(result, metadata, updatedAt, batteryModels, reportedCycles) {
     var _a;
@@ -195,6 +199,7 @@ class SaxPowerStatisticsStateEngine {
       await this.writeHealthResult(root, evaluated.progress, evaluated.status, evaluated.value);
     }
     await this.writeAggregateHealth(devices);
+    await this.powerAcceptance.observe(devices, batteryModels);
   }
   async writeError(message) {
     await this.writeCachedState(
