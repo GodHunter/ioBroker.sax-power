@@ -94,6 +94,8 @@ export function createStrategyDayDischargeAvailability(preparation: StrategyDayl
 	if (availablePowerW > 0 && chargingContext !== null) {
 		const hardBlock = chargingContext.reason === "forecast-insufficient"
 			|| chargingContext.reason === "target-deadline-recovery"
+			|| chargingContext.reason === "target-soc-reached"
+			|| chargingContext.reason === "target-soc-maintenance"
 			|| chargingContext.reason === "below-minimum-soc"
 			|| chargingContext.reason === "inputs-not-ready"
 			|| chargingContext.reason === "invalid-input"
@@ -105,7 +107,7 @@ export function createStrategyDayDischargeAvailability(preparation: StrategyDayl
 		} else if (chargingContext.forecastMarginWh !== null && chargingContext.forecastMarginWh <= 0) {
 			availablePowerW = 0;
 			reason = "no-forecast-margin";
-		} else if (chargingContext.reason !== "target-soc-reached") {
+		} else {
 			const comfortFactor = chargingComfortFactor(chargingContext);
 			availablePowerW = Math.round(availablePowerW * comfortFactor);
 			if (availablePowerW <= 0) {
