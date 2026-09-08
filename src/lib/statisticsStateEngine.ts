@@ -25,6 +25,9 @@ import {
 	normalizeBatteryHealthProgress,
 	type BatteryHealthProgress,
 } from "./batteryHealth";
+import {
+	BatteryPowerAcceptanceStateEngine,
+} from "./batteryPowerAcceptanceStateEngine";
 
 const STATISTICS_PERIODS = [
 	"day",
@@ -83,10 +86,13 @@ string | number | null
 	private readonly healthProgress = new Map<string, BatteryHealthProgress>();
 	private readonly loadedHealthProgress = new Set<string>();
 
+	private readonly powerAcceptance: BatteryPowerAcceptanceStateEngine;
+
 	public constructor(
 		adapter: SaxPowerObjectAdapter,
 	) {
 		this.adapter = adapter;
+		this.powerAcceptance = new BatteryPowerAcceptanceStateEngine(adapter);
 	}
 
 	public async ensureObjects(
@@ -138,6 +144,8 @@ this.initializedDevices.has(
 			"summary.statistics.info.deviceCount",
 			devices.length,
 		);
+
+		await this.powerAcceptance.ensureObjects(devices);
 	}
 
 	public async writeStatistics(
@@ -272,6 +280,7 @@ metadata.devices[
 			await this.writeHealthResult(root, evaluated.progress, evaluated.status, evaluated.value);
 		}
 		await this.writeAggregateHealth(devices);
+		await this.powerAcceptance.observe(devices, batteryModels);
 	}
 
 	public async writeError(
