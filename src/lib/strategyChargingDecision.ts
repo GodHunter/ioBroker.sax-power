@@ -3,6 +3,7 @@ import type { StrategyConfiguration } from "./strategyConfiguration";
 
 export type StrategyChargingDecisionReason =
 	| "target-soc-reached"
+	| "target-soc-maintenance"
 	| "forecast-insufficient"
 	| "forecast-balanced"
 	| "trajectory-recovery"
@@ -49,6 +50,9 @@ const TRAJECTORY_RECOVERY_WINDOW_MS = 2 * 60 * 60 * 1000;
 const TARGET_COMPLETION_BUFFER_MS = 60 * 60 * 1000;
 const MINIMUM_DAYLIGHT_MS = 60_000;
 const COMFORT_TRAJECTORY_EXPONENT = 2;
+const TARGET_SOC_MAINTENANCE_BAND_PERCENT = 2;
+const TARGET_SOC_MAINTENANCE_MINIMUM_POWER_FACTOR = 0.2;
+const TARGET_SOC_MAINTENANCE_REFILL_WINDOW_MS = 15 * 60 * 1000;
 
 function roundPower(value: number): number {
 	return Math.max(0, Math.round(value));
@@ -205,6 +209,38 @@ export function createStrategyChargingDecision(
 			targetDeadlineRemainingMs: deadlineRemainingMs,
 			requiredAverageChargePowerW: 0,
 			chargePowerLimitW: 0,
+			maximumChargePowerW: configuration.maximumChargePowerW,
+		});
+	}
+
+	const wasMaintainingTarget = input.previousDecisionReason === "target-soc-reached"
+		|| input.previousDecisionReason === "target-soc-maintenance";
+	const withinMaintenanceBand = input.stateOfChargePercent >= targetSocPercent - TARGET_SOC_MAINTENANCE_BAND_PERCENT;
+	if (wasMaintainingTarget && withinMaintenanceBand) {
+		const minimumMaintenancePowerW = configuration.maximumChargePowerW
+			* TARGET_SOC_MAINTENANCE_MINIMUM_POWER_FACTOR;
+		const refillPowerW = energyRequiredWh / (TARGET_SOC_MAINTENANCE_REFILL_WINDOW_MS / 3_600_000);
+		const chargePowerLimitW = roundPower(Math.min(
+			configuration.maximumChargePowerW,
+			Math.max(minimumMaintenancePowerW, refillPowerW),
+		));
+		return Object.freeze({
+			valid: true,
+			reason: "target-soc-maintenance" as const,
+			currentSocPercent: input.stateOfChargePercent,
+			targetSocPercent,
+			...trajectoryState,
+			usableCapacityWh,
+			energyRequiredWh,
+			forecastEnergyRemainingWh: input.forecastEnergyRemainingWh,
+			householdEnergyRemainingWh,
+			forecastReserveWh: configuration.pvForecastReserveWh,
+			usableForecastEnergyWh,
+			forecastMarginWh,
+			remainingDaylightMs: input.remainingDaylightMs,
+			targetDeadlineRemainingMs: deadlineRemainingMs,
+			requiredAverageChargePowerW: roundPower(requiredAverageChargePowerW),
+			chargePowerLimitW,
 			maximumChargePowerW: configuration.maximumChargePowerW,
 		});
 	}
