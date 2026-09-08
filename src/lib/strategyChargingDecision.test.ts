@@ -198,6 +198,47 @@ describe("strategy charging decision", () => {
 		expect(decision.chargePowerLimitW).to.equal(0);
 	});
 
+	it("maintains target SOC with gentle refill after target was reached", () => {
+		const decision = createStrategyChargingDecision(
+			{ ...configuration, maximumChargePowerW: 3500 },
+			{
+				stateOfChargePercent: 99,
+				forecastEnergyRemainingWh: 5000,
+				remainingDaylightMs: 45 * 60 * 1000,
+				previousDecisionReason: "target-soc-reached",
+			},
+		);
+		expect(decision.reason).to.equal("target-soc-maintenance");
+		expect(decision.chargePowerLimitW).to.equal(700);
+	});
+
+	it("keeps target maintenance active down to the two percentage point band", () => {
+		const decision = createStrategyChargingDecision(
+			{ ...configuration, maximumChargePowerW: 3500 },
+			{
+				stateOfChargePercent: 98,
+				forecastEnergyRemainingWh: 5000,
+				remainingDaylightMs: 45 * 60 * 1000,
+				previousDecisionReason: "target-soc-maintenance",
+			},
+		);
+		expect(decision.reason).to.equal("target-soc-maintenance");
+		expect(decision.chargePowerLimitW).to.equal(700);
+	});
+
+	it("returns to normal strategy below the target maintenance band", () => {
+		const decision = createStrategyChargingDecision(
+			{ ...configuration, maximumChargePowerW: 3500 },
+			{
+				stateOfChargePercent: 97,
+				forecastEnergyRemainingWh: 5000,
+				remainingDaylightMs: 45 * 60 * 1000,
+				previousDecisionReason: "target-soc-maintenance",
+			},
+		);
+		expect(decision.reason).to.not.equal("target-soc-maintenance");
+	});
+
 	it("fails closed for invalid observations", () => {
 		const decision = createStrategyChargingDecision(configuration, {
 			stateOfChargePercent: Number.NaN,
