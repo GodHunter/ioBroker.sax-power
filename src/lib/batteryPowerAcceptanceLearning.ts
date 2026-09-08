@@ -5,6 +5,7 @@ export const BATTERY_POWER_ACCEPTANCE_MIN_SAMPLES = 5;
 const MIN_CHARGE_POWER_W = 100;
 const MIN_REQUEST_POWER_W = 500;
 const MIN_EXPORT_EVIDENCE_W = 150;
+const MIN_ACCEPTANCE_HEADROOM_W = 40;
 const MAX_SAMPLE_GAP_MS = 5 * 60 * 1000;
 const MAX_SAMPLES_PER_BIN = 60;
 
@@ -174,6 +175,11 @@ export function observeBatteryPowerAcceptance(
 		? Math.max(0, sample.requestedChargePowerW)
 		: null;
 	const exportEvidence = sample.gridExportPowerW !== null && sample.gridExportPowerW >= MIN_EXPORT_EVIDENCE_W;
+	const batteryLimitedEvidence = requested !== null
+		&& requested >= MIN_REQUEST_POWER_W
+		&& actualChargePowerW >= MIN_CHARGE_POWER_W
+		&& requested - actualChargePowerW >= MIN_ACCEPTANCE_HEADROOM_W;
+	const qualifiedAcceptanceSample = exportEvidence && batteryLimitedEvidence;
 
 	if (binId && actualChargePowerW >= MIN_CHARGE_POWER_W) {
 		const bin = progress.bins[binId];
@@ -182,10 +188,10 @@ export function observeBatteryPowerAcceptance(
 			observedSamples: bin.observedSamples + 1,
 			maxObservedChargePowerW: Math.max(bin.maxObservedChargePowerW, actualChargePowerW),
 		};
-		// Only surplus export proves that more energy was available than the battery accepted.
-		// Samples without that evidence remain useful as observed lower bounds, but must not
-		// teach the normal SOC taper and therefore cannot create a false stress signal.
-		if (exportEvidence && requested !== null && requested >= MIN_REQUEST_POWER_W) {
+		// Grid export proves surplus, while additional request headroom proves that R44 is
+		// not the active limiter. Only then may the sample teach the battery's SOC-specific
+		// acceptance curve. Controller-limited charging remains an observed lower bound.
+		if (qualifiedAcceptanceSample) {
 			updated.samples.push(round(actualChargePowerW, 0));
 			if (updated.samples.length > MAX_SAMPLES_PER_BIN) updated.samples.splice(0, updated.samples.length - MAX_SAMPLES_PER_BIN);
 		}
@@ -213,9 +219,9 @@ export function observeBatteryPowerAcceptance(
 		? round(deviationW / expected * 100, 1)
 		: null;
 	// Stress is deliberately an inferred deviation from the learned SOC-specific acceptance
-	// curve, never a SAX-reported value. It is only published with established baseline and
-	// current export evidence, so normal PV limitation is not mistaken for battery stress.
-	const stressIndex = sampleConfidence === "established" && exportEvidence && deviationPercent !== null
+	// curve, never a SAX-reported value. It is only published when the current observation
+	// itself proves battery limitation, so a low R44 target cannot masquerade as stress.
+	const stressIndex = sampleConfidence === "established" && qualifiedAcceptanceSample && deviationPercent !== null
 		? round(Math.max(0, Math.min(100, -deviationPercent)), 1)
 		: null;
 	const throughputTodayKwh = chargedEnergyTodayKwh + dischargedEnergyTodayKwh;
