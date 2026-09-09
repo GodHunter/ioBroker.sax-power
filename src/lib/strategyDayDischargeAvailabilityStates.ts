@@ -15,12 +15,15 @@ export interface StrategyDayDischargeAvailabilityAdapter {
 export interface StrategyDayDischargeChargingContext {
 	readonly reason: string;
 	readonly currentSocPercent: number | null;
+	readonly plannedSocPercent: number | null;
+	readonly plannedSocLowerPercent: number | null;
 	readonly plannedSocUpperPercent: number | null;
 	readonly forecastMarginWh: number | null;
 	readonly requiredAverageChargePowerW: number | null;
 	readonly targetChargePowerW: number;
 	readonly maximumChargePowerW: number;
 	readonly requestedDischargePowerW: number;
+	readonly recoveryLatchActive?: boolean;
 }
 
 export interface StrategyDayDischargeAvailability {
@@ -40,23 +43,25 @@ interface StrategyDayDischargeAvailabilityStateDefinition {
 	readonly desc: string;
 }
 
-const DISCHARGE_OBSERVATION_FACTOR = 0.4;
-const DISCHARGE_STOP_FACTOR = 0.5;
-
-function chargingComfortFactor(context: StrategyDayDischargeChargingContext): number {
-	const requiredAverage = context.requiredAverageChargePowerW;
-	const target = context.targetChargePowerW;
-	const maximum = context.maximumChargePowerW;
-	if (!Number.isFinite(target) || !Number.isFinite(maximum) || maximum <= 0) return 0;
-	const required = Math.max(
-		Number.isFinite(requiredAverage) && requiredAverage !== null ? requiredAverage : 0,
-		Math.max(0, target),
-	);
-	const observeAt = maximum * DISCHARGE_OBSERVATION_FACTOR;
-	const stopAt = maximum * DISCHARGE_STOP_FACTOR;
-	if (required <= observeAt) return 1;
-	if (required >= stopAt) return 0;
-	return Math.max(0, Math.min(1, (stopAt - required) / (stopAt - observeAt)));
+function corridorAvailabilityFactor(context: StrategyDayDischargeChargingContext): number | null {
+	const current = context.currentSocPercent;
+	const planned = context.plannedSocPercent;
+	const lower = context.plannedSocLowerPercent;
+	const upper = context.plannedSocUpperPercent;
+	if (
+		current === null || planned === null || lower === null || upper === null
+		|| !Number.isFinite(current) || !Number.isFinite(planned) || !Number.isFinite(lower) || !Number.isFinite(upper)
+		|| lower > planned || planned > upper || lower === upper
+	) return null;
+	if (context.recoveryLatchActive === true && current < planned) return 0;
+	if (current <= lower) return 0;
+	if (current >= upper) return 1;
+	if (current < planned) {
+		if (planned === lower) return 0.5;
+		return 0.5 * (current - lower) / (planned - lower);
+	}
+	if (upper === planned) return 1;
+	return 0.5 + 0.5 * (current - planned) / (upper - planned);
 }
 
 export async function ensureStrategyDayDischargeAvailabilityStates(adapter: StrategyDayDischargeAvailabilityAdapter): Promise<void> {
@@ -77,9 +82,6 @@ export function createStrategyDayDischargeAvailability(preparation: StrategyDayl
 	let availablePowerW = gate.targetDischargePowerW;
 	let reason: string = gate.reason === "daylight-window-active" ? gate.decision.permission.reason : gate.reason;
 
-	// The legacy base gate used "insufficient-charge-time" as a binary stop.
-	// The charging-aware budget can make this decision continuously instead,
-	// but only inside this specific daylight case. Other base safety blocks remain untouched.
 	if (
 		availablePowerW <= 0
 		&& reason === "insufficient-charge-time"
@@ -88,13 +90,11 @@ export function createStrategyDayDischargeAvailability(preparation: StrategyDayl
 		&& chargingContext.requestedDischargePowerW > 0
 	) {
 		availablePowerW = Math.round(chargingContext.requestedDischargePowerW);
-		reason = "charging-budget-reconsidered";
+		reason = "trajectory-budget-reconsidered";
 	}
 
 	if (availablePowerW > 0 && chargingContext !== null) {
-		const hardBlock = chargingContext.reason === "forecast-insufficient"
-			|| chargingContext.reason === "target-deadline-recovery"
-			|| chargingContext.reason === "target-soc-reached"
+		const hardBlock = chargingContext.reason === "target-soc-reached"
 			|| chargingContext.reason === "target-soc-maintenance"
 			|| chargingContext.reason === "below-minimum-soc"
 			|| chargingContext.reason === "inputs-not-ready"
@@ -104,23 +104,25 @@ export function createStrategyDayDischargeAvailability(preparation: StrategyDayl
 		if (hardBlock) {
 			availablePowerW = 0;
 			reason = `charging-${chargingContext.reason}`;
-		} else if (chargingContext.forecastMarginWh !== null && chargingContext.forecastMarginWh <= 0) {
-			availablePowerW = 0;
-			reason = "no-forecast-margin";
 		} else {
-			const comfortFactor = chargingComfortFactor(chargingContext);
-			availablePowerW = Math.round(availablePowerW * comfortFactor);
-			if (availablePowerW <= 0) {
+			const factor = corridorAvailabilityFactor(chargingContext);
+			if (factor === null) {
 				availablePowerW = 0;
-				reason = "charging-comfort-reserve";
-			} else if (comfortFactor < 1) {
-				reason = "charging-comfort-throttled";
-			} else if (
-				chargingContext.currentSocPercent !== null
-				&& chargingContext.plannedSocUpperPercent !== null
-				&& chargingContext.currentSocPercent <= chargingContext.plannedSocUpperPercent
-			) {
-				reason = "trajectory-budget-available";
+				reason = "trajectory-unavailable";
+			} else if (factor <= 0) {
+				availablePowerW = 0;
+				reason = chargingContext.recoveryLatchActive === true
+					&& chargingContext.currentSocPercent !== null
+					&& chargingContext.plannedSocPercent !== null
+					&& chargingContext.currentSocPercent < chargingContext.plannedSocPercent
+					? "trajectory-recovery-latched"
+					: "trajectory-below-corridor";
+			} else {
+				availablePowerW = Math.round(availablePowerW * factor);
+				if (factor >= 1) reason = "trajectory-above-corridor";
+				else if (chargingContext.currentSocPercent !== null && chargingContext.plannedSocPercent !== null && chargingContext.currentSocPercent < chargingContext.plannedSocPercent) reason = "trajectory-below-plan-throttled";
+				else if (chargingContext.currentSocPercent !== null && chargingContext.plannedSocPercent !== null && chargingContext.currentSocPercent === chargingContext.plannedSocPercent) reason = "trajectory-plan-balanced";
+				else reason = "trajectory-above-plan-throttled";
 			}
 		}
 	}
