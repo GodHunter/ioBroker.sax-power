@@ -1,5 +1,6 @@
 import type { StrategyConfiguration } from "./strategyConfiguration";
-import { createStrategyChargingDecision, type StrategyChargingDecisionReason } from "./strategyChargingDecision";
+import type { StrategyChargingDecisionReason } from "./strategyChargingDecision";
+import { createStrategyChargingDecision } from "./strategyChargingDecision";
 import { selectStrategyChargingInputGraceTarget, type StrategyChargingInputGraceSnapshot } from "./strategyChargingInputGrace";
 import { STRATEGY_CHARGING_STATE_IDS, publishStrategyCharging, strategyChargingPublicationFromDecision, type StrategyChargingIoBrokerAdapter, type StrategyChargingPublication, type StrategyChargingReason } from "./strategyChargingStates";
 import { publishStrategyDaylightDiagnostics, type StrategyDaylightDiagnosticAdapter } from "./strategyDaylightDiagnosticStates";
@@ -21,6 +22,7 @@ export interface StrategyIoBrokerAutomaticChargingCycle {
 	readonly targetChargePowerW: number;
 	readonly reason: StrategyChargingReason;
 	readonly currentSocPercent: number | null;
+	readonly plannedSocLowerPercent: number | null;
 	readonly plannedSocUpperPercent: number | null;
 	readonly forecastMarginWh: number | null;
 	readonly requiredAverageChargePowerW: number | null;
@@ -63,7 +65,7 @@ async function readLearnedHouseholdEnergyRemainingWh(adapter: StrategyIoBrokerAu
 async function readPreviousDecisionReason(adapter: StrategyIoBrokerAutomaticChargingAdapter): Promise<StrategyChargingDecisionReason | null> {
 	try {
 		const value = (await adapter.getStateAsync(STRATEGY_CHARGING_STATE_IDS.decisionReason))?.val;
-		if (value === "target-soc-reached" || value === "forecast-insufficient" || value === "forecast-balanced" || value === "trajectory-recovery" || value === "target-deadline-recovery" || value === "invalid-input") return value;
+		if (value === "target-soc-reached" || value === "target-soc-maintenance" || value === "forecast-insufficient" || value === "forecast-balanced" || value === "trajectory-recovery" || value === "target-deadline-recovery" || value === "invalid-input") return value;
 	} catch { /* Previous state is only used for hysteresis. */ }
 	return null;
 }
@@ -79,6 +81,7 @@ async function applyChargePowerTarget(adapter: StrategyIoBrokerAutomaticCharging
 		targetChargePowerW,
 		reason: publication.decisionReason,
 		currentSocPercent,
+		plannedSocLowerPercent: publication.plannedSocLowerPercent,
 		plannedSocUpperPercent: publication.plannedSocUpperPercent,
 		forecastMarginWh: publication.forecastMarginWh,
 		requiredAverageChargePowerW: publication.requiredAverageChargePowerW,
