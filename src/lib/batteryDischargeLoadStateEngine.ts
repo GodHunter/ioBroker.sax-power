@@ -1,8 +1,8 @@
 import type { SaxPowerObjectAdapter } from "./adapterContract";
 import { getBatteryModel } from "./batteryAnalysis";
 import {
-	normalizeBatteryDischargeLoadProgress,
 	observeBatteryDischargeLoad,
+	normalizeBatteryDischargeLoadProgress,
 	type BatteryDischargeLoadProgress,
 	type BatteryDischargeLoadResult,
 } from "./batteryDischargeLoadLearning";
@@ -54,7 +54,7 @@ export class BatteryDischargeLoadStateEngine {
 					direction: device.live.batteryDirection,
 				},
 				model.usableCapacityKwh,
-				model.maxDischargePowerW,
+				model.maximumDischargePowerW,
 			);
 			this.progress.set(serial, result.progress);
 			await this.publish(root, result, true);
@@ -71,24 +71,24 @@ export class BatteryDischargeLoadStateEngine {
 		});
 		const definitions: Record<string, StateDefinition> = {
 			actualDischargePowerW: { name: "Actual discharge power", desc: "Current battery discharging power observed from SAX live data.", type: "number", role: "value.power", unit: "W", def: 0 },
-			maximumDischargePowerW: { name: "Technical maximum discharge power", desc: "Model-specific SAX technical discharge-power limit used as load reference.", type: "number", role: "value.power", unit: "W", def: 0 },
-			utilizationPercent: { name: "Discharge power utilization", desc: "Actual discharge power relative to the model-specific technical maximum.", type: "number", role: "value", unit: "%", def: 0 },
-			highLoadThresholdW: { name: "High-load threshold", desc: "Diagnostic threshold at 50 percent of the technical maximum discharge power.", type: "number", role: "value.power", unit: "W", def: 0 },
-			highLoadActive: { name: "High discharge load active", desc: "True while actual discharge power is at or above the diagnostic high-load threshold.", type: "boolean", role: "indicator", def: false },
-			consecutiveHighLoadMinutes: { name: "Consecutive high-load duration", desc: "Continuous duration of the current high-discharge-load phase.", type: "number", role: "value.interval", unit: "min", def: 0 },
-			highLoadMinutesToday: { name: "High-load duration today", desc: "Accumulated duration above the diagnostic high-load threshold today.", type: "number", role: "value.interval", unit: "min", def: 0 },
-			peakDischargePowerTodayW: { name: "Peak discharge power today", desc: "Highest observed battery discharge power today.", type: "number", role: "value.power", unit: "W", def: 0 },
-			dischargedEnergyTodayKwh: { name: "Observed discharged energy today", desc: "Live-integrated discharged battery energy used as load context.", type: "number", role: "value.energy", unit: "kWh", def: 0 },
-			equivalentDischargeCyclesToday: { name: "Equivalent discharge cycles today", desc: "Discharged energy divided by usable battery capacity; diagnostic load context only.", type: "number", role: "value", unit: "cycles" },
-			loadIndex: { name: "Inferred discharge load index", desc: "Derived 0-100 operating-load index from power utilization, sustained high load and daily discharged energy. This is not SAX-reported stress telemetry.", type: "number", role: "value", unit: "%", def: 0 },
-			loadStatus: { name: "Inferred discharge load status", desc: "Interpretation of the derived discharge load index: idle, normal, elevated or high.", type: "string", role: "text", def: "idle" },
+			maximumDischargePowerW: { name: "Maximum discharge power", desc: "Technical maximum discharge power for the configured SAX battery model.", type: "number", role: "value.power", unit: "W", def: 0 },
+			utilizationPercent: { name: "Discharge power utilization", desc: "Actual discharging power as a percentage of the model maximum discharge power.", type: "number", role: "value", unit: "%", def: 0 },
+			highLoadThresholdW: { name: "High discharge load threshold", desc: "Derived threshold above which discharge is considered a high-load phase.", type: "number", role: "value.power", unit: "W", def: 0 },
+			highLoadActive: { name: "High discharge load active", desc: "Whether the current discharge power is at or above the derived high-load threshold.", type: "boolean", role: "indicator", def: false },
+			consecutiveHighLoadMinutes: { name: "Consecutive high-load duration", desc: "Duration of the current uninterrupted high-discharge-load phase.", type: "number", role: "value.interval", unit: "min", def: 0 },
+			highLoadMinutesToday: { name: "High-load minutes today", desc: "Accumulated duration of high-discharge-load operation today.", type: "number", role: "value.interval", unit: "min", def: 0 },
+			peakDischargePowerTodayW: { name: "Peak discharge power today", desc: "Highest observed battery discharging power today.", type: "number", role: "value.power", unit: "W", def: 0 },
+			dischargedEnergyTodayKwh: { name: "Observed discharged energy today", desc: "Live-integrated battery discharge energy observed today.", type: "number", role: "value.energy", unit: "kWh", def: 0 },
+			equivalentDischargeCyclesToday: { name: "Equivalent discharge cycles today", desc: "Observed discharged energy divided by usable battery capacity.", type: "number", role: "value", unit: "cycles", def: 0 },
+			loadIndex: { name: "Inferred discharge load index", desc: "Derived 0-100 battery discharge-load index based on power utilization, sustained high load and discharged energy. This is not SAX-reported telemetry.", type: "number", role: "value", unit: "%" },
+			loadStatus: { name: "Inferred discharge load status", desc: "Interpretation of the derived discharge-load index.", type: "string", role: "text", def: "normal" },
 			lastUpdate: { name: "Discharge load last update", desc: "Timestamp of the latest discharge-load observation.", type: "string", role: "date", def: "" },
 		};
 		for (const [id, definition] of Object.entries(definitions)) {
 			await this.ensureState(`${root}.${id}`, definition);
 		}
 		if (summary) return;
-		await this.ensureState(`${root}.progress`, { name: "Discharge load observation progress", desc: "Internal persistent discharge-load state.", type: "string", role: "json", def: "" });
+		await this.ensureState(`${root}.progress`, { name: "Discharge load observation progress", desc: "Internal persistent discharge-load observation state.", type: "string", role: "json", def: "" });
 	}
 
 	private async ensureState(id: string, definition: StateDefinition): Promise<void> {
@@ -150,12 +150,11 @@ export class BatteryDischargeLoadStateEngine {
 		}
 		const root = "summary.battery.dischargeLoad";
 		const total = (selector: (result: BatteryDischargeLoadResult) => number) => results.reduce((sum, result) => sum + selector(result), 0);
-		const maximumLoadIndex = Math.max(...results.map((result) => result.loadIndex));
-		const status = maximumLoadIndex >= 60 ? "high" : maximumLoadIndex >= 30 ? "elevated" : results.some((result) => result.actualDischargePowerW >= 100) ? "normal" : "idle";
+		const loadIndices = results.map((result) => result.loadIndex).filter((value): value is number => value !== null);
 		await Promise.all([
 			this.adapter.setStateAsync(`${root}.actualDischargePowerW`, { val: total((result) => result.actualDischargePowerW), ack: true }),
 			this.adapter.setStateAsync(`${root}.maximumDischargePowerW`, { val: total((result) => result.maximumDischargePowerW), ack: true }),
-			this.adapter.setStateAsync(`${root}.utilizationPercent`, { val: total((result) => result.maximumDischargePowerW) > 0 ? Math.round(total((result) => result.actualDischargePowerW) / total((result) => result.maximumDischargePowerW) * 1_000) / 10 : 0, ack: true }),
+			this.adapter.setStateAsync(`${root}.utilizationPercent`, { val: null, ack: true }),
 			this.adapter.setStateAsync(`${root}.highLoadThresholdW`, { val: total((result) => result.highLoadThresholdW), ack: true }),
 			this.adapter.setStateAsync(`${root}.highLoadActive`, { val: results.some((result) => result.highLoadActive), ack: true }),
 			this.adapter.setStateAsync(`${root}.consecutiveHighLoadMinutes`, { val: Math.max(...results.map((result) => result.consecutiveHighLoadMinutes)), ack: true }),
@@ -163,8 +162,8 @@ export class BatteryDischargeLoadStateEngine {
 			this.adapter.setStateAsync(`${root}.peakDischargePowerTodayW`, { val: Math.max(...results.map((result) => result.peakDischargePowerTodayW)), ack: true }),
 			this.adapter.setStateAsync(`${root}.dischargedEnergyTodayKwh`, { val: total((result) => result.dischargedEnergyTodayKwh), ack: true }),
 			this.adapter.setStateAsync(`${root}.equivalentDischargeCyclesToday`, { val: total((result) => result.equivalentDischargeCyclesToday ?? 0), ack: true }),
-			this.adapter.setStateAsync(`${root}.loadIndex`, { val: maximumLoadIndex, ack: true }),
-			this.adapter.setStateAsync(`${root}.loadStatus`, { val: status, ack: true }),
+			this.adapter.setStateAsync(`${root}.loadIndex`, { val: loadIndices.length ? Math.max(...loadIndices) : null, ack: true }),
+			this.adapter.setStateAsync(`${root}.loadStatus`, { val: loadIndices.length ? "mixed" : "normal", ack: true }),
 			this.adapter.setStateAsync(`${root}.lastUpdate`, { val: results.map((result) => result.progress.lastUpdate).sort().at(-1) ?? "", ack: true }),
 		]);
 	}
