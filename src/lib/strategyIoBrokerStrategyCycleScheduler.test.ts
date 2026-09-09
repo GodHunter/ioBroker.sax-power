@@ -6,6 +6,7 @@ import {
 } from "./strategyIoBrokerStrategyCycleScheduler";
 import { STRATEGY_INTEGRATION_CONTRACT } from "./strategyIntegrationContract";
 import { STRATEGY_MANUAL_CHARGE_STATE_IDS } from "./strategyManualChargeStates";
+import { STRATEGY_DAY_DISCHARGE_AVAILABILITY_STATE_IDS } from "./strategyDayDischargeAvailabilityStates";
 
 const NOW = Date.UTC(2026, 5, 21, 12);
 const CONFIGURATION: StrategyConfiguration = {
@@ -60,9 +61,9 @@ function recordingAdapter(manualEnabled = false) {
 	const adapter: StrategyIoBrokerStrategyTimerAdapter = {
 		async extendObjectAsync() {},
 		async getStateAsync(id) {
-			return id === STRATEGY_MANUAL_CHARGE_STATE_IDS.enabled
-				? state(manualEnabled)
-				: state(1_800);
+			if (id === STRATEGY_MANUAL_CHARGE_STATE_IDS.enabled) return state(manualEnabled);
+			if (id === STRATEGY_DAY_DISCHARGE_AVAILABILITY_STATE_IDS.corridorRecoveryLatched) return state(false);
+			return state(1_800);
 		},
 		async setStateAsync(id, value) {
 			writes.push({ id, value: value.val ?? null });
@@ -145,7 +146,7 @@ describe("strategy ioBroker operating-mode cycle scheduler", () => {
 		});
 		expect(run.writes).to.deep.include({
 			id: "strategy.dayDischarge.reason",
-			value: "discharge-allowed",
+			value: "trajectory-above-corridor",
 		});
 		expect(run.writes.some(({ id }) => id ===
 			STRATEGY_INTEGRATION_CONTRACT.modbus.dischargePowerCommand.stateId,
