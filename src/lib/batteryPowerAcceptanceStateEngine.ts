@@ -1,5 +1,6 @@
 import type { SaxPowerObjectAdapter } from "./adapterContract";
 import { getBatteryModel } from "./batteryAnalysis";
+import { BatteryDischargeLoadStateEngine } from "./batteryDischargeLoadStateEngine";
 import {
 	BATTERY_POWER_ACCEPTANCE_SOC_BINS,
 	normalizeBatteryPowerAcceptanceProgress,
@@ -23,11 +24,15 @@ export class BatteryPowerAcceptanceStateEngine {
 	private readonly progress = new Map<string, BatteryPowerAcceptanceProgress>();
 	private readonly loaded = new Set<string>();
 	private readonly initialized = new Set<string>();
+	private readonly dischargeLoad: BatteryDischargeLoadStateEngine;
 	private summaryInitialized = false;
 
-	public constructor(private readonly adapter: SaxPowerObjectAdapter) {}
+	public constructor(private readonly adapter: SaxPowerObjectAdapter) {
+		this.dischargeLoad = new BatteryDischargeLoadStateEngine(adapter);
+	}
 
 	public async ensureObjects(devices: readonly SaxPowerDevice[]): Promise<void> {
+		await this.dischargeLoad.ensureObjects(devices);
 		if (!this.summaryInitialized) {
 			await this.ensureTree("summary.battery.powerAcceptance", true);
 			this.summaryInitialized = true;
@@ -66,6 +71,7 @@ export class BatteryPowerAcceptanceStateEngine {
 			results.push(result);
 		}
 		await this.publishSummary(results);
+		await this.dischargeLoad.observe(devices, batteryModels);
 	}
 
 	private async ensureTree(root: string, persistent: boolean): Promise<void> {
