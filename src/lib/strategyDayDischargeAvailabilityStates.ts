@@ -5,6 +5,7 @@ export const STRATEGY_DAY_DISCHARGE_AVAILABILITY_STATE_IDS = Object.freeze({
 	availablePowerW: "strategy.dayDischarge.availablePowerW",
 	reason: "strategy.dayDischarge.reason",
 	validUntil: "strategy.dayDischarge.validUntil",
+	corridorRecoveryLatched: "strategy.dayDischarge.corridorRecoveryLatched",
 });
 
 export interface StrategyDayDischargeAvailabilityAdapter {
@@ -32,6 +33,7 @@ export interface StrategyDayDischargeAvailability {
 	readonly availablePowerW: number;
 	readonly reason: string;
 	readonly validUntil: number;
+	readonly corridorRecoveryLatched: boolean;
 }
 
 interface StrategyDayDischargeAvailabilityStateDefinition {
@@ -43,7 +45,13 @@ interface StrategyDayDischargeAvailabilityStateDefinition {
 	readonly desc: string;
 }
 
-function corridorAvailabilityFactor(context: StrategyDayDischargeChargingContext): number | null {
+interface CorridorAvailability {
+	readonly factor: number | null;
+	readonly recoveryLatched: boolean;
+	readonly zone: "unavailable" | "below-corridor" | "latched" | "below-plan" | "plan" | "above-plan" | "above-corridor";
+}
+
+function corridorAvailability(context: StrategyDayDischargeChargingContext): CorridorAvailability {
 	const current = context.currentSocPercent;
 	const planned = context.plannedSocPercent;
 	const lower = context.plannedSocLowerPercent;
@@ -52,16 +60,18 @@ function corridorAvailabilityFactor(context: StrategyDayDischargeChargingContext
 		current === null || planned === null || lower === null || upper === null
 		|| !Number.isFinite(current) || !Number.isFinite(planned) || !Number.isFinite(lower) || !Number.isFinite(upper)
 		|| lower > planned || planned > upper || lower === upper
-	) return null;
-	if (context.recoveryLatchActive === true && current < planned) return 0;
-	if (current <= lower) return 0;
-	if (current >= upper) return 1;
+	) return { factor: null, recoveryLatched: context.recoveryLatchActive === true, zone: "unavailable" };
+
+	if (current <= lower) return { factor: 0, recoveryLatched: true, zone: "below-corridor" };
+	if (context.recoveryLatchActive === true && current < planned) return { factor: 0, recoveryLatched: true, zone: "latched" };
+	if (current >= upper) return { factor: 1, recoveryLatched: false, zone: "above-corridor" };
 	if (current < planned) {
-		if (planned === lower) return 0.5;
-		return 0.5 * (current - lower) / (planned - lower);
+		const factor = planned === lower ? 0.5 : 0.5 * (current - lower) / (planned - lower);
+		return { factor, recoveryLatched: false, zone: "below-plan" };
 	}
-	if (upper === planned) return 1;
-	return 0.5 + 0.5 * (current - planned) / (upper - planned);
+	if (current === planned) return { factor: 0.5, recoveryLatched: false, zone: "plan" };
+	const factor = upper === planned ? 1 : 0.5 + 0.5 * (current - planned) / (upper - planned);
+	return { factor, recoveryLatched: false, zone: "above-plan" };
 }
 
 export async function ensureStrategyDayDischargeAvailabilityStates(adapter: StrategyDayDischargeAvailabilityAdapter): Promise<void> {
@@ -71,6 +81,7 @@ export async function ensureStrategyDayDischargeAvailabilityStates(adapter: Stra
 		{ id: STRATEGY_DAY_DISCHARGE_AVAILABILITY_STATE_IDS.availablePowerW, type: "number", role: "value.power", unit: "W", name: "Available day discharge power", desc: "Maximum battery power currently available to external consumers." },
 		{ id: STRATEGY_DAY_DISCHARGE_AVAILABILITY_STATE_IDS.reason, type: "string", role: "text", name: "Day discharge decision reason", desc: "Machine-readable reason for the current availability decision." },
 		{ id: STRATEGY_DAY_DISCHARGE_AVAILABILITY_STATE_IDS.validUntil, type: "number", role: "value.time", unit: "ms", name: "Day discharge availability valid until", desc: "Timestamp at which the current daylight availability expires." },
+		{ id: STRATEGY_DAY_DISCHARGE_AVAILABILITY_STATE_IDS.corridorRecoveryLatched, type: "boolean", role: "indicator", name: "SOC corridor recovery latched", desc: "True after SOC reached or crossed the lower corridor boundary; day discharge remains blocked until planned SOC is reached again." },
 	];
 	for (const definition of definitions) {
 		await adapter.extendObjectAsync(definition.id, { type: "state", common: { name: definition.name, desc: definition.desc, type: definition.type, role: definition.role, read: true, write: false, ...(definition.unit === undefined ? {} : { unit: definition.unit }) }, native: {} });
@@ -81,6 +92,9 @@ export function createStrategyDayDischargeAvailability(preparation: StrategyDayl
 	const gate = preparation.cyclePreparation.cyclePlan.evaluation.windowGate;
 	let availablePowerW = gate.targetDischargePowerW;
 	let reason: string = gate.reason === "daylight-window-active" ? gate.decision.permission.reason : gate.reason;
+	let corridorRecoveryLatched = chargingContext?.recoveryLatchActive === true;
+	const corridor = chargingContext === null ? null : corridorAvailability(chargingContext);
+	if (corridor !== null) corridorRecoveryLatched = corridor.recoveryLatched;
 
 	if (
 		availablePowerW <= 0
@@ -104,30 +118,22 @@ export function createStrategyDayDischargeAvailability(preparation: StrategyDayl
 		if (hardBlock) {
 			availablePowerW = 0;
 			reason = `charging-${chargingContext.reason}`;
+		} else if (corridor === null || corridor.factor === null) {
+			availablePowerW = 0;
+			reason = "trajectory-unavailable";
+		} else if (corridor.factor <= 0) {
+			availablePowerW = 0;
+			reason = corridor.zone === "latched" ? "trajectory-recovery-latched" : "trajectory-below-corridor";
 		} else {
-			const factor = corridorAvailabilityFactor(chargingContext);
-			if (factor === null) {
-				availablePowerW = 0;
-				reason = "trajectory-unavailable";
-			} else if (factor <= 0) {
-				availablePowerW = 0;
-				reason = chargingContext.recoveryLatchActive === true
-					&& chargingContext.currentSocPercent !== null
-					&& chargingContext.plannedSocPercent !== null
-					&& chargingContext.currentSocPercent < chargingContext.plannedSocPercent
-					? "trajectory-recovery-latched"
-					: "trajectory-below-corridor";
-			} else {
-				availablePowerW = Math.round(availablePowerW * factor);
-				if (factor >= 1) reason = "trajectory-above-corridor";
-				else if (chargingContext.currentSocPercent !== null && chargingContext.plannedSocPercent !== null && chargingContext.currentSocPercent < chargingContext.plannedSocPercent) reason = "trajectory-below-plan-throttled";
-				else if (chargingContext.currentSocPercent !== null && chargingContext.plannedSocPercent !== null && chargingContext.currentSocPercent === chargingContext.plannedSocPercent) reason = "trajectory-plan-balanced";
-				else reason = "trajectory-above-plan-throttled";
-			}
+			availablePowerW = Math.round(availablePowerW * corridor.factor);
+			if (corridor.zone === "above-corridor") reason = "trajectory-above-corridor";
+			else if (corridor.zone === "below-plan") reason = "trajectory-below-plan-throttled";
+			else if (corridor.zone === "plan") reason = "trajectory-plan-balanced";
+			else reason = "trajectory-above-plan-throttled";
 		}
 	}
 
-	return Object.freeze({ createdAt: preparation.createdAt, allowed: availablePowerW > 0, availablePowerW, reason, validUntil: preparation.daylightWindow.endsAt });
+	return Object.freeze({ createdAt: preparation.createdAt, allowed: availablePowerW > 0, availablePowerW, reason, validUntil: preparation.daylightWindow.endsAt, corridorRecoveryLatched });
 }
 
 export async function publishStrategyDayDischargeAvailability(adapter: StrategyDayDischargeAvailabilityAdapter, availability: StrategyDayDischargeAvailability): Promise<void> {
@@ -136,5 +142,6 @@ export async function publishStrategyDayDischargeAvailability(adapter: StrategyD
 		adapter.setStateAsync(STRATEGY_DAY_DISCHARGE_AVAILABILITY_STATE_IDS.availablePowerW, { val: availability.availablePowerW, ack: true }),
 		adapter.setStateAsync(STRATEGY_DAY_DISCHARGE_AVAILABILITY_STATE_IDS.reason, { val: availability.reason, ack: true }),
 		adapter.setStateAsync(STRATEGY_DAY_DISCHARGE_AVAILABILITY_STATE_IDS.validUntil, { val: availability.validUntil, ack: true }),
+		adapter.setStateAsync(STRATEGY_DAY_DISCHARGE_AVAILABILITY_STATE_IDS.corridorRecoveryLatched, { val: availability.corridorRecoveryLatched, ack: true }),
 	]);
 }
