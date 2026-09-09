@@ -8,6 +8,7 @@ import type { StrategyIoBrokerStrategyTimerAdapter } from "./strategyIoBrokerStr
 import { STRATEGY_MANUAL_CHARGE_STATE_DEFINITIONS } from "./strategyManualChargeStates";
 import { STRATEGY_CHARGING_STATE_IDS } from "./strategyChargingStates";
 import { STRATEGY_DAYLIGHT_DIAGNOSTIC_STATE_IDS } from "./strategyDaylightDiagnosticStates";
+import { STRATEGY_DAY_DISCHARGE_AVAILABILITY_STATE_IDS } from "./strategyDayDischargeAvailabilityStates";
 
 const CONFIGURATION: StrategyConfiguration = {
 	batteryModelId: "home-plus-7.7",
@@ -108,10 +109,7 @@ describe("strategy ioBroker lifecycle", () => {
 			"strategy.charging",
 			...Object.values(STRATEGY_CHARGING_STATE_IDS),
 			"strategy.dayDischarge",
-			"strategy.dayDischarge.allowed",
-			"strategy.dayDischarge.availablePowerW",
-			"strategy.dayDischarge.reason",
-			"strategy.dayDischarge.validUntil",
+			...Object.values(STRATEGY_DAY_DISCHARGE_AVAILABILITY_STATE_IDS),
 		]);
 		expect(run.timers).to.have.length(1);
 		expect(run.timers[0]?.delay).to.equal(30_000);
