@@ -22,17 +22,21 @@ __export(batteryPowerAcceptanceStateEngine_exports, {
 });
 module.exports = __toCommonJS(batteryPowerAcceptanceStateEngine_exports);
 var import_batteryAnalysis = require("./batteryAnalysis");
+var import_batteryDischargeLoadStateEngine = require("./batteryDischargeLoadStateEngine");
 var import_batteryPowerAcceptanceLearning = require("./batteryPowerAcceptanceLearning");
 var import_strategyChargingStates = require("./strategyChargingStates");
 class BatteryPowerAcceptanceStateEngine {
   constructor(adapter) {
     this.adapter = adapter;
+    this.dischargeLoad = new import_batteryDischargeLoadStateEngine.BatteryDischargeLoadStateEngine(adapter);
   }
   progress = /* @__PURE__ */ new Map();
   loaded = /* @__PURE__ */ new Set();
   initialized = /* @__PURE__ */ new Set();
+  dischargeLoad;
   summaryInitialized = false;
   async ensureObjects(devices) {
+    await this.dischargeLoad.ensureObjects(devices);
     if (!this.summaryInitialized) {
       await this.ensureTree("summary.battery.powerAcceptance", true);
       this.summaryInitialized = true;
@@ -71,6 +75,7 @@ class BatteryPowerAcceptanceStateEngine {
       results.push(result);
     }
     await this.publishSummary(results);
+    await this.dischargeLoad.observe(devices, batteryModels);
   }
   async ensureTree(root, persistent) {
     await this.adapter.extendObjectAsync(root, {
