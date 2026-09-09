@@ -1,4 +1,5 @@
 import type { StrategyConfiguration } from "./strategyConfiguration";
+import { STRATEGY_DAY_DISCHARGE_AVAILABILITY_STATE_IDS } from "./strategyDayDischargeAvailabilityStates";
 import type { StrategyDaylightWindowCycleExecution } from "./strategyDaylightWindowCycleExecution";
 import { executeStrategyIoBrokerDaylightCycle, type StrategyIoBrokerDaylightCycleAdapter } from "./strategyIoBrokerDaylightCycle";
 import { executeStrategyIoBrokerManualChargeCycle, type StrategyIoBrokerManualChargeAdapter } from "./strategyIoBrokerManualChargeCycle";
@@ -18,6 +19,14 @@ export interface StrategyIoBrokerStrategyCycle {
 	readonly automatic: StrategyDaylightWindowCycleExecution | null;
 }
 
+async function readDayDischargeRecoveryLatch(adapter: StrategyIoBrokerStrategyCycleAdapter): Promise<boolean> {
+	try {
+		return (await adapter.getStateAsync(STRATEGY_DAY_DISCHARGE_AVAILABILITY_STATE_IDS.corridorRecoveryLatched))?.val === true;
+	} catch {
+		return false;
+	}
+}
+
 export async function executeStrategyIoBrokerStrategyCycle(adapter: StrategyIoBrokerStrategyCycleAdapter, configuration: StrategyConfiguration, maximumForecastAgeMs: number, requestedDischargePowerW: number, contract: StrategyIntegrationContract = STRATEGY_INTEGRATION_CONTRACT, resolverOptions: StrategyStateResolverOptions = {}, modes: StrategyModes = DEFAULT_STRATEGY_MODES): Promise<StrategyIoBrokerStrategyCycle | null> {
 	const manualInput = modes.chargingControlEnabled ? await readStrategyManualChargeInput(adapter) : null;
 	if (modes.chargingControlEnabled && manualInput === null) return null;
@@ -34,6 +43,7 @@ export async function executeStrategyIoBrokerStrategyCycle(adapter: StrategyIoBr
 	}
 	const chargingControl = modes.chargingControlEnabled ? await executeStrategyIoBrokerAutomaticChargingCycle(adapter, configuration, contract, resolverOptions) : null;
 	if (!modes.dayAvailabilityEnabled) return Object.freeze({ createdAt: manualCharge?.createdAt ?? resolverOptions.now ?? Date.now(), manualCharge, chargingShadow: chargingControl, automatic: null });
+	const recoveryLatchActive = await readDayDischargeRecoveryLatch(adapter);
 	const automatic = await executeStrategyIoBrokerDaylightCycle(
 		adapter,
 		configuration,
@@ -44,12 +54,15 @@ export async function executeStrategyIoBrokerStrategyCycle(adapter: StrategyIoBr
 		chargingControl === null ? null : {
 			reason: chargingControl.reason,
 			currentSocPercent: chargingControl.currentSocPercent,
+			plannedSocPercent: chargingControl.plannedSocPercent,
+			plannedSocLowerPercent: chargingControl.plannedSocLowerPercent,
 			plannedSocUpperPercent: chargingControl.plannedSocUpperPercent,
 			forecastMarginWh: chargingControl.forecastMarginWh,
 			requiredAverageChargePowerW: chargingControl.requiredAverageChargePowerW,
 			targetChargePowerW: chargingControl.targetChargePowerW,
 			maximumChargePowerW: chargingControl.maximumChargePowerW,
 			requestedDischargePowerW,
+			recoveryLatchActive,
 		},
 	);
 	if (automatic === null || (manualCharge !== null && automatic.createdAt !== manualCharge.createdAt)) return null;
