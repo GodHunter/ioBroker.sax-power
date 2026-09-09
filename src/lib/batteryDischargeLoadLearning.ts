@@ -50,6 +50,13 @@ function clamp01(value: number): number {
 	return Math.max(0, Math.min(1, value));
 }
 
+function loadStatus(actualDischargePowerW: number, index: number): BatteryDischargeLoadResult["loadStatus"] {
+	if (actualDischargePowerW < MIN_DISCHARGE_POWER_W) return "idle";
+	if (index >= 70) return "high";
+	if (index >= 40) return "elevated";
+	return "normal";
+}
+
 export function createBatteryDischargeLoadProgress(timestamp: string): BatteryDischargeLoadProgress {
 	return {
 		schemaVersion: BATTERY_DISCHARGE_LOAD_SCHEMA_VERSION,
@@ -82,13 +89,6 @@ export function normalizeBatteryDischargeLoadProgress(
 	};
 }
 
-function loadStatus(actualDischargePowerW: number, loadIndex: number): BatteryDischargeLoadResult["loadStatus"] {
-	if (actualDischargePowerW < MIN_DISCHARGE_POWER_W) return "idle";
-	if (loadIndex >= 60) return "high";
-	if (loadIndex >= 30) return "elevated";
-	return "normal";
-}
-
 export function observeBatteryDischargeLoad(
 	previous: BatteryDischargeLoadProgress | null,
 	sample: BatteryDischargeLoadSample,
@@ -115,7 +115,11 @@ export function observeBatteryDischargeLoad(
 	const time = Date.parse(sample.timestamp);
 	const previousTime = Date.parse(progress.lastTimestamp);
 
-	if (Number.isFinite(time) && Number.isFinite(previousTime)) {
+	// Daily counters must never attribute an interval from the previous UTC day to the
+	// new day. We intentionally start the new-day integration with the first sample and
+	// integrate only from the next same-day observation onward. This avoids assigning a
+	// complete cross-midnight interval to either day when the exact split is unknown.
+	if (sameDay && Number.isFinite(time) && Number.isFinite(previousTime)) {
 		const elapsedMs = time - previousTime;
 		if (elapsedMs > 0 && elapsedMs <= MAX_SAMPLE_GAP_MS) {
 			const averageDischargePowerW = (progress.lastDischargePowerW + actualDischargePowerW) / 2;
