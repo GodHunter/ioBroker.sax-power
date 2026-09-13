@@ -314,11 +314,12 @@ export function createStrategyChargingDecision(
 		reason = "trajectory-recovery";
 	}
 
+	const hasDaylightProgress = elapsedDaylightMs > 0 && totalDaylightMs > 0;
 	const excessAboveUpperPercent = input.stateOfChargePercent - trajectoryState.plannedSocUpperPercent;
 	const wasAheadLimited = input.previousDecisionReason === "trajectory-ahead-limited";
-	const aheadLimitingRequired = wasAheadLimited
+	const aheadLimitingRequired = hasDaylightProgress && (wasAheadLimited
 		? excessAboveUpperPercent > TRAJECTORY_AHEAD_EXIT_PERCENT
-		: excessAboveUpperPercent > TRAJECTORY_AHEAD_ENTER_PERCENT;
+		: excessAboveUpperPercent > TRAJECTORY_AHEAD_ENTER_PERCENT);
 
 	if (!deadlineUnderPressure && !recoveryRequired && aheadLimitingRequired) {
 		const aheadPowerFactor = trajectoryAheadPowerFactor(excessAboveUpperPercent);
