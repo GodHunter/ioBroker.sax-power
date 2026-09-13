@@ -162,6 +162,93 @@ describe("strategy charging decision", () => {
 		expect(decision.chargePowerLimitW).to.equal(configuration.maximumChargePowerW);
 	});
 
+	it("reduces charging progressively when SOC is clearly above the upper trajectory corridor", () => {
+		const decision = createStrategyChargingDecision(configuration, {
+			stateOfChargePercent: 75,
+			forecastEnergyRemainingWh: 1000,
+			remainingDaylightMs: 5 * HOUR,
+			elapsedDaylightMs: 5 * HOUR,
+			totalDaylightMs: 10 * HOUR,
+		});
+		expect(decision.reason).to.equal("trajectory-ahead-limited");
+		expect(decision.chargePowerLimitW).to.be.lessThan(configuration.maximumChargePowerW);
+		expect(decision.chargePowerLimitW).to.be.greaterThan(0);
+	});
+
+	it("limits forecast-insufficient charging instead of forcing maximum power when far ahead", () => {
+		const decision = createStrategyChargingDecision(configuration, {
+			stateOfChargePercent: 90,
+			forecastEnergyRemainingWh: 0,
+			remainingDaylightMs: 5 * HOUR,
+			elapsedDaylightMs: 5 * HOUR,
+			totalDaylightMs: 10 * HOUR,
+		});
+		expect(decision.forecastMarginWh).to.be.lessThan(0);
+		expect(decision.reason).to.equal("trajectory-ahead-limited");
+		expect(decision.chargePowerLimitW).to.equal(Math.round(configuration.maximumChargePowerW * 0.15));
+	});
+
+	it("keeps the ahead limiter active with hysteresis until SOC nearly returns to the upper corridor", () => {
+		const reference = createStrategyChargingDecision(configuration, {
+			stateOfChargePercent: 60,
+			forecastEnergyRemainingWh: 0,
+			remainingDaylightMs: 5 * HOUR,
+			elapsedDaylightMs: 5 * HOUR,
+			totalDaylightMs: 10 * HOUR,
+		});
+		const stateOfChargePercent = reference.plannedSocUpperPercent + 1;
+		const freshDecision = createStrategyChargingDecision(configuration, {
+			stateOfChargePercent,
+			forecastEnergyRemainingWh: 0,
+			remainingDaylightMs: 5 * HOUR,
+			elapsedDaylightMs: 5 * HOUR,
+			totalDaylightMs: 10 * HOUR,
+		});
+		const hysteresisDecision = createStrategyChargingDecision(configuration, {
+			stateOfChargePercent,
+			forecastEnergyRemainingWh: 0,
+			remainingDaylightMs: 5 * HOUR,
+			elapsedDaylightMs: 5 * HOUR,
+			totalDaylightMs: 10 * HOUR,
+			previousDecisionReason: "trajectory-ahead-limited",
+		});
+		expect(freshDecision.reason).to.equal("forecast-insufficient");
+		expect(hysteresisDecision.reason).to.equal("trajectory-ahead-limited");
+	});
+
+	it("releases ahead limiting after SOC returns to the corridor hysteresis boundary", () => {
+		const reference = createStrategyChargingDecision(configuration, {
+			stateOfChargePercent: 60,
+			forecastEnergyRemainingWh: 0,
+			remainingDaylightMs: 5 * HOUR,
+			elapsedDaylightMs: 5 * HOUR,
+			totalDaylightMs: 10 * HOUR,
+		});
+		const decision = createStrategyChargingDecision(configuration, {
+			stateOfChargePercent: reference.plannedSocUpperPercent + 0.5,
+			forecastEnergyRemainingWh: 0,
+			remainingDaylightMs: 5 * HOUR,
+			elapsedDaylightMs: 5 * HOUR,
+			totalDaylightMs: 10 * HOUR,
+			previousDecisionReason: "trajectory-ahead-limited",
+		});
+		expect(decision.reason).to.equal("forecast-insufficient");
+		expect(decision.chargePowerLimitW).to.equal(configuration.maximumChargePowerW);
+	});
+
+	it("deadline recovery overrides ahead limiting so the target remains reachable", () => {
+		const decision = createStrategyChargingDecision(configuration, {
+			stateOfChargePercent: 92,
+			forecastEnergyRemainingWh: 0,
+			remainingDaylightMs: 45 * 60 * 1000,
+			elapsedDaylightMs: 9.25 * HOUR,
+			totalDaylightMs: 10 * HOUR,
+			previousDecisionReason: "trajectory-ahead-limited",
+		});
+		expect(decision.reason).to.equal("target-deadline-recovery");
+		expect(decision.chargePowerLimitW).to.equal(configuration.maximumChargePowerW);
+	});
+
 	it("forces maximum charge power once the completion deadline is reached", () => {
 		const decision = createStrategyChargingDecision(configuration, {
 			stateOfChargePercent: 92,

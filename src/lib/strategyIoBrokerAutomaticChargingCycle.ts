@@ -66,7 +66,7 @@ async function readLearnedHouseholdEnergyRemainingWh(adapter: StrategyIoBrokerAu
 async function readPreviousDecisionReason(adapter: StrategyIoBrokerAutomaticChargingAdapter): Promise<StrategyChargingDecisionReason | null> {
 	try {
 		const value = (await adapter.getStateAsync(STRATEGY_CHARGING_STATE_IDS.decisionReason))?.val;
-		if (value === "target-soc-reached" || value === "target-soc-maintenance" || value === "forecast-insufficient" || value === "forecast-balanced" || value === "trajectory-recovery" || value === "target-deadline-recovery" || value === "invalid-input") return value;
+		if (value === "target-soc-reached" || value === "target-soc-maintenance" || value === "forecast-insufficient" || value === "forecast-balanced" || value === "trajectory-recovery" || value === "trajectory-ahead-limited" || value === "target-deadline-recovery" || value === "invalid-input") return value;
 	} catch { /* Previous state is only used for hysteresis. */ }
 	return null;
 }
