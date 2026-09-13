@@ -67,7 +67,7 @@ async function readPreviousDecisionReason(adapter) {
   var _a;
   try {
     const value = (_a = await adapter.getStateAsync(import_strategyChargingStates.STRATEGY_CHARGING_STATE_IDS.decisionReason)) == null ? void 0 : _a.val;
-    if (value === "target-soc-reached" || value === "target-soc-maintenance" || value === "forecast-insufficient" || value === "forecast-balanced" || value === "trajectory-recovery" || value === "target-deadline-recovery" || value === "invalid-input") return value;
+    if (value === "target-soc-reached" || value === "target-soc-maintenance" || value === "forecast-insufficient" || value === "forecast-balanced" || value === "trajectory-recovery" || value === "trajectory-ahead-limited" || value === "target-deadline-recovery" || value === "invalid-input") return value;
   } catch {
   }
   return null;

@@ -32,11 +32,32 @@ const COMFORT_TRAJECTORY_EXPONENT = 2;
 const TARGET_SOC_MAINTENANCE_BAND_PERCENT = 2;
 const TARGET_SOC_MAINTENANCE_MINIMUM_POWER_FACTOR = 0.2;
 const TARGET_SOC_MAINTENANCE_REFILL_WINDOW_MS = 15 * 60 * 1e3;
+const TRAJECTORY_AHEAD_ENTER_PERCENT = 2;
+const TRAJECTORY_AHEAD_EXIT_PERCENT = 0.5;
+const TRAJECTORY_AHEAD_MINIMUM_POWER_FACTOR = 0.15;
 function roundPower(value) {
   return Math.max(0, Math.round(value));
 }
 function targetDeadlineRemainingMs(remainingDaylightMs) {
   return Math.max(MINIMUM_DAYLIGHT_MS, remainingDaylightMs - TARGET_COMPLETION_BUFFER_MS);
+}
+function interpolate(value, fromValue, toValue, fromFactor, toFactor) {
+  if (toValue <= fromValue) return toFactor;
+  const progress = Math.max(0, Math.min(1, (value - fromValue) / (toValue - fromValue)));
+  return fromFactor + (toFactor - fromFactor) * progress;
+}
+function trajectoryAheadPowerFactor(excessAboveUpperPercent) {
+  if (excessAboveUpperPercent <= TRAJECTORY_AHEAD_ENTER_PERCENT) return 1;
+  if (excessAboveUpperPercent <= 10) {
+    return interpolate(excessAboveUpperPercent, TRAJECTORY_AHEAD_ENTER_PERCENT, 10, 1, 0.5);
+  }
+  if (excessAboveUpperPercent <= 20) {
+    return interpolate(excessAboveUpperPercent, 10, 20, 0.5, 0.25);
+  }
+  if (excessAboveUpperPercent <= 30) {
+    return interpolate(excessAboveUpperPercent, 20, 30, 0.25, TRAJECTORY_AHEAD_MINIMUM_POWER_FACTOR);
+  }
+  return TRAJECTORY_AHEAD_MINIMUM_POWER_FACTOR;
 }
 function trajectory(configuration, input, usableCapacityWh, deadlineRemainingMs) {
   var _a;
@@ -170,7 +191,7 @@ function createStrategyChargingDecision(configuration, input) {
   let desiredPowerW = forecastInsufficient ? configuration.maximumChargePowerW : deadlinePowerW;
   let reason = forecastInsufficient ? "forecast-insufficient" : "forecast-balanced";
   const deadlineUnderPressure = input.remainingDaylightMs <= TARGET_COMPLETION_BUFFER_MS || deadlinePowerW >= configuration.maximumChargePowerW;
-  if (!forecastInsufficient && deadlineUnderPressure) {
+  if (deadlineUnderPressure) {
     desiredPowerW = configuration.maximumChargePowerW;
     reason = "target-deadline-recovery";
   }
@@ -190,6 +211,16 @@ function createStrategyChargingDecision(configuration, input) {
       recoveryPowerW * TRAJECTORY_RECOVERY_HEADROOM_FACTOR
     );
     reason = "trajectory-recovery";
+  }
+  const hasDaylightProgress = elapsedDaylightMs > 0 && totalDaylightMs > 0;
+  const excessAboveUpperPercent = input.stateOfChargePercent - trajectoryState.plannedSocUpperPercent;
+  const wasAheadLimited = input.previousDecisionReason === "trajectory-ahead-limited";
+  const aheadLimitingRequired = hasDaylightProgress && (wasAheadLimited ? excessAboveUpperPercent > TRAJECTORY_AHEAD_EXIT_PERCENT : excessAboveUpperPercent > TRAJECTORY_AHEAD_ENTER_PERCENT);
+  if (!deadlineUnderPressure && !recoveryRequired && aheadLimitingRequired) {
+    const aheadPowerFactor = trajectoryAheadPowerFactor(excessAboveUpperPercent);
+    const aheadPowerLimitW = configuration.maximumChargePowerW * aheadPowerFactor;
+    desiredPowerW = Math.min(desiredPowerW, aheadPowerLimitW);
+    reason = "trajectory-ahead-limited";
   }
   const chargePowerLimitW = roundPower(Math.min(
     configuration.maximumChargePowerW,
