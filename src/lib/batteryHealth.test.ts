@@ -68,7 +68,7 @@ describe("battery health tracker", () => {
 		expect(normalizeBatteryHealthProgress(migrated)).to.equal(migrated);
 	});
 
-	it("publishes one stable mean for each block of five valid discharges", () => {
+	it("publishes one stable mean for each block of five valid discharges and keeps it until the next block completes", () => {
 		let progress = createBatteryHealthProgress("2026-08-10T00:00:00.000Z");
 		let result = observeBatteryHealth(progress, {
 			timestamp: "2026-08-10T00:00:00.000Z", soc: null, batteryPower: null, direction: "idle",
@@ -100,5 +100,9 @@ describe("battery health tracker", () => {
 		completeRun(110, 5);
 		expect(result.value).to.equal(93.2);
 		expect(result.progress.validRuns).to.equal(1);
+
+		[100, 102, 98, 101].forEach((estimate, index) => completeRun(estimate, 6 + index));
+		expect(result.progress.validRuns).to.equal(0);
+		expect(result.value).to.equal(96.7);
 	});
 });
