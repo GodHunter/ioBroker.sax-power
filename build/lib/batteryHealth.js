@@ -28,7 +28,7 @@ __export(batteryHealth_exports, {
 module.exports = __toCommonJS(batteryHealth_exports);
 const REQUIRED_HEALTH_RUNS = 5;
 const MIN_HEALTH_SOC_SPAN = 40;
-const BATTERY_HEALTH_SCHEMA_VERSION = 3;
+const BATTERY_HEALTH_SCHEMA_VERSION = 4;
 const MIN_REJECTED_RUN_SOC_SPAN = 5;
 const MIN_POWER_W = 100;
 const MAX_GAP_MS = 15 * 60 * 1e3;
@@ -46,17 +46,20 @@ function createBatteryHealthProgress(timestamp) {
   };
 }
 function normalizeBatteryHealthProgress(progress) {
+  var _a;
   if (progress.schemaVersion === BATTERY_HEALTH_SCHEMA_VERSION) return progress;
-  const legacyValue = progress.validRuns >= progress.requiredRuns ? median(progress.estimates.slice(-progress.requiredRuns)) : null;
+  const legacyWindow = progress.estimates.slice(-REQUIRED_HEALTH_RUNS);
+  const legacyValue = (_a = progress.publishedValue) != null ? _a : legacyWindow.length >= REQUIRED_HEALTH_RUNS ? median(legacyWindow) : null;
   return {
     ...progress,
     schemaVersion: BATTERY_HEALTH_SCHEMA_VERSION,
-    validRuns: 0,
-    estimates: [],
+    validRuns: legacyWindow.length,
+    requiredRuns: REQUIRED_HEALTH_RUNS,
+    estimates: legacyWindow,
     publishedValue: legacyValue === null ? null : round(Math.max(0, Math.min(110, legacyValue)), 1),
     // Version 1 counted charging phases and tiny power fluctuations as rejected
-    // measurements. Version 2 already reset the affected diagnostic counter.
-    rejectedRuns: progress.schemaVersion === 2 ? progress.rejectedRuns : 0
+    // measurements. Later schemas already use the corrected diagnostic counter.
+    rejectedRuns: progress.schemaVersion === 2 || progress.schemaVersion === 3 ? progress.rejectedRuns : 0
   };
 }
 function round(value, digits = 3) {
@@ -90,15 +93,11 @@ function finishRun(progress, usableCapacityKwh, timestamp) {
     const estimate = run.energyKwh / expectedEnergy * 100;
     if (Number.isFinite(estimate) && estimate >= 50 && estimate <= 120) {
       progress.estimates.push(round(estimate, 2));
+      progress.estimates = progress.estimates.slice(-progress.requiredRuns);
       progress.validRuns = progress.estimates.length;
       if (progress.estimates.length >= progress.requiredRuns) {
-        const completedBatch = progress.estimates.slice(0, progress.requiredRuns);
-        progress.publishedValue = round(
-          completedBatch.reduce((sum, value) => sum + value, 0) / completedBatch.length,
-          1
-        );
-        progress.estimates = progress.estimates.slice(progress.requiredRuns);
-        progress.validRuns = progress.estimates.length;
+        const rollingMedian = median(progress.estimates);
+        if (rollingMedian !== null) progress.publishedValue = round(rollingMedian, 1);
       }
     } else {
       progress.rejectedRuns += 1;
