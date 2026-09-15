@@ -54,21 +54,23 @@ describe("battery health tracker", () => {
 		expect(result.progress.rejectedRuns).to.equal(0);
 	});
 
-	it("migrates the inflated legacy rejected-run counter once", () => {
+	it("migrates legacy estimates into a rolling window and preserves the published value", () => {
 		const legacy = createBatteryHealthProgress("2026-08-10T10:00:00.000Z");
-		delete legacy.schemaVersion;
+		legacy.schemaVersion = 3;
 		legacy.validRuns = 9;
-		legacy.rejectedRuns = 401;
+		legacy.rejectedRuns = 13;
 		legacy.estimates = [90, 91, 92, 93, 94, 95, 96, 97, 98];
+		legacy.publishedValue = 97.4;
 		const migrated = normalizeBatteryHealthProgress(legacy);
 		expect(migrated.schemaVersion).to.equal(BATTERY_HEALTH_SCHEMA_VERSION);
-		expect(migrated.validRuns).to.equal(0);
-		expect(migrated.rejectedRuns).to.equal(0);
-		expect(migrated.publishedValue).to.equal(96);
+		expect(migrated.validRuns).to.equal(5);
+		expect(migrated.rejectedRuns).to.equal(13);
+		expect(migrated.estimates).to.deep.equal([94, 95, 96, 97, 98]);
+		expect(migrated.publishedValue).to.equal(97.4);
 		expect(normalizeBatteryHealthProgress(migrated)).to.equal(migrated);
 	});
 
-	it("publishes one stable mean for each block of five valid discharges and keeps it until the next block completes", () => {
+	it("publishes the rolling median of the last five valid discharges", () => {
 		let progress = createBatteryHealthProgress("2026-08-10T00:00:00.000Z");
 		let result = observeBatteryHealth(progress, {
 			timestamp: "2026-08-10T00:00:00.000Z", soc: null, batteryPower: null, direction: "idle",
@@ -92,17 +94,23 @@ describe("battery health tracker", () => {
 			progress = result.progress;
 		};
 
-		[95, 97, 96, 80, 98].forEach(completeRun);
+		[95, 97, 96, 80].forEach(completeRun);
+		expect(result.value).to.equal(null);
+		expect(result.progress.validRuns).to.equal(4);
+
+		completeRun(98, 4);
 		expect(result.status).to.equal("available");
-		expect(result.value).to.equal(93.2);
-		expect(result.progress.validRuns).to.equal(0);
+		expect(result.value).to.equal(96);
+		expect(result.progress.validRuns).to.equal(5);
+		expect(result.progress.estimates).to.deep.equal([95, 97, 96, 80, 98]);
 
 		completeRun(110, 5);
-		expect(result.value).to.equal(93.2);
-		expect(result.progress.validRuns).to.equal(1);
+		expect(result.progress.validRuns).to.equal(5);
+		expect(result.progress.estimates).to.deep.equal([97, 96, 80, 98, 110]);
+		expect(result.value).to.equal(97);
 
-		[100, 102, 98, 101].forEach((estimate, index) => completeRun(estimate, 6 + index));
-		expect(result.progress.validRuns).to.equal(0);
-		expect(result.value).to.equal(96.7);
+		completeRun(102, 6);
+		expect(result.progress.estimates).to.deep.equal([96, 80, 98, 110, 102]);
+		expect(result.value).to.equal(98);
 	});
 });
