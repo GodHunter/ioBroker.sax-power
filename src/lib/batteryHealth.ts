@@ -120,8 +120,11 @@ function finishRun(progress: BatteryHealthProgress, usableCapacityKwh: number, t
 			progress.validRuns = progress.estimates.length;
 			if (progress.estimates.length >= progress.requiredRuns) {
 				const completedBatch = progress.estimates.slice(0, progress.requiredRuns);
+				const completedBatchMean = completedBatch.reduce((sum, value) => sum + value, 0) / completedBatch.length;
 				progress.publishedValue = round(
-					completedBatch.reduce((sum, value) => sum + value, 0) / completedBatch.length,
+					progress.publishedValue === null
+						? completedBatchMean
+						: (progress.publishedValue + completedBatchMean) / 2,
 					1,
 				);
 				progress.estimates = progress.estimates.slice(progress.requiredRuns);
