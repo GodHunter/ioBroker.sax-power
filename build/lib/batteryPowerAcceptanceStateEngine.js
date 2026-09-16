@@ -78,11 +78,7 @@ class BatteryPowerAcceptanceStateEngine {
     await this.dischargeLoad.observe(devices, batteryModels);
   }
   async ensureTree(root, persistent) {
-    await this.adapter.extendObjectAsync(root, {
-      type: "channel",
-      common: { name: "Battery power acceptance learning" },
-      native: {}
-    });
+    await this.adapter.extendObjectAsync(root, { type: "channel", common: { name: "Battery power acceptance learning" }, native: {} });
     const definitions = {
       socBin: { name: "SOC acceptance bin", desc: "SOC range used for the current learned charging acceptance baseline.", type: "string", role: "text", def: "" },
       requestedChargePowerW: { name: "Requested charge power", desc: "Current automatic register 44 charge-power limit used as request context.", type: "number", role: "value.power", unit: "W" },
@@ -91,20 +87,27 @@ class BatteryPowerAcceptanceStateEngine {
       expectedAcceptancePowerW: { name: "Expected SOC-specific charge acceptance", desc: "Learned 75th percentile of qualified surplus-backed charging observations in the current SOC bin.", type: "number", role: "value.power", unit: "W" },
       acceptanceDeviationW: { name: "Charge acceptance deviation", desc: "Actual charge power minus learned SOC-specific expected acceptance.", type: "number", role: "value.power", unit: "W" },
       acceptanceDeviationPercent: { name: "Charge acceptance deviation", desc: "Relative deviation from learned SOC-specific expected acceptance.", type: "number", role: "value", unit: "%" },
+      capabilityRatioPercent: { name: "Charge capability ratio", desc: "Actual charge power relative to the learned SOC-specific capability baseline when a real surplus-backed capability test is possible.", type: "number", role: "value", unit: "%" },
+      capabilityStatus: { name: "Charge capability status", desc: "Observation-only state: notTestable, learning, normal, limited, recovering or recovered.", type: "string", role: "text", def: "notTestable" },
+      testable: { name: "Charge capability testable", desc: "True only when charge request headroom and simultaneous grid export prove that the battery could accept more power.", type: "boolean", role: "indicator", def: false },
+      limitationEvidence: { name: "Charge capability limitation evidence", desc: "True when a qualified test falls below 70 percent of an established SOC-specific capability baseline.", type: "boolean", role: "indicator", def: false },
+      limitationEvents: { name: "Charge capability limitation events", desc: "Number of detected limitation episodes since the current learning progress was initialized.", type: "number", role: "value", def: 0 },
+      recoveryEvents: { name: "Charge capability recovery events", desc: "Number of limitation episodes followed by a qualified recovery observation.", type: "number", role: "value", def: 0 },
+      lastRecoveryAt: { name: "Last charge capability recovery", desc: "Timestamp of the latest qualified recovery from a limitation episode.", type: "string", role: "date", def: "" },
+      lastRecoveryDurationMinutes: { name: "Last charge capability recovery duration", desc: "Minutes from the start of the last limitation episode until qualified recovery.", type: "number", role: "value.interval", unit: "min" },
+      activeEpisode: { name: "Active charge capability limitation episode", desc: "JSON context for the current limitation episode including SOC, throughput and equivalent cycles at onset.", type: "string", role: "json", def: "" },
       qualifiedSamples: { name: "Qualified acceptance samples", desc: "Surplus-backed samples in the current SOC bin used to learn the normal charge acceptance curve.", type: "number", role: "value", def: 0 },
       confidence: { name: "Acceptance learning confidence", desc: "Confidence of the learned baseline in the current SOC bin.", type: "string", role: "text", def: "none" },
-      stressIndex: { name: "Inferred battery load index", desc: "Derived 0-100 deviation index after removing the learned normal SOC taper. This is not a SAX-reported stress value.", type: "number", role: "value", unit: "%" },
-      stressStatus: { name: "Inferred battery load status", desc: "Interpretation of the inferred deviation index; remains unavailable/learning until the SOC-specific baseline is established.", type: "string", role: "text", def: "notAvailable" },
+      stressIndex: { name: "Legacy inferred battery load index", desc: "Compatibility diagnostic derived from capability deviation. Prefer capabilityStatus and capabilityRatioPercent for new analysis.", type: "number", role: "value", unit: "%" },
+      stressStatus: { name: "Legacy inferred battery load status", desc: "Compatibility status retained while capability diagnostics replace the old stress interpretation.", type: "string", role: "text", def: "notAvailable" },
       chargedEnergyTodayKwh: { name: "Observed charged energy today", desc: "Live-integrated charging energy collected by the acceptance learner.", type: "number", role: "value.energy", unit: "kWh", def: 0 },
       dischargedEnergyTodayKwh: { name: "Observed discharged energy today", desc: "Live-integrated discharging energy collected by the acceptance learner.", type: "number", role: "value.energy", unit: "kWh", def: 0 },
       throughputTodayKwh: { name: "Observed battery throughput today", desc: "Sum of live-integrated charging and discharging energy used as battery-load context.", type: "number", role: "value.energy", unit: "kWh", def: 0 },
-      equivalentFullCyclesToday: { name: "Observed equivalent full cycles today", desc: "Live throughput divided by twice usable capacity; diagnostic context for power acceptance learning.", type: "number", role: "value", unit: "cycles" },
+      equivalentFullCyclesToday: { name: "Observed equivalent full cycles today", desc: "Live throughput divided by twice usable capacity; diagnostic context for capability pattern analysis.", type: "number", role: "value", unit: "cycles" },
       exportEvidence: { name: "Surplus evidence", desc: "True when simultaneous grid export proves that more energy was available than the battery accepted.", type: "boolean", role: "indicator", def: false },
       lastUpdate: { name: "Acceptance learning last update", desc: "Timestamp of the latest acceptance observation.", type: "string", role: "date", def: "" }
     };
-    for (const [id, definition] of Object.entries(definitions)) {
-      await this.ensureState(`${root}.${id}`, definition);
-    }
+    for (const [id, definition] of Object.entries(definitions)) await this.ensureState(`${root}.${id}`, definition);
     await this.adapter.extendObjectAsync(`${root}.curve`, { type: "channel", common: { name: "Learned SOC acceptance curve" }, native: {} });
     for (const bin of import_batteryPowerAcceptanceLearning.BATTERY_POWER_ACCEPTANCE_SOC_BINS) {
       const id = bin.id.replaceAll("-", "_");
@@ -112,8 +115,7 @@ class BatteryPowerAcceptanceStateEngine {
       await this.ensureState(`${root}.curve.${id}Samples`, { name: `${bin.id}% qualified samples`, desc: "Qualified samples supporting this SOC acceptance bin.", type: "number", role: "value", def: 0 });
       await this.ensureState(`${root}.curve.${id}MaxObservedPowerW`, { name: `${bin.id}% maximum observed charge power`, desc: "Highest actual charging power observed in this SOC bin, including non-qualified lower-bound observations.", type: "number", role: "value.power", unit: "W", def: 0 });
     }
-    if (persistent) return;
-    await this.ensureState(`${root}.progress`, { name: "Power acceptance learning progress", desc: "Internal persistent learning state.", type: "string", role: "json", def: "" });
+    if (!persistent) await this.ensureState(`${root}.progress`, { name: "Power acceptance learning progress", desc: "Internal persistent learning state.", type: "string", role: "json", def: "" });
   }
   async ensureState(id, definition) {
     await this.adapter.extendObjectAsync(id, {
@@ -153,7 +155,7 @@ class BatteryPowerAcceptanceStateEngine {
     }
   }
   async publish(root, result, includeProgress) {
-    var _a;
+    var _a, _b;
     const values = {
       socBin: (_a = result.socBin) != null ? _a : "",
       requestedChargePowerW: result.requestedChargePowerW,
@@ -162,6 +164,15 @@ class BatteryPowerAcceptanceStateEngine {
       expectedAcceptancePowerW: result.expectedAcceptancePowerW,
       acceptanceDeviationW: result.acceptanceDeviationW,
       acceptanceDeviationPercent: result.acceptanceDeviationPercent,
+      capabilityRatioPercent: result.capabilityRatioPercent,
+      capabilityStatus: result.capabilityStatus,
+      testable: result.testable,
+      limitationEvidence: result.limitationEvidence,
+      limitationEvents: result.progress.limitationEvents,
+      recoveryEvents: result.progress.recoveryEvents,
+      lastRecoveryAt: (_b = result.progress.lastRecoveryAt) != null ? _b : "",
+      lastRecoveryDurationMinutes: result.progress.lastRecoveryDurationMinutes,
+      activeEpisode: result.progress.activeEpisode ? JSON.stringify(result.progress.activeEpisode) : "",
       qualifiedSamples: result.qualifiedSamples,
       confidence: result.confidence,
       stressIndex: result.stressIndex,
@@ -203,6 +214,9 @@ class BatteryPowerAcceptanceStateEngine {
         return (_a2 = result.requestedChargePowerW) != null ? _a2 : 0;
       }), ack: true }),
       this.adapter.setStateAsync(`${root}.actualChargePowerW`, { val: total((result) => result.actualChargePowerW), ack: true }),
+      this.adapter.setStateAsync(`${root}.capabilityStatus`, { val: results.some((result) => result.capabilityStatus === "limited") ? "limited" : "mixed", ack: true }),
+      this.adapter.setStateAsync(`${root}.testable`, { val: results.some((result) => result.testable), ack: true }),
+      this.adapter.setStateAsync(`${root}.limitationEvidence`, { val: results.some((result) => result.limitationEvidence), ack: true }),
       this.adapter.setStateAsync(`${root}.stressIndex`, { val: stressValues.length ? Math.max(...stressValues) : null, ack: true }),
       this.adapter.setStateAsync(`${root}.stressStatus`, { val: stressValues.length ? "mixed" : "learning", ack: true }),
       this.adapter.setStateAsync(`${root}.chargedEnergyTodayKwh`, { val: total((result) => result.chargedEnergyTodayKwh), ack: true }),

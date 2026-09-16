@@ -26,7 +26,7 @@ __export(batteryPowerAcceptanceLearning_exports, {
   observeBatteryPowerAcceptance: () => observeBatteryPowerAcceptance
 });
 module.exports = __toCommonJS(batteryPowerAcceptanceLearning_exports);
-const BATTERY_POWER_ACCEPTANCE_SCHEMA_VERSION = 1;
+const BATTERY_POWER_ACCEPTANCE_SCHEMA_VERSION = 2;
 const BATTERY_POWER_ACCEPTANCE_MIN_SAMPLES = 5;
 const MIN_CHARGE_POWER_W = 100;
 const MIN_REQUEST_POWER_W = 500;
@@ -34,6 +34,8 @@ const MIN_EXPORT_EVIDENCE_W = 150;
 const MIN_ACCEPTANCE_HEADROOM_W = 40;
 const MAX_SAMPLE_GAP_MS = 5 * 60 * 1e3;
 const MAX_SAMPLES_PER_BIN = 60;
+const LIMITED_RATIO = 0.7;
+const RECOVERING_RATIO = 0.9;
 const BATTERY_POWER_ACCEPTANCE_SOC_BINS = Object.freeze([
   { id: "30-80", min: 30, max: 80 },
   { id: "80-85", min: 80, max: 85 },
@@ -66,12 +68,17 @@ function createBatteryPowerAcceptanceProgress(timestamp) {
     day: timestamp.slice(0, 10),
     chargedEnergyTodayKwh: 0,
     dischargedEnergyTodayKwh: 0,
-    bins: createBins()
+    bins: createBins(),
+    activeEpisode: null,
+    limitationEvents: 0,
+    recoveryEvents: 0,
+    lastRecoveryAt: null,
+    lastRecoveryDurationMinutes: null
   };
 }
 function normalizeBatteryPowerAcceptanceProgress(progress, timestamp) {
-  var _a;
-  if (progress.schemaVersion !== BATTERY_POWER_ACCEPTANCE_SCHEMA_VERSION) {
+  var _a, _b, _c, _d;
+  if (progress.schemaVersion !== 1 && progress.schemaVersion !== BATTERY_POWER_ACCEPTANCE_SCHEMA_VERSION) {
     return createBatteryPowerAcceptanceProgress(timestamp);
   }
   const bins = createBins();
@@ -84,7 +91,16 @@ function normalizeBatteryPowerAcceptanceProgress(progress, timestamp) {
       maxObservedChargePowerW: Number.isFinite(previous.maxObservedChargePowerW) ? Math.max(0, previous.maxObservedChargePowerW) : 0
     };
   }
-  return { ...progress, bins };
+  return {
+    ...progress,
+    schemaVersion: BATTERY_POWER_ACCEPTANCE_SCHEMA_VERSION,
+    bins,
+    activeEpisode: progress.schemaVersion === BATTERY_POWER_ACCEPTANCE_SCHEMA_VERSION ? (_b = progress.activeEpisode) != null ? _b : null : null,
+    limitationEvents: progress.schemaVersion === BATTERY_POWER_ACCEPTANCE_SCHEMA_VERSION && Number.isFinite(progress.limitationEvents) ? progress.limitationEvents : 0,
+    recoveryEvents: progress.schemaVersion === BATTERY_POWER_ACCEPTANCE_SCHEMA_VERSION && Number.isFinite(progress.recoveryEvents) ? progress.recoveryEvents : 0,
+    lastRecoveryAt: progress.schemaVersion === BATTERY_POWER_ACCEPTANCE_SCHEMA_VERSION ? (_c = progress.lastRecoveryAt) != null ? _c : null : null,
+    lastRecoveryDurationMinutes: progress.schemaVersion === BATTERY_POWER_ACCEPTANCE_SCHEMA_VERSION ? (_d = progress.lastRecoveryDurationMinutes) != null ? _d : null : null
+  };
 }
 function socBin(soc) {
   var _a, _b;
@@ -94,8 +110,7 @@ function socBin(soc) {
 function percentile(values, fraction) {
   if (values.length === 0) return null;
   const sorted = [...values].sort((a, b) => a - b);
-  const index = Math.min(sorted.length - 1, Math.max(0, Math.ceil(fraction * sorted.length) - 1));
-  return sorted[index];
+  return sorted[Math.min(sorted.length - 1, Math.max(0, Math.ceil(fraction * sorted.length) - 1))];
 }
 function confidence(samples) {
   if (samples >= BATTERY_POWER_ACCEPTANCE_MIN_SAMPLES) return "established";
@@ -109,7 +124,7 @@ function stressStatus(index, sampleConfidence) {
   return "normal";
 }
 function observeBatteryPowerAcceptance(previous, sample, usableCapacityKwh) {
-  var _a, _b;
+  var _a, _b, _c;
   const initial = previous != null ? previous : createBatteryPowerAcceptanceProgress(sample.timestamp);
   let progress = normalizeBatteryPowerAcceptanceProgress(initial, sample.timestamp);
   const time = Date.parse(sample.timestamp);
@@ -117,6 +132,9 @@ function observeBatteryPowerAcceptance(previous, sample, usableCapacityKwh) {
   const currentDay = sample.timestamp.slice(0, 10);
   let chargedEnergyTodayKwh = currentDay === progress.day ? progress.chargedEnergyTodayKwh : 0;
   let dischargedEnergyTodayKwh = currentDay === progress.day ? progress.dischargedEnergyTodayKwh : 0;
+  if (currentDay !== progress.day) {
+    progress = { ...progress, activeEpisode: null };
+  }
   if (Number.isFinite(time) && Number.isFinite(previousTime)) {
     const elapsedMs = time - previousTime;
     if (elapsedMs > 0 && elapsedMs <= MAX_SAMPLE_GAP_MS && progress.lastBatteryPowerW !== null && sample.batteryPower !== null) {
@@ -126,12 +144,57 @@ function observeBatteryPowerAcceptance(previous, sample, usableCapacityKwh) {
       if (averagePowerW > 0) dischargedEnergyTodayKwh += energyKwh;
     }
   }
+  const throughputTodayKwh = chargedEnergyTodayKwh + dischargedEnergyTodayKwh;
+  const equivalentFullCyclesToday = usableCapacityKwh > 0 ? round(throughputTodayKwh / (2 * usableCapacityKwh), 3) : null;
   const binId = socBin(sample.soc);
   const actualChargePowerW = sample.direction === "charging" && sample.batteryPower !== null ? Math.max(0, -sample.batteryPower) : 0;
   const requested = sample.requestedChargePowerW !== null && Number.isFinite(sample.requestedChargePowerW) ? Math.max(0, sample.requestedChargePowerW) : null;
   const exportEvidence = sample.gridExportPowerW !== null && sample.gridExportPowerW >= MIN_EXPORT_EVIDENCE_W;
-  const batteryLimitedEvidence = requested !== null && requested >= MIN_REQUEST_POWER_W && actualChargePowerW >= MIN_CHARGE_POWER_W && requested - actualChargePowerW >= MIN_ACCEPTANCE_HEADROOM_W;
-  const qualifiedAcceptanceSample = exportEvidence && batteryLimitedEvidence;
+  const requestHeadroom = requested !== null && requested >= MIN_REQUEST_POWER_W && actualChargePowerW >= MIN_CHARGE_POWER_W && requested - actualChargePowerW >= MIN_ACCEPTANCE_HEADROOM_W;
+  const testable = Boolean(binId && exportEvidence && requestHeadroom);
+  const currentBin = binId ? progress.bins[binId] : null;
+  const expectedBeforeSample = currentBin ? percentile(currentBin.samples, 0.75) : null;
+  const confidenceBeforeSample = confidence((_a = currentBin == null ? void 0 : currentBin.samples.length) != null ? _a : 0);
+  const capabilityRatioPercent = testable && expectedBeforeSample !== null && expectedBeforeSample > 0 ? round(actualChargePowerW / expectedBeforeSample * 100, 1) : null;
+  const limitationEvidence = confidenceBeforeSample === "established" && capabilityRatioPercent !== null && capabilityRatioPercent < LIMITED_RATIO * 100;
+  let capabilityStatus = testable ? confidenceBeforeSample === "established" ? "normal" : "learning" : "notTestable";
+  let activeEpisode = progress.activeEpisode;
+  let limitationEvents = progress.limitationEvents;
+  let recoveryEvents = progress.recoveryEvents;
+  let lastRecoveryAt = progress.lastRecoveryAt;
+  let lastRecoveryDurationMinutes = progress.lastRecoveryDurationMinutes;
+  if (limitationEvidence) {
+    capabilityStatus = "limited";
+    if (!activeEpisode) {
+      activeEpisode = {
+        startedAt: sample.timestamp,
+        socAtStart: sample.soc,
+        minimumCapabilityPowerW: round(actualChargePowerW, 0),
+        minimumCapabilityRatioPercent: capabilityRatioPercent != null ? capabilityRatioPercent : 0,
+        throughputAtStartKwh: round(throughputTodayKwh),
+        equivalentFullCyclesAtStart: equivalentFullCyclesToday,
+        lastLimitedAt: sample.timestamp
+      };
+      limitationEvents += 1;
+    } else {
+      activeEpisode = {
+        ...activeEpisode,
+        minimumCapabilityPowerW: Math.min(activeEpisode.minimumCapabilityPowerW, round(actualChargePowerW, 0)),
+        minimumCapabilityRatioPercent: Math.min(activeEpisode.minimumCapabilityRatioPercent, capabilityRatioPercent != null ? capabilityRatioPercent : activeEpisode.minimumCapabilityRatioPercent),
+        lastLimitedAt: sample.timestamp
+      };
+    }
+  } else if (activeEpisode && testable && confidenceBeforeSample === "established" && capabilityRatioPercent !== null) {
+    if (capabilityRatioPercent >= RECOVERING_RATIO * 100) {
+      capabilityStatus = "recovered";
+      recoveryEvents += 1;
+      lastRecoveryAt = sample.timestamp;
+      lastRecoveryDurationMinutes = Number.isFinite(time) ? round((time - Date.parse(activeEpisode.startedAt)) / 6e4, 1) : null;
+      activeEpisode = null;
+    } else if (capabilityRatioPercent >= LIMITED_RATIO * 100) {
+      capabilityStatus = "recovering";
+    }
+  }
   if (binId && actualChargePowerW >= MIN_CHARGE_POWER_W) {
     const bin2 = progress.bins[binId];
     const updated = {
@@ -139,7 +202,7 @@ function observeBatteryPowerAcceptance(previous, sample, usableCapacityKwh) {
       observedSamples: bin2.observedSamples + 1,
       maxObservedChargePowerW: Math.max(bin2.maxObservedChargePowerW, actualChargePowerW)
     };
-    if (qualifiedAcceptanceSample) {
+    if (testable && !limitationEvidence) {
       updated.samples.push(round(actualChargePowerW, 0));
       if (updated.samples.length > MAX_SAMPLES_PER_BIN) updated.samples.splice(0, updated.samples.length - MAX_SAMPLES_PER_BIN);
     }
@@ -152,16 +215,20 @@ function observeBatteryPowerAcceptance(previous, sample, usableCapacityKwh) {
     lastBatteryPowerW: sample.batteryPower,
     day: currentDay,
     chargedEnergyTodayKwh: round(chargedEnergyTodayKwh),
-    dischargedEnergyTodayKwh: round(dischargedEnergyTodayKwh)
+    dischargedEnergyTodayKwh: round(dischargedEnergyTodayKwh),
+    activeEpisode,
+    limitationEvents,
+    recoveryEvents,
+    lastRecoveryAt,
+    lastRecoveryDurationMinutes
   };
   const bin = binId ? progress.bins[binId] : null;
-  const expected = bin ? percentile(bin.samples, 0.75) : null;
-  const sampleConfidence = confidence((_a = bin == null ? void 0 : bin.samples.length) != null ? _a : 0);
+  const expected = expectedBeforeSample != null ? expectedBeforeSample : bin ? percentile(bin.samples, 0.75) : null;
+  const sampleConfidence = confidence((_b = bin == null ? void 0 : bin.samples.length) != null ? _b : 0);
   const ratio = requested !== null && requested > 0 && actualChargePowerW > 0 ? round(actualChargePowerW / requested * 100, 1) : null;
   const deviationW = expected !== null && actualChargePowerW > 0 ? round(actualChargePowerW - expected, 0) : null;
   const deviationPercent = expected !== null && expected > 0 && deviationW !== null ? round(deviationW / expected * 100, 1) : null;
-  const stressIndex = sampleConfidence === "established" && qualifiedAcceptanceSample && deviationPercent !== null ? round(Math.max(0, Math.min(100, -deviationPercent)), 1) : null;
-  const throughputTodayKwh = chargedEnergyTodayKwh + dischargedEnergyTodayKwh;
+  const stressIndex = confidenceBeforeSample === "established" && testable && deviationPercent !== null ? round(Math.max(0, Math.min(100, -deviationPercent)), 1) : null;
   return {
     progress,
     socBin: binId,
@@ -171,14 +238,18 @@ function observeBatteryPowerAcceptance(previous, sample, usableCapacityKwh) {
     expectedAcceptancePowerW: expected === null ? null : round(expected, 0),
     acceptanceDeviationW: deviationW,
     acceptanceDeviationPercent: deviationPercent,
-    qualifiedSamples: (_b = bin == null ? void 0 : bin.samples.length) != null ? _b : 0,
+    capabilityRatioPercent,
+    capabilityStatus,
+    testable,
+    limitationEvidence,
+    qualifiedSamples: (_c = bin == null ? void 0 : bin.samples.length) != null ? _c : 0,
     confidence: sampleConfidence,
     stressIndex,
     stressStatus: stressStatus(stressIndex, sampleConfidence),
     chargedEnergyTodayKwh: round(chargedEnergyTodayKwh),
     dischargedEnergyTodayKwh: round(dischargedEnergyTodayKwh),
     throughputTodayKwh: round(throughputTodayKwh),
-    equivalentFullCyclesToday: usableCapacityKwh > 0 ? round(throughputTodayKwh / (2 * usableCapacityKwh), 3) : null,
+    equivalentFullCyclesToday,
     exportEvidence
   };
 }
