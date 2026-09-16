@@ -278,4 +278,37 @@ describe("battery power acceptance learning", () => {
 		expect(result.throughputTodayKwh).to.be.greaterThan(result.chargedEnergyTodayKwh);
 		expect(result.equivalentFullCyclesToday).to.be.greaterThan(0);
 	});
+
+	it("tracks the earliest known lifetime window without inventing schema-3 history", () => {
+		const created = createBatteryPowerAcceptanceProgress("2026-09-08T12:00:00.000Z");
+		expect(created.lifetimeTrackingStartedAt).to.equal("2026-09-08T12:00:00.000Z");
+
+		const legacy = { ...created, schemaVersion: 2, day: "2026-09-08", chargedEnergyTodayKwh: 4, dischargedEnergyTodayKwh: 2 };
+		const migrated = normalizeBatteryPowerAcceptanceProgress(legacy as never, "2026-09-08T12:10:00.000Z");
+		expect(migrated.lifetimeTrackingStartedAt).to.equal("2026-09-08T00:00:00.000Z");
+
+		const oldV3 = { ...created } as unknown as Record<string, unknown>;
+		delete oldV3.lifetimeTrackingStartedAt;
+		const normalized = normalizeBatteryPowerAcceptanceProgress(oldV3 as never, "2026-09-08T12:10:00.000Z");
+		expect(normalized.lifetimeTrackingStartedAt).to.equal(null);
+	});
+
+	it("keeps only the latest 20 completed charge capability episodes", () => {
+		const current = createBatteryPowerAcceptanceProgress("2026-09-08T12:00:00.000Z");
+		const episode = {
+			startedAt: "2026-09-08T10:00:00.000Z", socAtStart: 65, minimumCapabilityPowerW: 1400,
+			minimumCapabilityRatioPercent: 40, throughputAtStartKwh: 1, equivalentFullCyclesAtStart: 0.1,
+			totalThroughputAtStartKwh: 1, equivalentFullCyclesTotalAtStart: 0.1, lastLimitedAt: "2026-09-08T10:01:00.000Z",
+			recoveredAt: "2026-09-08T10:02:00.000Z", durationMinutes: 2, socAtRecovery: 66,
+			throughputAtRecoveryKwh: 1.1, equivalentFullCyclesAtRecovery: 0.11, totalThroughputAtRecoveryKwh: 1.1,
+			equivalentFullCyclesTotalAtRecovery: 0.11, throughputDuringEpisodeKwh: 0.1,
+			recoveryCapabilityPowerW: 3300, recoveryCapabilityRatioPercent: 95,
+		};
+		const history = Array.from({ length: 21 }, (_, index) => ({ ...episode, startedAt: `episode-${index}` }));
+		const normalized = normalizeBatteryPowerAcceptanceProgress({ ...current, episodeHistory: history } as never, "2026-09-08T12:10:00.000Z");
+		expect(normalized.episodeHistory).to.have.length(20);
+		expect(normalized.episodeHistory[0].startedAt).to.equal("episode-1");
+		expect(normalized.episodeHistory[19].startedAt).to.equal("episode-20");
+	});
+
 });

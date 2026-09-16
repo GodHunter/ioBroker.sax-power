@@ -265,4 +265,45 @@ describe("battery discharge load learning", () => {
 		expect(recovered.progress.recoveryEvents).to.equal(1);
 		expect(recovered.progress.activeCapabilityEpisode).to.equal(null);
 	});
+
+	it("tracks the earliest known discharge lifetime window without inventing schema-3 history", () => {
+		const created = createBatteryDischargeLoadProgress("2026-09-09T18:00:00.000Z");
+		expect(created.lifetimeTrackingStartedAt).to.equal("2026-09-09T18:00:00.000Z");
+		const legacy = { ...created, schemaVersion: 2, day: "2026-09-09", dischargedEnergyTodayKwh: 3, highLoadDurationTodayMs: 120000 };
+		const migrated = normalizeBatteryDischargeLoadProgress(legacy as never, "2026-09-09T18:10:00.000Z");
+		expect(migrated.lifetimeTrackingStartedAt).to.equal("2026-09-09T00:00:00.000Z");
+		const oldV3 = { ...created } as unknown as Record<string, unknown>;
+		delete oldV3.lifetimeTrackingStartedAt;
+		const normalized = normalizeBatteryDischargeLoadProgress(oldV3 as never, "2026-09-09T18:10:00.000Z");
+		expect(normalized.lifetimeTrackingStartedAt).to.equal(null);
+	});
+
+	it("integrates discharge lifetime counters across UTC midnight while daily counters reset", () => {
+		const first = observe(null, "2026-09-09T23:59:00.000Z", 4_400, 50, 800);
+		const midnight = observe(first.progress, "2026-09-10T00:00:00.000Z", 4_400, 50, 800);
+		expect(midnight.dischargedEnergyTodayKwh).to.equal(0);
+		expect(midnight.highLoadMinutesToday).to.equal(0);
+		expect(midnight.progress.totalDischargedEnergyKwh).to.be.closeTo(0.073, 0.001);
+		expect(midnight.progress.totalHighLoadDurationMs).to.equal(60_000);
+	});
+
+	it("keeps only the latest 20 completed discharge capability episodes", () => {
+		const current = createBatteryDischargeLoadProgress("2026-09-09T18:00:00.000Z");
+		const episode = {
+			startedAt: "2026-09-09T10:00:00.000Z", socAtStart: 50, minimumCapabilityPowerW: 2800,
+			minimumCapabilityRatioPercent: 63, dischargedEnergyAtStartKwh: 1, equivalentDischargeCyclesAtStart: 0.1,
+			highLoadMinutesAtStart: 1, totalDischargedEnergyAtStartKwh: 1, equivalentDischargeCyclesTotalAtStart: 0.1,
+			totalHighLoadMinutesAtStart: 1, lastLimitedAt: "2026-09-09T10:01:00.000Z", recoveredAt: "2026-09-09T10:02:00.000Z",
+			durationMinutes: 2, socAtRecovery: 51, dischargedEnergyAtRecoveryKwh: 1.1, equivalentDischargeCyclesAtRecovery: 0.11,
+			highLoadMinutesAtRecovery: 2, totalDischargedEnergyAtRecoveryKwh: 1.1, equivalentDischargeCyclesTotalAtRecovery: 0.11,
+			totalHighLoadMinutesAtRecovery: 2, dischargedEnergyDuringEpisodeKwh: 0.1, highLoadMinutesDuringEpisode: 1,
+			recoveryCapabilityPowerW: 4100, recoveryCapabilityRatioPercent: 93,
+		};
+		const history = Array.from({ length: 21 }, (_, index) => ({ ...episode, startedAt: `episode-${index}` }));
+		const normalized = normalizeBatteryDischargeLoadProgress({ ...current, capabilityEpisodeHistory: history } as never, "2026-09-09T18:10:00.000Z");
+		expect(normalized.capabilityEpisodeHistory).to.have.length(20);
+		expect(normalized.capabilityEpisodeHistory[0].startedAt).to.equal("episode-1");
+		expect(normalized.capabilityEpisodeHistory[19].startedAt).to.equal("episode-20");
+	});
+
 });

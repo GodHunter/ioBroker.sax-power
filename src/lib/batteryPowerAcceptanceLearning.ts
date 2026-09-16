@@ -67,6 +67,7 @@ export interface BatteryPowerAcceptanceCompletedEpisode extends BatteryPowerAcce
 export interface BatteryPowerAcceptanceProgress {
 	readonly schemaVersion: number;
 	readonly dataCollectionStartedAt: string;
+	readonly lifetimeTrackingStartedAt: string | null;
 	readonly lastUpdate: string;
 	readonly lastTimestamp: string;
 	readonly lastBatteryPowerW: number | null;
@@ -115,6 +116,12 @@ function round(value: number, digits = 3): number {
 	return Math.round((value + Number.EPSILON) * factor) / factor;
 }
 
+function legacyLifetimeStart(day: string): string | null {
+	if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return null;
+	const candidate = `${day}T00:00:00.000Z`;
+	return Number.isFinite(Date.parse(candidate)) ? candidate : null;
+}
+
 function createBins(): Record<string, BatteryPowerAcceptanceBinProgress> {
 	return Object.fromEntries(BATTERY_POWER_ACCEPTANCE_SOC_BINS.map((bin) => [bin.id, {
 		samples: [], observedSamples: 0, maxObservedChargePowerW: 0,
@@ -125,6 +132,7 @@ export function createBatteryPowerAcceptanceProgress(timestamp: string): Battery
 	return {
 		schemaVersion: BATTERY_POWER_ACCEPTANCE_SCHEMA_VERSION,
 		dataCollectionStartedAt: timestamp,
+		lifetimeTrackingStartedAt: timestamp,
 		lastUpdate: timestamp,
 		lastTimestamp: timestamp,
 		lastBatteryPowerW: null,
@@ -164,6 +172,7 @@ export function normalizeBatteryPowerAcceptanceProgress(progress: BatteryPowerAc
 		totalDischargedEnergyKwh?: number;
 		totalThroughputKwh?: number;
 		equivalentFullCyclesTotal?: number | null;
+		lifetimeTrackingStartedAt?: string | null;
 		episodeHistory?: BatteryPowerAcceptanceCompletedEpisode[];
 	};
 	const isCurrentSchema = progress.schemaVersion === BATTERY_POWER_ACCEPTANCE_SCHEMA_VERSION;
@@ -176,6 +185,11 @@ export function normalizeBatteryPowerAcceptanceProgress(progress: BatteryPowerAc
 	const totalThroughputKwh = isCurrentSchema && Number.isFinite(legacy.totalThroughputKwh)
 		? Math.max(0, legacy.totalThroughputKwh as number)
 		: totalChargedEnergyKwh + totalDischargedEnergyKwh;
+	const lifetimeTrackingStartedAt = isCurrentSchema
+		? typeof legacy.lifetimeTrackingStartedAt === "string" && legacy.lifetimeTrackingStartedAt.length > 0
+			? legacy.lifetimeTrackingStartedAt
+			: null
+		: legacyLifetimeStart(progress.day);
 
 	const activeEpisode = progress.schemaVersion >= 2 && progress.activeEpisode
 		? {
@@ -192,6 +206,7 @@ export function normalizeBatteryPowerAcceptanceProgress(progress: BatteryPowerAc
 	return {
 		...progress,
 		schemaVersion: BATTERY_POWER_ACCEPTANCE_SCHEMA_VERSION,
+		lifetimeTrackingStartedAt,
 		bins,
 		totalChargedEnergyKwh: round(totalChargedEnergyKwh),
 		totalDischargedEnergyKwh: round(totalDischargedEnergyKwh),
