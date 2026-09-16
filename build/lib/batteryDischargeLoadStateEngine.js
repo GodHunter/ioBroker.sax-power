@@ -90,6 +90,11 @@ class BatteryDischargeLoadStateEngine {
       qualifiedCapabilitySamples: { name: "Qualified discharge capability samples", desc: "Demand-backed observations supporting the current SOC-specific discharge capability baseline.", type: "number", role: "value", def: 0 },
       capabilityConfidence: { name: "Discharge capability confidence", desc: "Confidence of the learned discharge capability baseline in the current SOC bin.", type: "string", role: "text", def: "none" },
       activeCapabilityEpisode: { name: "Active discharge limitation episode", desc: "Persistent JSON context captured when a discharge capability limitation begins.", type: "string", role: "json", def: "" },
+      lifetimeTrackingStartedAt: { name: "Discharge lifetime tracking start", desc: "Earliest known timestamp represented by the lifetime discharge capability counters. Empty when older schema-3 progress predates this marker.", type: "string", role: "text", def: "" },
+      totalDischargedEnergyKwh: { name: "Lifetime discharged energy", desc: "Monotonic live-integrated discharge energy represented by the discharge capability learner.", type: "number", role: "value.energy", unit: "kWh", def: 0 },
+      equivalentDischargeCyclesTotal: { name: "Lifetime equivalent discharge cycles", desc: "Lifetime discharged energy divided by usable capacity for this battery. Diagnostic context only.", type: "number", role: "value", unit: "cycles" },
+      totalHighLoadMinutes: { name: "Lifetime high-load duration", desc: "Monotonic high-discharge-load duration represented by the discharge capability learner.", type: "number", role: "value.interval", unit: "min", def: 0 },
+      capabilityEpisodeHistory: { name: "Completed discharge capability episodes", desc: "JSON history of the last 20 completed discharge capability limitation episodes with recovery context.", type: "string", role: "json", def: "[]" },
       limitationEvents: { name: "Discharge limitation events", desc: "Number of observed discharge capability limitation episodes.", type: "number", role: "value", def: 0 },
       recoveryEvents: { name: "Discharge recovery events", desc: "Number of observed recoveries from discharge capability limitation.", type: "number", role: "value", def: 0 },
       lastRecoveryAt: { name: "Last discharge recovery", desc: "Timestamp of the most recently observed discharge capability recovery.", type: "string", role: "date", def: "" },
@@ -122,7 +127,7 @@ class BatteryDischargeLoadStateEngine {
     }
   }
   async publish(root, result, includeProgress) {
-    var _a, _b;
+    var _a, _b, _c;
     const values = {
       actualDischargePowerW: result.actualDischargePowerW,
       maximumDischargePowerW: result.maximumDischargePowerW,
@@ -146,9 +151,14 @@ class BatteryDischargeLoadStateEngine {
       qualifiedCapabilitySamples: result.qualifiedCapabilitySamples,
       capabilityConfidence: result.capabilityConfidence,
       activeCapabilityEpisode: result.progress.activeCapabilityEpisode ? JSON.stringify(result.progress.activeCapabilityEpisode) : "",
+      lifetimeTrackingStartedAt: (_b = result.progress.lifetimeTrackingStartedAt) != null ? _b : "",
+      totalDischargedEnergyKwh: result.progress.totalDischargedEnergyKwh,
+      equivalentDischargeCyclesTotal: result.progress.equivalentDischargeCyclesTotal,
+      totalHighLoadMinutes: Math.round(result.progress.totalHighLoadDurationMs / 6e3) / 10,
+      capabilityEpisodeHistory: JSON.stringify(result.progress.capabilityEpisodeHistory),
       limitationEvents: result.progress.limitationEvents,
       recoveryEvents: result.progress.recoveryEvents,
-      lastRecoveryAt: (_b = result.progress.lastRecoveryAt) != null ? _b : "",
+      lastRecoveryAt: (_c = result.progress.lastRecoveryAt) != null ? _c : "",
       lastRecoveryDurationMinutes: result.progress.lastRecoveryDurationMinutes,
       lastUpdate: result.progress.lastUpdate
     };
@@ -189,6 +199,11 @@ class BatteryDischargeLoadStateEngine {
         var _a2;
         return (_a2 = r.equivalentDischargeCyclesToday) != null ? _a2 : 0;
       }), ack: true }),
+      this.adapter.setStateAsync(`${root}.lifetimeTrackingStartedAt`, { val: "", ack: true }),
+      this.adapter.setStateAsync(`${root}.totalDischargedEnergyKwh`, { val: total((r) => r.progress.totalDischargedEnergyKwh), ack: true }),
+      this.adapter.setStateAsync(`${root}.equivalentDischargeCyclesTotal`, { val: null, ack: true }),
+      this.adapter.setStateAsync(`${root}.totalHighLoadMinutes`, { val: total((r) => r.progress.totalHighLoadDurationMs / 6e4), ack: true }),
+      this.adapter.setStateAsync(`${root}.capabilityEpisodeHistory`, { val: "[]", ack: true }),
       this.adapter.setStateAsync(`${root}.loadIndex`, { val: loadIndices.length ? Math.max(...loadIndices) : null, ack: true }),
       this.adapter.setStateAsync(`${root}.loadStatus`, { val: loadIndices.length ? "mixed" : "normal", ack: true }),
       this.adapter.setStateAsync(`${root}.capabilitySocBin`, { val: "mixed", ack: true }),

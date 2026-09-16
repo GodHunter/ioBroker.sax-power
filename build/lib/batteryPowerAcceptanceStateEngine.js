@@ -96,6 +96,12 @@ class BatteryPowerAcceptanceStateEngine {
       lastRecoveryAt: { name: "Last charge capability recovery", desc: "Timestamp of the latest qualified recovery from a limitation episode.", type: "string", role: "date", def: "" },
       lastRecoveryDurationMinutes: { name: "Last charge capability recovery duration", desc: "Minutes from the start of the last limitation episode until qualified recovery.", type: "number", role: "value.interval", unit: "min" },
       activeEpisode: { name: "Active charge capability limitation episode", desc: "JSON context for the current limitation episode including SOC, throughput and equivalent cycles at onset.", type: "string", role: "json", def: "" },
+      lifetimeTrackingStartedAt: { name: "Charge lifetime tracking start", desc: "Earliest known timestamp represented by the lifetime charge capability counters. Empty when older schema-3 progress predates this marker.", type: "string", role: "text", def: "" },
+      totalChargedEnergyKwh: { name: "Lifetime charged energy", desc: "Monotonic live-integrated charged energy represented by the charge capability learner.", type: "number", role: "value.energy", unit: "kWh", def: 0 },
+      totalDischargedEnergyKwh: { name: "Lifetime discharged energy", desc: "Monotonic live-integrated discharged energy represented by the charge capability learner.", type: "number", role: "value.energy", unit: "kWh", def: 0 },
+      totalThroughputKwh: { name: "Lifetime battery throughput", desc: "Monotonic sum of charged and discharged energy represented by the charge capability learner.", type: "number", role: "value.energy", unit: "kWh", def: 0 },
+      equivalentFullCyclesTotal: { name: "Lifetime equivalent full cycles", desc: "Lifetime throughput divided by twice usable capacity for this battery. Diagnostic context only.", type: "number", role: "value", unit: "cycles" },
+      episodeHistory: { name: "Completed charge capability episodes", desc: "JSON history of the last 20 completed charge capability limitation episodes with recovery context.", type: "string", role: "json", def: "[]" },
       qualifiedSamples: { name: "Qualified acceptance samples", desc: "Surplus-backed samples in the current SOC bin used to learn the normal charge acceptance curve.", type: "number", role: "value", def: 0 },
       confidence: { name: "Acceptance learning confidence", desc: "Confidence of the learned baseline in the current SOC bin.", type: "string", role: "text", def: "none" },
       stressIndex: { name: "Legacy inferred battery load index", desc: "Compatibility diagnostic derived from capability deviation. Prefer capabilityStatus and capabilityRatioPercent for new analysis.", type: "number", role: "value", unit: "%" },
@@ -155,7 +161,7 @@ class BatteryPowerAcceptanceStateEngine {
     }
   }
   async publish(root, result, includeProgress) {
-    var _a, _b;
+    var _a, _b, _c;
     const values = {
       socBin: (_a = result.socBin) != null ? _a : "",
       requestedChargePowerW: result.requestedChargePowerW,
@@ -173,6 +179,12 @@ class BatteryPowerAcceptanceStateEngine {
       lastRecoveryAt: (_b = result.progress.lastRecoveryAt) != null ? _b : "",
       lastRecoveryDurationMinutes: result.progress.lastRecoveryDurationMinutes,
       activeEpisode: result.progress.activeEpisode ? JSON.stringify(result.progress.activeEpisode) : "",
+      lifetimeTrackingStartedAt: (_c = result.progress.lifetimeTrackingStartedAt) != null ? _c : "",
+      totalChargedEnergyKwh: result.progress.totalChargedEnergyKwh,
+      totalDischargedEnergyKwh: result.progress.totalDischargedEnergyKwh,
+      totalThroughputKwh: result.progress.totalThroughputKwh,
+      equivalentFullCyclesTotal: result.progress.equivalentFullCyclesTotal,
+      episodeHistory: JSON.stringify(result.progress.episodeHistory),
       qualifiedSamples: result.qualifiedSamples,
       confidence: result.confidence,
       stressIndex: result.stressIndex,
@@ -222,6 +234,12 @@ class BatteryPowerAcceptanceStateEngine {
       this.adapter.setStateAsync(`${root}.chargedEnergyTodayKwh`, { val: total((result) => result.chargedEnergyTodayKwh), ack: true }),
       this.adapter.setStateAsync(`${root}.dischargedEnergyTodayKwh`, { val: total((result) => result.dischargedEnergyTodayKwh), ack: true }),
       this.adapter.setStateAsync(`${root}.throughputTodayKwh`, { val: total((result) => result.throughputTodayKwh), ack: true }),
+      this.adapter.setStateAsync(`${root}.lifetimeTrackingStartedAt`, { val: "", ack: true }),
+      this.adapter.setStateAsync(`${root}.totalChargedEnergyKwh`, { val: total((result) => result.progress.totalChargedEnergyKwh), ack: true }),
+      this.adapter.setStateAsync(`${root}.totalDischargedEnergyKwh`, { val: total((result) => result.progress.totalDischargedEnergyKwh), ack: true }),
+      this.adapter.setStateAsync(`${root}.totalThroughputKwh`, { val: total((result) => result.progress.totalThroughputKwh), ack: true }),
+      this.adapter.setStateAsync(`${root}.equivalentFullCyclesTotal`, { val: null, ack: true }),
+      this.adapter.setStateAsync(`${root}.episodeHistory`, { val: "[]", ack: true }),
       this.adapter.setStateAsync(`${root}.lastUpdate`, { val: (_a = results.map((result) => result.progress.lastUpdate).sort().at(-1)) != null ? _a : "", ack: true })
     ]);
   }

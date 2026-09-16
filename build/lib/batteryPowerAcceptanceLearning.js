@@ -52,6 +52,11 @@ function round(value, digits = 3) {
   const factor = 10 ** digits;
   return Math.round((value + Number.EPSILON) * factor) / factor;
 }
+function legacyLifetimeStart(day) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return null;
+  const candidate = `${day}T00:00:00.000Z`;
+  return Number.isFinite(Date.parse(candidate)) ? candidate : null;
+}
 function createBins() {
   return Object.fromEntries(BATTERY_POWER_ACCEPTANCE_SOC_BINS.map((bin) => [bin.id, {
     samples: [],
@@ -63,6 +68,7 @@ function createBatteryPowerAcceptanceProgress(timestamp) {
   return {
     schemaVersion: BATTERY_POWER_ACCEPTANCE_SCHEMA_VERSION,
     dataCollectionStartedAt: timestamp,
+    lifetimeTrackingStartedAt: timestamp,
     lastUpdate: timestamp,
     lastTimestamp: timestamp,
     lastBatteryPowerW: null,
@@ -102,6 +108,7 @@ function normalizeBatteryPowerAcceptanceProgress(progress, timestamp) {
   const totalChargedEnergyKwh = isCurrentSchema && Number.isFinite(legacy.totalChargedEnergyKwh) ? Math.max(0, legacy.totalChargedEnergyKwh) : Math.max(0, (_b = progress.chargedEnergyTodayKwh) != null ? _b : 0);
   const totalDischargedEnergyKwh = isCurrentSchema && Number.isFinite(legacy.totalDischargedEnergyKwh) ? Math.max(0, legacy.totalDischargedEnergyKwh) : Math.max(0, (_c = progress.dischargedEnergyTodayKwh) != null ? _c : 0);
   const totalThroughputKwh = isCurrentSchema && Number.isFinite(legacy.totalThroughputKwh) ? Math.max(0, legacy.totalThroughputKwh) : totalChargedEnergyKwh + totalDischargedEnergyKwh;
+  const lifetimeTrackingStartedAt = isCurrentSchema ? typeof legacy.lifetimeTrackingStartedAt === "string" && legacy.lifetimeTrackingStartedAt.length > 0 ? legacy.lifetimeTrackingStartedAt : null : legacyLifetimeStart(progress.day);
   const activeEpisode = progress.schemaVersion >= 2 && progress.activeEpisode ? {
     ...progress.activeEpisode,
     totalThroughputAtStartKwh: isCurrentSchema && Number.isFinite(progress.activeEpisode.totalThroughputAtStartKwh) ? progress.activeEpisode.totalThroughputAtStartKwh : round(totalThroughputKwh),
@@ -110,6 +117,7 @@ function normalizeBatteryPowerAcceptanceProgress(progress, timestamp) {
   return {
     ...progress,
     schemaVersion: BATTERY_POWER_ACCEPTANCE_SCHEMA_VERSION,
+    lifetimeTrackingStartedAt,
     bins,
     totalChargedEnergyKwh: round(totalChargedEnergyKwh),
     totalDischargedEnergyKwh: round(totalDischargedEnergyKwh),

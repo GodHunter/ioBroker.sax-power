@@ -80,10 +80,16 @@ function loadStatus(actualDischargePowerW, index) {
   if (index >= 40) return "elevated";
   return "normal";
 }
+function legacyLifetimeStart(day) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return null;
+  const candidate = `${day}T00:00:00.000Z`;
+  return Number.isFinite(Date.parse(candidate)) ? candidate : null;
+}
 function createBatteryDischargeLoadProgress(timestamp) {
   return {
     schemaVersion: BATTERY_DISCHARGE_LOAD_SCHEMA_VERSION,
     dataCollectionStartedAt: timestamp,
+    lifetimeTrackingStartedAt: timestamp,
     lastUpdate: timestamp,
     lastTimestamp: timestamp,
     lastDischargePowerW: 0,
@@ -123,6 +129,7 @@ function normalizeBatteryDischargeLoadProgress(progress, timestamp) {
   const isCurrentSchema = progress.schemaVersion === BATTERY_DISCHARGE_LOAD_SCHEMA_VERSION;
   const totalDischargedEnergyKwh = isCurrentSchema && Number.isFinite(legacy.totalDischargedEnergyKwh) ? Math.max(0, legacy.totalDischargedEnergyKwh) : Math.max(0, (_b = progress.dischargedEnergyTodayKwh) != null ? _b : 0);
   const totalHighLoadDurationMs = isCurrentSchema && Number.isFinite(legacy.totalHighLoadDurationMs) ? Math.max(0, legacy.totalHighLoadDurationMs) : Math.max(0, (_c = progress.highLoadDurationTodayMs) != null ? _c : 0);
+  const lifetimeTrackingStartedAt = isCurrentSchema ? typeof legacy.lifetimeTrackingStartedAt === "string" && legacy.lifetimeTrackingStartedAt.length > 0 ? legacy.lifetimeTrackingStartedAt : null : legacyLifetimeStart(progress.day);
   const activeCapabilityEpisode = progress.schemaVersion >= 2 && progress.activeCapabilityEpisode ? {
     ...progress.activeCapabilityEpisode,
     totalDischargedEnergyAtStartKwh: isCurrentSchema && Number.isFinite(progress.activeCapabilityEpisode.totalDischargedEnergyAtStartKwh) ? progress.activeCapabilityEpisode.totalDischargedEnergyAtStartKwh : round(totalDischargedEnergyKwh),
@@ -132,6 +139,7 @@ function normalizeBatteryDischargeLoadProgress(progress, timestamp) {
   return {
     ...progress,
     schemaVersion: BATTERY_DISCHARGE_LOAD_SCHEMA_VERSION,
+    lifetimeTrackingStartedAt,
     lastDischargePowerW: Number.isFinite(progress.lastDischargePowerW) ? Math.max(0, progress.lastDischargePowerW) : 0,
     dischargedEnergyTodayKwh: Number.isFinite(progress.dischargedEnergyTodayKwh) ? Math.max(0, progress.dischargedEnergyTodayKwh) : 0,
     highLoadDurationTodayMs: Number.isFinite(progress.highLoadDurationTodayMs) ? Math.max(0, progress.highLoadDurationTodayMs) : 0,
@@ -167,17 +175,19 @@ function observeBatteryDischargeLoad(previous, sample, usableCapacityKwh, maximu
   const highLoadActive = safeMaximumDischargePowerW > 0 && actualDischargePowerW >= highLoadThresholdW;
   const time = Date.parse(sample.timestamp);
   const previousTime = Date.parse(progress.lastTimestamp);
-  if (sameDay && Number.isFinite(time) && Number.isFinite(previousTime)) {
+  if (Number.isFinite(time) && Number.isFinite(previousTime)) {
     const elapsedMs = time - previousTime;
     if (elapsedMs > 0 && elapsedMs <= MAX_SAMPLE_GAP_MS) {
       const averageDischargePowerW = (progress.lastDischargePowerW + actualDischargePowerW) / 2;
       const dischargedEnergyKwh = averageDischargePowerW * elapsedMs / 36e8;
-      dischargedEnergyTodayKwh += dischargedEnergyKwh;
       totalDischargedEnergyKwh += dischargedEnergyKwh;
+      if (sameDay) dischargedEnergyTodayKwh += dischargedEnergyKwh;
       if (highLoadActive) {
-        highLoadDurationTodayMs += elapsedMs;
         totalHighLoadDurationMs += elapsedMs;
-        consecutiveHighLoadMs += elapsedMs;
+        if (sameDay) {
+          highLoadDurationTodayMs += elapsedMs;
+          consecutiveHighLoadMs += elapsedMs;
+        }
       } else consecutiveHighLoadMs = 0;
     }
   }
