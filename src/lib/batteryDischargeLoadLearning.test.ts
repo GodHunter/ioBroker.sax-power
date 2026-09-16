@@ -111,6 +111,55 @@ describe("battery discharge load learning", () => {
 		expect(result.capabilityStatus).to.equal("normal");
 	});
 
+	it("freezes the discharge baseline while a limitation episode is recovering", () => {
+		let progress = createBatteryDischargeLoadProgress("2026-09-09T18:00:00.000Z");
+		for (let minute = 1; minute <= 5; minute += 1) {
+			progress = observe(progress, `2026-09-09T18:0${minute}:00.000Z`, 4_400, 50, 800).progress;
+		}
+
+		const baseline = [...progress.capabilityBins["40-60"].samples];
+
+		const limited = observe(progress, "2026-09-09T18:06:00.000Z", 2_800, 50, 1_500);
+		expect(limited.capabilityStatus).to.equal("limited");
+		expect(limited.progress.capabilityBins["40-60"].samples).to.deep.equal(baseline);
+
+		const recovering = observe(limited.progress, "2026-09-09T18:07:00.000Z", 3_500, 50, 1_000);
+		expect(recovering.capabilityStatus).to.equal("recovering");
+		expect(recovering.progress.activeCapabilityEpisode).not.to.equal(null);
+		expect(recovering.progress.capabilityBins["40-60"].samples).to.deep.equal(baseline);
+
+		const recovered = observe(recovering.progress, "2026-09-09T18:08:00.000Z", 4_100, 50, 700);
+		expect(recovered.capabilityStatus).to.equal("recovered");
+		expect(recovered.progress.activeCapabilityEpisode).to.equal(null);
+		expect(recovered.progress.capabilityBins["40-60"].samples).to.deep.equal([...baseline, 4100]);
+	});
+
+	it("keeps a discharge limitation episode across midnight until recovery is proven", () => {
+		let progress = createBatteryDischargeLoadProgress("2026-09-09T23:50:00.000Z");
+
+		for (let minute = 51; minute <= 55; minute += 1) {
+			progress = observe(progress, `2026-09-09T23:${minute}:00.000Z`, 4_400, 50, 800).progress;
+		}
+
+		const limited = observe(progress, "2026-09-09T23:59:00.000Z", 2_800, 50, 1_500);
+		expect(limited.capabilityStatus).to.equal("limited");
+		expect(limited.progress.activeCapabilityEpisode).not.to.equal(null);
+
+		const baseline = [...limited.progress.capabilityBins["40-60"].samples];
+
+		const recovering = observe(limited.progress, "2026-09-10T00:01:00.000Z", 3_500, 50, 1_000);
+		expect(recovering.progress.day).to.equal("2026-09-10");
+		expect(recovering.capabilityStatus).to.equal("recovering");
+		expect(recovering.progress.activeCapabilityEpisode?.startedAt).to.equal("2026-09-09T23:59:00.000Z");
+		expect(recovering.progress.capabilityBins["40-60"].samples).to.deep.equal(baseline);
+
+		const recovered = observe(recovering.progress, "2026-09-10T00:02:00.000Z", 4_100, 50, 700);
+		expect(recovered.capabilityStatus).to.equal("recovered");
+		expect(recovered.progress.activeCapabilityEpisode).to.equal(null);
+		expect(recovered.progress.recoveryEvents).to.equal(1);
+		expect(recovered.progress.lastRecoveryDurationMinutes).to.equal(3);
+	});
+
 	it("detects limitation and recovery without learning the limited sample into its baseline", () => {
 		let progress = createBatteryDischargeLoadProgress("2026-09-09T18:00:00.000Z");
 		for (let minute = 1; minute <= 5; minute += 1) progress = observe(progress, `2026-09-09T18:0${minute}:00.000Z`, 4_400, 50, 800).progress;

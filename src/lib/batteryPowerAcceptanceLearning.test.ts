@@ -92,6 +92,70 @@ describe("battery power acceptance learning", () => {
 		expect(recovered.progress.lastRecoveryDurationMinutes).to.equal(2);
 	});
 
+	it("freezes the charge baseline while a limitation episode is recovering", () => {
+		let progress = createBatteryPowerAcceptanceProgress("2026-09-08T12:00:00.000Z");
+		for (let minute = 1; minute <= 5; minute += 1) {
+			progress = observeBatteryPowerAcceptance(progress, sample(minute, 65, -3450, 3500, 500), 7).progress;
+		}
+
+		const baseline = [...progress.bins["30-80"].samples];
+
+		const limited = observeBatteryPowerAcceptance(progress, sample(6, 65, -1400, 3500, 650), 7);
+		expect(limited.capabilityStatus).to.equal("limited");
+		expect(limited.progress.bins["30-80"].samples).to.deep.equal(baseline);
+
+		const recovering = observeBatteryPowerAcceptance(limited.progress, sample(7, 65, -2800, 3500, 500), 7);
+		expect(recovering.capabilityStatus).to.equal("recovering");
+		expect(recovering.progress.activeEpisode).not.to.equal(null);
+		expect(recovering.progress.bins["30-80"].samples).to.deep.equal(baseline);
+
+		const recovered = observeBatteryPowerAcceptance(recovering.progress, sample(8, 65, -3300, 3500, 500), 7);
+		expect(recovered.capabilityStatus).to.equal("recovered");
+		expect(recovered.progress.activeEpisode).to.equal(null);
+		expect(recovered.progress.bins["30-80"].samples).to.deep.equal([...baseline, 3300]);
+	});
+
+	it("keeps a charge limitation episode across midnight until recovery is proven", () => {
+		let progress = createBatteryPowerAcceptanceProgress("2026-09-08T23:50:00.000Z");
+
+		for (let minute = 51; minute <= 55; minute += 1) {
+			progress = observeBatteryPowerAcceptance(progress, {
+				...sample(1, 65, -3450, 3500, 500),
+				timestamp: `2026-09-08T23:${minute}:00.000Z`,
+			}, 7).progress;
+		}
+
+		const limited = observeBatteryPowerAcceptance(progress, {
+			...sample(1, 65, -1400, 3500, 650),
+			timestamp: "2026-09-08T23:59:00.000Z",
+		}, 7);
+
+		expect(limited.capabilityStatus).to.equal("limited");
+		expect(limited.progress.activeEpisode).not.to.equal(null);
+
+		const baseline = [...limited.progress.bins["30-80"].samples];
+
+		const recovering = observeBatteryPowerAcceptance(limited.progress, {
+			...sample(1, 65, -2800, 3500, 500),
+			timestamp: "2026-09-09T00:01:00.000Z",
+		}, 7);
+
+		expect(recovering.progress.day).to.equal("2026-09-09");
+		expect(recovering.capabilityStatus).to.equal("recovering");
+		expect(recovering.progress.activeEpisode?.startedAt).to.equal("2026-09-08T23:59:00.000Z");
+		expect(recovering.progress.bins["30-80"].samples).to.deep.equal(baseline);
+
+		const recovered = observeBatteryPowerAcceptance(recovering.progress, {
+			...sample(1, 65, -3300, 3500, 500),
+			timestamp: "2026-09-09T00:02:00.000Z",
+		}, 7);
+
+		expect(recovered.capabilityStatus).to.equal("recovered");
+		expect(recovered.progress.activeEpisode).to.equal(null);
+		expect(recovered.progress.recoveryEvents).to.equal(1);
+		expect(recovered.progress.lastRecoveryDurationMinutes).to.equal(3);
+	});
+
 	it("migrates schema 1 baselines without inventing limitation history", () => {
 		const old = createBatteryPowerAcceptanceProgress("2026-09-08T12:00:00.000Z") as unknown as Record<string, unknown>;
 		old.schemaVersion = 1;

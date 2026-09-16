@@ -177,9 +177,9 @@ export function observeBatteryPowerAcceptance(previous: BatteryPowerAcceptancePr
 	const currentDay = sample.timestamp.slice(0, 10);
 	let chargedEnergyTodayKwh = currentDay === progress.day ? progress.chargedEnergyTodayKwh : 0;
 	let dischargedEnergyTodayKwh = currentDay === progress.day ? progress.dischargedEnergyTodayKwh : 0;
-	if (currentDay !== progress.day) {
-		progress = { ...progress, activeEpisode: null };
-	}
+	// Daily throughput counters reset independently from capability episodes.
+	// A temporary capability limitation may span midnight and must remain active
+	// until a qualified observation proves recovery.
 
 	if (Number.isFinite(time) && Number.isFinite(previousTime)) {
 		const elapsedMs = time - previousTime;
@@ -258,7 +258,11 @@ export function observeBatteryPowerAcceptance(previous: BatteryPowerAcceptancePr
 		// A proven limitation must never teach the normal baseline downwards. During initial
 		// learning we still collect surplus-backed capability observations; the upper quartile
 		// remains deliberately robust against occasional lower observations.
-		if (testable && !limitationEvidence) {
+		// Freeze the learned normal baseline while a limitation episode is still
+		// active. Limited and partially recovered observations describe the episode,
+		// not normal battery capability. A sample that proves full recovery may teach
+		// the baseline again because activeEpisode has already been cleared above.
+		if (testable && !limitationEvidence && activeEpisode === null) {
 			updated.samples.push(round(actualChargePowerW, 0));
 			if (updated.samples.length > MAX_SAMPLES_PER_BIN) updated.samples.splice(0, updated.samples.length - MAX_SAMPLES_PER_BIN);
 		}

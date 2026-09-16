@@ -194,7 +194,9 @@ export function observeBatteryDischargeLoad(
 	let highLoadDurationTodayMs = sameDay ? progress.highLoadDurationTodayMs : 0;
 	let consecutiveHighLoadMs = sameDay ? progress.consecutiveHighLoadMs : 0;
 	let peakDischargePowerTodayW = sameDay ? progress.peakDischargePowerTodayW : 0;
-	if (!sameDay) progress = { ...progress, activeCapabilityEpisode: null };
+	// Daily load counters reset independently from capability episodes.
+	// A temporary capability limitation may span midnight and must remain active
+	// until a qualified observation proves recovery.
 
 	const actualDischargePowerW = sample.direction === "discharging" && sample.batteryPower !== null ? Math.max(0, sample.batteryPower) : 0;
 	const safeMaximumDischargePowerW = Number.isFinite(maximumDischargePowerW) && maximumDischargePowerW > 0 ? maximumDischargePowerW : 0;
@@ -272,7 +274,11 @@ export function observeBatteryDischargeLoad(
 		// Grid import proves unmet demand. Only demand-backed observations may teach the
 		// normal SOC-specific discharge capability, and an already identified limitation
 		// must never drag its own baseline down.
-		if (capabilityTestable && !limitationEvidence) {
+		// Freeze the learned normal baseline while a limitation episode is still
+		// active. Limited and partially recovered observations describe the episode,
+		// not normal battery capability. A sample that proves full recovery may teach
+		// the baseline again because activeCapabilityEpisode has already been cleared.
+		if (capabilityTestable && !limitationEvidence && activeCapabilityEpisode === null) {
 			updated.samples.push(round(actualDischargePowerW, 0));
 			if (updated.samples.length > MAX_CAPABILITY_SAMPLES_PER_BIN) updated.samples.splice(0, updated.samples.length - MAX_CAPABILITY_SAMPLES_PER_BIN);
 		}
