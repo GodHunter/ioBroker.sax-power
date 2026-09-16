@@ -65,6 +65,29 @@ describe("battery power acceptance learning", () => {
 		expect(result.capabilityStatus).to.equal("notTestable");
 	});
 
+	it("does not teach a partially recovered charge observation into an established baseline", () => {
+		let progress = createBatteryPowerAcceptanceProgress("2026-09-08T12:00:00.000Z");
+		for (let minute = 1; minute <= 5; minute += 1) {
+			progress = observeBatteryPowerAcceptance(progress, sample(minute, 65, -3450, 3500, 500), 7).progress;
+		}
+		const before = [...progress.bins["30-80"].samples];
+		const result = observeBatteryPowerAcceptance(progress, sample(6, 65, -2800, 3500, 500), 7);
+		expect(result.capabilityStatus).to.equal("normal");
+		expect(result.capabilityRatioPercent).to.be.closeTo(81.2, 0.1);
+		expect(result.progress.activeEpisode).to.equal(null);
+		expect(result.progress.bins["30-80"].samples).to.deep.equal(before);
+	});
+
+	it("continues teaching normal charge observations above the established learning threshold", () => {
+		let progress = createBatteryPowerAcceptanceProgress("2026-09-08T12:00:00.000Z");
+		for (let minute = 1; minute <= 5; minute += 1) {
+			progress = observeBatteryPowerAcceptance(progress, sample(minute, 65, -3450, 3500, 500), 7).progress;
+		}
+		const result = observeBatteryPowerAcceptance(progress, sample(6, 65, -3300, 3500, 500), 7);
+		expect(result.capabilityStatus).to.equal("normal");
+		expect(result.progress.bins["30-80"].samples).to.deep.equal([3450, 3450, 3450, 3450, 3450, 3300]);
+	});
+
 	it("detects a real limitation without teaching the baseline downwards", () => {
 		let progress = createBatteryPowerAcceptanceProgress("2026-09-08T12:00:00.000Z");
 		for (let minute = 1; minute <= 5; minute += 1) progress = observeBatteryPowerAcceptance(progress, sample(minute, 65, -3450, 3500, 500), 7).progress;
@@ -165,10 +188,83 @@ describe("battery power acceptance learning", () => {
 		delete old.lastRecoveryAt;
 		delete old.lastRecoveryDurationMinutes;
 		const migrated = normalizeBatteryPowerAcceptanceProgress(old as never, "2026-09-08T12:10:00.000Z");
-		expect(migrated.schemaVersion).to.equal(2);
+		expect(migrated.schemaVersion).to.equal(3);
 		expect(migrated.activeEpisode).to.equal(null);
 		expect(migrated.limitationEvents).to.equal(0);
 		expect(migrated.recoveryEvents).to.equal(0);
+	});
+
+	it("migrates schema 2 into V3 without losing learned charge baselines", () => {
+		const current = createBatteryPowerAcceptanceProgress("2026-09-08T12:00:00.000Z");
+		const legacy = {
+			...current,
+			schemaVersion: 2,
+			chargedEnergyTodayKwh: 4,
+			dischargedEnergyTodayKwh: 2,
+			bins: {
+				...current.bins,
+				"30-80": { samples: [3400, 3450], observedSamples: 10, maxObservedChargePowerW: 3450 },
+			},
+		};
+		const migrated = normalizeBatteryPowerAcceptanceProgress(legacy as never, "2026-09-08T12:10:00.000Z");
+		expect(migrated.schemaVersion).to.equal(3);
+		expect(migrated.bins["30-80"].samples).to.deep.equal([3400, 3450]);
+		expect(migrated.totalChargedEnergyKwh).to.equal(4);
+		expect(migrated.totalDischargedEnergyKwh).to.equal(2);
+		expect(migrated.totalThroughputKwh).to.equal(6);
+		expect(migrated.episodeHistory).to.deep.equal([]);
+	});
+
+	it("preserves and anchors an active schema 2 charge episode during V3 migration", () => {
+		const current = createBatteryPowerAcceptanceProgress("2026-09-08T12:00:00.000Z");
+		const legacyEpisode = {
+			startedAt: "2026-09-08T11:30:00.000Z",
+			socAtStart: 65,
+			minimumCapabilityPowerW: 1400,
+			minimumCapabilityRatioPercent: 40.6,
+			throughputAtStartKwh: 5,
+			equivalentFullCyclesAtStart: 0.357,
+			lastLimitedAt: "2026-09-08T11:45:00.000Z",
+		};
+		const legacy = {
+			...current,
+			schemaVersion: 2,
+			chargedEnergyTodayKwh: 4,
+			dischargedEnergyTodayKwh: 2,
+			activeEpisode: legacyEpisode,
+		};
+		const migrated = normalizeBatteryPowerAcceptanceProgress(legacy as never, "2026-09-08T12:10:00.000Z");
+		expect(migrated.activeEpisode).not.to.equal(null);
+		expect(migrated.activeEpisode?.startedAt).to.equal(legacyEpisode.startedAt);
+		expect(migrated.activeEpisode?.minimumCapabilityPowerW).to.equal(1400);
+		expect(migrated.activeEpisode?.totalThroughputAtStartKwh).to.equal(6);
+		expect(migrated.activeEpisode?.equivalentFullCyclesTotalAtStart).to.equal(null);
+	});
+
+	it("stores a completed charge capability episode with monotonic lifetime context", () => {
+		let progress = createBatteryPowerAcceptanceProgress("2026-09-08T23:50:00.000Z");
+		for (let minute = 51; minute <= 55; minute += 1) {
+			progress = observeBatteryPowerAcceptance(progress, {
+				...sample(1, 65, -3450, 3500, 500),
+				timestamp: `2026-09-08T23:${minute}:00.000Z`,
+			}, 7).progress;
+		}
+		progress = observeBatteryPowerAcceptance(progress, {
+			...sample(1, 65, -1400, 3500, 650),
+			timestamp: "2026-09-08T23:59:00.000Z",
+		}, 7).progress;
+		const recovered = observeBatteryPowerAcceptance(progress, {
+			...sample(1, 65, -3300, 3500, 500),
+			timestamp: "2026-09-09T00:02:00.000Z",
+		}, 7);
+		expect(recovered.progress.episodeHistory).to.have.length(1);
+		const episode = recovered.progress.episodeHistory[0];
+		expect(episode.startedAt).to.equal("2026-09-08T23:59:00.000Z");
+		expect(episode.recoveredAt).to.equal("2026-09-09T00:02:00.000Z");
+		expect(episode.durationMinutes).to.equal(3);
+		expect(episode.throughputDuringEpisodeKwh).to.be.at.least(0);
+		expect(episode.totalThroughputAtRecoveryKwh).to.be.at.least(episode.totalThroughputAtStartKwh);
+		expect(episode.recoveryCapabilityPowerW).to.equal(3300);
 	});
 
 	it("integrates charging and discharging throughput independently", () => {

@@ -36,9 +36,29 @@ describe("battery discharge load learning", () => {
 		const current = createBatteryDischargeLoadProgress("2026-09-09T18:00:00.000Z");
 		const legacy = { ...current, schemaVersion: 1, dischargedEnergyTodayKwh: 2.5 };
 		const normalized = normalizeBatteryDischargeLoadProgress(legacy, "2026-09-09T18:01:00.000Z");
-		expect(normalized.schemaVersion).to.equal(2);
+		expect(normalized.schemaVersion).to.equal(3);
 		expect(normalized.dischargedEnergyTodayKwh).to.equal(2.5);
 		expect(normalized.capabilityBins["40-60"].samples).to.deep.equal([]);
+	});
+
+	it("migrates schema 2 into V3 without losing learned discharge capability", () => {
+		const current = createBatteryDischargeLoadProgress("2026-09-09T18:00:00.000Z");
+		const legacy = {
+			...current,
+			schemaVersion: 2,
+			dischargedEnergyTodayKwh: 3,
+			highLoadDurationTodayMs: 120000,
+			capabilityBins: {
+				...current.capabilityBins,
+				"40-60": { samples: [4350, 4400], observedSamples: 10, maxObservedDischargePowerW: 4400 },
+			},
+		};
+		const migrated = normalizeBatteryDischargeLoadProgress(legacy as never, "2026-09-09T18:10:00.000Z");
+		expect(migrated.schemaVersion).to.equal(3);
+		expect(migrated.capabilityBins["40-60"].samples).to.deep.equal([4350, 4400]);
+		expect(migrated.totalDischargedEnergyKwh).to.equal(3);
+		expect(migrated.totalHighLoadDurationMs).to.equal(120000);
+		expect(migrated.capabilityEpisodeHistory).to.deep.equal([]);
 	});
 
 	it("treats charging and idle power as zero discharge load", () => {
@@ -111,6 +131,29 @@ describe("battery discharge load learning", () => {
 		expect(result.capabilityStatus).to.equal("normal");
 	});
 
+	it("does not teach a partially capable discharge observation into an established baseline", () => {
+		let progress = createBatteryDischargeLoadProgress("2026-09-09T18:00:00.000Z");
+		for (let minute = 1; minute <= 5; minute += 1) {
+			progress = observe(progress, `2026-09-09T18:0${minute}:00.000Z`, 4_400, 50, 800).progress;
+		}
+		const before = [...progress.capabilityBins["40-60"].samples];
+		const result = observe(progress, "2026-09-09T18:06:00.000Z", 3_500, 50, 1_000);
+		expect(result.capabilityStatus).to.equal("normal");
+		expect(result.capabilityRatioPercent).to.be.closeTo(79.5, 0.1);
+		expect(result.progress.activeCapabilityEpisode).to.equal(null);
+		expect(result.progress.capabilityBins["40-60"].samples).to.deep.equal(before);
+	});
+
+	it("continues teaching normal discharge observations above the established learning threshold", () => {
+		let progress = createBatteryDischargeLoadProgress("2026-09-09T18:00:00.000Z");
+		for (let minute = 1; minute <= 5; minute += 1) {
+			progress = observe(progress, `2026-09-09T18:0${minute}:00.000Z`, 4_400, 50, 800).progress;
+		}
+		const result = observe(progress, "2026-09-09T18:06:00.000Z", 4_100, 50, 700);
+		expect(result.capabilityStatus).to.equal("normal");
+		expect(result.progress.capabilityBins["40-60"].samples).to.deep.equal([4400, 4400, 4400, 4400, 4400, 4100]);
+	});
+
 	it("freezes the discharge baseline while a limitation episode is recovering", () => {
 		let progress = createBatteryDischargeLoadProgress("2026-09-09T18:00:00.000Z");
 		for (let minute = 1; minute <= 5; minute += 1) {
@@ -158,6 +201,52 @@ describe("battery discharge load learning", () => {
 		expect(recovered.progress.activeCapabilityEpisode).to.equal(null);
 		expect(recovered.progress.recoveryEvents).to.equal(1);
 		expect(recovered.progress.lastRecoveryDurationMinutes).to.equal(3);
+	});
+
+	it("preserves and anchors an active schema 2 discharge episode during V3 migration", () => {
+		const current = createBatteryDischargeLoadProgress("2026-09-09T18:00:00.000Z");
+		const legacyEpisode = {
+			startedAt: "2026-09-09T17:30:00.000Z",
+			socAtStart: 50,
+			minimumCapabilityPowerW: 2800,
+			minimumCapabilityRatioPercent: 63.6,
+			dischargedEnergyAtStartKwh: 2,
+			equivalentDischargeCyclesAtStart: 0.286,
+			highLoadMinutesAtStart: 10,
+			lastLimitedAt: "2026-09-09T17:45:00.000Z",
+		};
+		const legacy = {
+			...current,
+			schemaVersion: 2,
+			dischargedEnergyTodayKwh: 3,
+			highLoadDurationTodayMs: 120_000,
+			activeCapabilityEpisode: legacyEpisode,
+		};
+		const migrated = normalizeBatteryDischargeLoadProgress(legacy as never, "2026-09-09T18:10:00.000Z");
+		expect(migrated.activeCapabilityEpisode).not.to.equal(null);
+		expect(migrated.activeCapabilityEpisode?.startedAt).to.equal(legacyEpisode.startedAt);
+		expect(migrated.activeCapabilityEpisode?.minimumCapabilityPowerW).to.equal(2800);
+		expect(migrated.activeCapabilityEpisode?.totalDischargedEnergyAtStartKwh).to.equal(3);
+		expect(migrated.activeCapabilityEpisode?.totalHighLoadMinutesAtStart).to.equal(2);
+		expect(migrated.activeCapabilityEpisode?.equivalentDischargeCyclesTotalAtStart).to.equal(null);
+	});
+
+	it("stores a completed discharge capability episode with monotonic lifetime context", () => {
+		let progress = createBatteryDischargeLoadProgress("2026-09-09T23:50:00.000Z");
+		for (let minute = 51; minute <= 55; minute += 1) {
+			progress = observe(progress, `2026-09-09T23:${minute}:00.000Z`, 4_400, 50, 800).progress;
+		}
+		progress = observe(progress, "2026-09-09T23:59:00.000Z", 2_800, 50, 1_500).progress;
+		const recovered = observe(progress, "2026-09-10T00:02:00.000Z", 4_100, 50, 700);
+		expect(recovered.progress.capabilityEpisodeHistory).to.have.length(1);
+		const episode = recovered.progress.capabilityEpisodeHistory[0];
+		expect(episode.startedAt).to.equal("2026-09-09T23:59:00.000Z");
+		expect(episode.recoveredAt).to.equal("2026-09-10T00:02:00.000Z");
+		expect(episode.durationMinutes).to.equal(3);
+		expect(episode.dischargedEnergyDuringEpisodeKwh).to.be.at.least(0);
+		expect(episode.totalDischargedEnergyAtRecoveryKwh).to.be.at.least(episode.totalDischargedEnergyAtStartKwh);
+		expect(episode.highLoadMinutesDuringEpisode).to.be.at.least(0);
+		expect(episode.recoveryCapabilityPowerW).to.equal(4100);
 	});
 
 	it("detects limitation and recovery without learning the limited sample into its baseline", () => {

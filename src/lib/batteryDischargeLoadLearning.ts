@@ -1,6 +1,6 @@
 import type { BatteryDirection } from "./saxPowerDevice";
 
-export const BATTERY_DISCHARGE_LOAD_SCHEMA_VERSION = 2;
+export const BATTERY_DISCHARGE_LOAD_SCHEMA_VERSION = 3;
 export const BATTERY_DISCHARGE_CAPABILITY_MIN_SAMPLES = 5;
 const MIN_DISCHARGE_POWER_W = 100;
 const HIGH_LOAD_POWER_FACTOR = 0.5;
@@ -9,6 +9,7 @@ const SUSTAINED_HIGH_LOAD_REFERENCE_MINUTES = 30;
 const MIN_GRID_IMPORT_EVIDENCE_W = 150;
 const MIN_CAPABILITY_TEST_POWER_FACTOR = 0.5;
 const MAX_CAPABILITY_SAMPLES_PER_BIN = 60;
+const MAX_CAPABILITY_EPISODE_HISTORY = 20;
 const LIMITED_RATIO = 0.7;
 const RECOVERING_RATIO = 0.9;
 
@@ -42,7 +43,26 @@ export interface BatteryDischargeCapabilityEpisode {
 	readonly dischargedEnergyAtStartKwh: number;
 	readonly equivalentDischargeCyclesAtStart: number | null;
 	readonly highLoadMinutesAtStart: number;
+	readonly totalDischargedEnergyAtStartKwh: number;
+	readonly equivalentDischargeCyclesTotalAtStart: number | null;
+	readonly totalHighLoadMinutesAtStart: number;
 	readonly lastLimitedAt: string;
+}
+
+export interface BatteryDischargeCompletedCapabilityEpisode extends BatteryDischargeCapabilityEpisode {
+	readonly recoveredAt: string;
+	readonly durationMinutes: number | null;
+	readonly socAtRecovery: number | null;
+	readonly dischargedEnergyAtRecoveryKwh: number;
+	readonly equivalentDischargeCyclesAtRecovery: number | null;
+	readonly highLoadMinutesAtRecovery: number;
+	readonly totalDischargedEnergyAtRecoveryKwh: number;
+	readonly equivalentDischargeCyclesTotalAtRecovery: number | null;
+	readonly totalHighLoadMinutesAtRecovery: number;
+	readonly dischargedEnergyDuringEpisodeKwh: number;
+	readonly highLoadMinutesDuringEpisode: number;
+	readonly recoveryCapabilityPowerW: number;
+	readonly recoveryCapabilityRatioPercent: number;
 }
 
 export interface BatteryDischargeLoadProgress {
@@ -56,8 +76,12 @@ export interface BatteryDischargeLoadProgress {
 	readonly highLoadDurationTodayMs: number;
 	readonly consecutiveHighLoadMs: number;
 	readonly peakDischargePowerTodayW: number;
+	readonly totalDischargedEnergyKwh: number;
+	readonly equivalentDischargeCyclesTotal: number | null;
+	readonly totalHighLoadDurationMs: number;
 	readonly capabilityBins: Record<string, BatteryDischargeCapabilityBinProgress>;
 	readonly activeCapabilityEpisode: BatteryDischargeCapabilityEpisode | null;
+	readonly capabilityEpisodeHistory: BatteryDischargeCompletedCapabilityEpisode[];
 	readonly limitationEvents: number;
 	readonly recoveryEvents: number;
 	readonly lastRecoveryAt: string | null;
@@ -140,8 +164,12 @@ export function createBatteryDischargeLoadProgress(timestamp: string): BatteryDi
 		highLoadDurationTodayMs: 0,
 		consecutiveHighLoadMs: 0,
 		peakDischargePowerTodayW: 0,
+		totalDischargedEnergyKwh: 0,
+		equivalentDischargeCyclesTotal: null,
+		totalHighLoadDurationMs: 0,
 		capabilityBins: createCapabilityBins(),
 		activeCapabilityEpisode: null,
+		capabilityEpisodeHistory: [],
 		limitationEvents: 0,
 		recoveryEvents: 0,
 		lastRecoveryAt: null,
@@ -150,9 +178,9 @@ export function createBatteryDischargeLoadProgress(timestamp: string): BatteryDi
 }
 
 export function normalizeBatteryDischargeLoadProgress(progress: BatteryDischargeLoadProgress, timestamp: string): BatteryDischargeLoadProgress {
-	if (progress.schemaVersion !== 1 && progress.schemaVersion !== BATTERY_DISCHARGE_LOAD_SCHEMA_VERSION) return createBatteryDischargeLoadProgress(timestamp);
+	if (progress.schemaVersion !== 1 && progress.schemaVersion !== 2 && progress.schemaVersion !== BATTERY_DISCHARGE_LOAD_SCHEMA_VERSION) return createBatteryDischargeLoadProgress(timestamp);
 	const capabilityBins = createCapabilityBins();
-	if (progress.schemaVersion === BATTERY_DISCHARGE_LOAD_SCHEMA_VERSION) {
+	if (progress.schemaVersion >= 2) {
 		for (const bin of BATTERY_DISCHARGE_CAPABILITY_SOC_BINS) {
 			const previous = progress.capabilityBins?.[bin.id];
 			if (!previous) continue;
@@ -163,6 +191,35 @@ export function normalizeBatteryDischargeLoadProgress(progress: BatteryDischarge
 			};
 		}
 	}
+	const legacy = progress as BatteryDischargeLoadProgress & {
+		totalDischargedEnergyKwh?: number;
+		equivalentDischargeCyclesTotal?: number | null;
+		totalHighLoadDurationMs?: number;
+		capabilityEpisodeHistory?: BatteryDischargeCompletedCapabilityEpisode[];
+	};
+	const isCurrentSchema = progress.schemaVersion === BATTERY_DISCHARGE_LOAD_SCHEMA_VERSION;
+	const totalDischargedEnergyKwh = isCurrentSchema && Number.isFinite(legacy.totalDischargedEnergyKwh)
+		? Math.max(0, legacy.totalDischargedEnergyKwh as number)
+		: Math.max(0, progress.dischargedEnergyTodayKwh ?? 0);
+	const totalHighLoadDurationMs = isCurrentSchema && Number.isFinite(legacy.totalHighLoadDurationMs)
+		? Math.max(0, legacy.totalHighLoadDurationMs as number)
+		: Math.max(0, progress.highLoadDurationTodayMs ?? 0);
+
+	const activeCapabilityEpisode = progress.schemaVersion >= 2 && progress.activeCapabilityEpisode
+		? {
+			...progress.activeCapabilityEpisode,
+			totalDischargedEnergyAtStartKwh: isCurrentSchema && Number.isFinite(progress.activeCapabilityEpisode.totalDischargedEnergyAtStartKwh)
+				? progress.activeCapabilityEpisode.totalDischargedEnergyAtStartKwh
+				: round(totalDischargedEnergyKwh),
+			equivalentDischargeCyclesTotalAtStart: isCurrentSchema
+				? progress.activeCapabilityEpisode.equivalentDischargeCyclesTotalAtStart ?? null
+				: null,
+			totalHighLoadMinutesAtStart: isCurrentSchema && Number.isFinite(progress.activeCapabilityEpisode.totalHighLoadMinutesAtStart)
+				? progress.activeCapabilityEpisode.totalHighLoadMinutesAtStart
+				: round(totalHighLoadDurationMs / 60_000, 1),
+		}
+		: null;
+
 	return {
 		...progress,
 		schemaVersion: BATTERY_DISCHARGE_LOAD_SCHEMA_VERSION,
@@ -171,12 +228,20 @@ export function normalizeBatteryDischargeLoadProgress(progress: BatteryDischarge
 		highLoadDurationTodayMs: Number.isFinite(progress.highLoadDurationTodayMs) ? Math.max(0, progress.highLoadDurationTodayMs) : 0,
 		consecutiveHighLoadMs: Number.isFinite(progress.consecutiveHighLoadMs) ? Math.max(0, progress.consecutiveHighLoadMs) : 0,
 		peakDischargePowerTodayW: Number.isFinite(progress.peakDischargePowerTodayW) ? Math.max(0, progress.peakDischargePowerTodayW) : 0,
+		totalDischargedEnergyKwh: round(totalDischargedEnergyKwh),
+		equivalentDischargeCyclesTotal: isCurrentSchema && Number.isFinite(legacy.equivalentDischargeCyclesTotal)
+			? legacy.equivalentDischargeCyclesTotal as number
+			: null,
+		totalHighLoadDurationMs,
 		capabilityBins,
-		activeCapabilityEpisode: progress.schemaVersion === BATTERY_DISCHARGE_LOAD_SCHEMA_VERSION ? progress.activeCapabilityEpisode ?? null : null,
-		limitationEvents: progress.schemaVersion === BATTERY_DISCHARGE_LOAD_SCHEMA_VERSION && Number.isFinite(progress.limitationEvents) ? progress.limitationEvents : 0,
-		recoveryEvents: progress.schemaVersion === BATTERY_DISCHARGE_LOAD_SCHEMA_VERSION && Number.isFinite(progress.recoveryEvents) ? progress.recoveryEvents : 0,
-		lastRecoveryAt: progress.schemaVersion === BATTERY_DISCHARGE_LOAD_SCHEMA_VERSION ? progress.lastRecoveryAt ?? null : null,
-		lastRecoveryDurationMinutes: progress.schemaVersion === BATTERY_DISCHARGE_LOAD_SCHEMA_VERSION ? progress.lastRecoveryDurationMinutes ?? null : null,
+		activeCapabilityEpisode,
+		capabilityEpisodeHistory: isCurrentSchema && Array.isArray(legacy.capabilityEpisodeHistory)
+			? legacy.capabilityEpisodeHistory.slice(-MAX_CAPABILITY_EPISODE_HISTORY)
+			: [],
+		limitationEvents: progress.schemaVersion >= 2 && Number.isFinite(progress.limitationEvents) ? progress.limitationEvents : 0,
+		recoveryEvents: progress.schemaVersion >= 2 && Number.isFinite(progress.recoveryEvents) ? progress.recoveryEvents : 0,
+		lastRecoveryAt: progress.schemaVersion >= 2 ? progress.lastRecoveryAt ?? null : null,
+		lastRecoveryDurationMinutes: progress.schemaVersion >= 2 ? progress.lastRecoveryDurationMinutes ?? null : null,
 	};
 }
 
@@ -194,6 +259,8 @@ export function observeBatteryDischargeLoad(
 	let highLoadDurationTodayMs = sameDay ? progress.highLoadDurationTodayMs : 0;
 	let consecutiveHighLoadMs = sameDay ? progress.consecutiveHighLoadMs : 0;
 	let peakDischargePowerTodayW = sameDay ? progress.peakDischargePowerTodayW : 0;
+	let totalDischargedEnergyKwh = progress.totalDischargedEnergyKwh;
+	let totalHighLoadDurationMs = progress.totalHighLoadDurationMs;
 	// Daily load counters reset independently from capability episodes.
 	// A temporary capability limitation may span midnight and must remain active
 	// until a qualified observation proves recovery.
@@ -209,14 +276,20 @@ export function observeBatteryDischargeLoad(
 		const elapsedMs = time - previousTime;
 		if (elapsedMs > 0 && elapsedMs <= MAX_SAMPLE_GAP_MS) {
 			const averageDischargePowerW = (progress.lastDischargePowerW + actualDischargePowerW) / 2;
-			dischargedEnergyTodayKwh += averageDischargePowerW * elapsedMs / 3_600_000_000;
-			if (highLoadActive) { highLoadDurationTodayMs += elapsedMs; consecutiveHighLoadMs += elapsedMs; }
-			else consecutiveHighLoadMs = 0;
+			const dischargedEnergyKwh = averageDischargePowerW * elapsedMs / 3_600_000_000;
+			dischargedEnergyTodayKwh += dischargedEnergyKwh;
+			totalDischargedEnergyKwh += dischargedEnergyKwh;
+			if (highLoadActive) {
+				highLoadDurationTodayMs += elapsedMs;
+				totalHighLoadDurationMs += elapsedMs;
+				consecutiveHighLoadMs += elapsedMs;
+			} else consecutiveHighLoadMs = 0;
 		}
 	}
 
 	peakDischargePowerTodayW = Math.max(peakDischargePowerTodayW, actualDischargePowerW);
 	const equivalentDischargeCyclesToday = usableCapacityKwh > 0 ? round(dischargedEnergyTodayKwh / usableCapacityKwh, 3) : null;
+	const equivalentDischargeCyclesTotal = usableCapacityKwh > 0 ? round(totalDischargedEnergyKwh / usableCapacityKwh, 3) : null;
 	const binId = capabilitySocBin(sample.soc);
 	const gridImportPowerW = sample.gridImportPowerW !== null && Number.isFinite(sample.gridImportPowerW) ? Math.max(0, sample.gridImportPowerW) : 0;
 	const demandEvidence = gridImportPowerW >= MIN_GRID_IMPORT_EVIDENCE_W;
@@ -233,6 +306,7 @@ export function observeBatteryDischargeLoad(
 	let recoveryEvents = progress.recoveryEvents;
 	let lastRecoveryAt = progress.lastRecoveryAt;
 	let lastRecoveryDurationMinutes = progress.lastRecoveryDurationMinutes;
+	let capabilityEpisodeHistory = [...progress.capabilityEpisodeHistory];
 
 	if (limitationEvidence) {
 		capabilityStatus = "limited";
@@ -244,6 +318,9 @@ export function observeBatteryDischargeLoad(
 				dischargedEnergyAtStartKwh: round(dischargedEnergyTodayKwh),
 				equivalentDischargeCyclesAtStart: equivalentDischargeCyclesToday,
 				highLoadMinutesAtStart: round(highLoadDurationTodayMs / 60_000, 1),
+				totalDischargedEnergyAtStartKwh: round(totalDischargedEnergyKwh),
+				equivalentDischargeCyclesTotalAtStart: equivalentDischargeCyclesTotal,
+				totalHighLoadMinutesAtStart: round(totalHighLoadDurationMs / 60_000, 1),
 				lastLimitedAt: sample.timestamp,
 			};
 			limitationEvents += 1;
@@ -261,6 +338,26 @@ export function observeBatteryDischargeLoad(
 			recoveryEvents += 1;
 			lastRecoveryAt = sample.timestamp;
 			lastRecoveryDurationMinutes = Number.isFinite(time) ? round((time - Date.parse(activeCapabilityEpisode.startedAt)) / 60_000, 1) : null;
+			const completedEpisode: BatteryDischargeCompletedCapabilityEpisode = {
+				...activeCapabilityEpisode,
+				recoveredAt: sample.timestamp,
+				durationMinutes: lastRecoveryDurationMinutes,
+				socAtRecovery: sample.soc,
+				dischargedEnergyAtRecoveryKwh: round(dischargedEnergyTodayKwh),
+				equivalentDischargeCyclesAtRecovery: equivalentDischargeCyclesToday,
+				highLoadMinutesAtRecovery: round(highLoadDurationTodayMs / 60_000, 1),
+				totalDischargedEnergyAtRecoveryKwh: round(totalDischargedEnergyKwh),
+				equivalentDischargeCyclesTotalAtRecovery: equivalentDischargeCyclesTotal,
+				totalHighLoadMinutesAtRecovery: round(totalHighLoadDurationMs / 60_000, 1),
+				dischargedEnergyDuringEpisodeKwh: round(Math.max(0, totalDischargedEnergyKwh - activeCapabilityEpisode.totalDischargedEnergyAtStartKwh)),
+				highLoadMinutesDuringEpisode: round(Math.max(0, totalHighLoadDurationMs / 60_000 - activeCapabilityEpisode.totalHighLoadMinutesAtStart), 1),
+				recoveryCapabilityPowerW: round(actualDischargePowerW, 0),
+				recoveryCapabilityRatioPercent: capabilityRatioPercent,
+			};
+			capabilityEpisodeHistory.push(completedEpisode);
+			if (capabilityEpisodeHistory.length > MAX_CAPABILITY_EPISODE_HISTORY) {
+				capabilityEpisodeHistory = capabilityEpisodeHistory.slice(-MAX_CAPABILITY_EPISODE_HISTORY);
+			}
 			activeCapabilityEpisode = null;
 		} else if (capabilityRatioPercent >= LIMITED_RATIO * 100) capabilityStatus = "recovering";
 	}
@@ -278,7 +375,11 @@ export function observeBatteryDischargeLoad(
 		// active. Limited and partially recovered observations describe the episode,
 		// not normal battery capability. A sample that proves full recovery may teach
 		// the baseline again because activeCapabilityEpisode has already been cleared.
-		if (capabilityTestable && !limitationEvidence && activeCapabilityEpisode === null) {
+		const normalLearningThresholdW = confidenceBeforeSample === "established" && expectedBeforeSample !== null
+			? expectedBeforeSample * RECOVERING_RATIO
+			: null;
+		const normalLearningEvidence = normalLearningThresholdW === null || actualDischargePowerW >= normalLearningThresholdW;
+		if (capabilityTestable && !limitationEvidence && activeCapabilityEpisode === null && normalLearningEvidence) {
 			updated.samples.push(round(actualDischargePowerW, 0));
 			if (updated.samples.length > MAX_CAPABILITY_SAMPLES_PER_BIN) updated.samples.splice(0, updated.samples.length - MAX_CAPABILITY_SAMPLES_PER_BIN);
 		}
@@ -290,7 +391,11 @@ export function observeBatteryDischargeLoad(
 		lastDischargePowerW: actualDischargePowerW, day: currentDay,
 		dischargedEnergyTodayKwh: round(dischargedEnergyTodayKwh), highLoadDurationTodayMs,
 		consecutiveHighLoadMs, peakDischargePowerTodayW: round(peakDischargePowerTodayW, 0),
-		activeCapabilityEpisode, limitationEvents, recoveryEvents, lastRecoveryAt, lastRecoveryDurationMinutes,
+		totalDischargedEnergyKwh: round(totalDischargedEnergyKwh),
+		equivalentDischargeCyclesTotal,
+		totalHighLoadDurationMs,
+		activeCapabilityEpisode, capabilityEpisodeHistory,
+		limitationEvents, recoveryEvents, lastRecoveryAt, lastRecoveryDurationMinutes,
 	};
 
 	const bin = binId ? progress.capabilityBins[binId] : null;
