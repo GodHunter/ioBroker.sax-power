@@ -132,9 +132,6 @@ function observeBatteryPowerAcceptance(previous, sample, usableCapacityKwh) {
   const currentDay = sample.timestamp.slice(0, 10);
   let chargedEnergyTodayKwh = currentDay === progress.day ? progress.chargedEnergyTodayKwh : 0;
   let dischargedEnergyTodayKwh = currentDay === progress.day ? progress.dischargedEnergyTodayKwh : 0;
-  if (currentDay !== progress.day) {
-    progress = { ...progress, activeEpisode: null };
-  }
   if (Number.isFinite(time) && Number.isFinite(previousTime)) {
     const elapsedMs = time - previousTime;
     if (elapsedMs > 0 && elapsedMs <= MAX_SAMPLE_GAP_MS && progress.lastBatteryPowerW !== null && sample.batteryPower !== null) {
@@ -202,7 +199,7 @@ function observeBatteryPowerAcceptance(previous, sample, usableCapacityKwh) {
       observedSamples: bin2.observedSamples + 1,
       maxObservedChargePowerW: Math.max(bin2.maxObservedChargePowerW, actualChargePowerW)
     };
-    if (testable && !limitationEvidence) {
+    if (testable && !limitationEvidence && activeEpisode === null) {
       updated.samples.push(round(actualChargePowerW, 0));
       if (updated.samples.length > MAX_SAMPLES_PER_BIN) updated.samples.splice(0, updated.samples.length - MAX_SAMPLES_PER_BIN);
     }

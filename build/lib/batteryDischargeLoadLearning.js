@@ -140,7 +140,6 @@ function observeBatteryDischargeLoad(previous, sample, usableCapacityKwh, maximu
   let highLoadDurationTodayMs = sameDay ? progress.highLoadDurationTodayMs : 0;
   let consecutiveHighLoadMs = sameDay ? progress.consecutiveHighLoadMs : 0;
   let peakDischargePowerTodayW = sameDay ? progress.peakDischargePowerTodayW : 0;
-  if (!sameDay) progress = { ...progress, activeCapabilityEpisode: null };
   const actualDischargePowerW = sample.direction === "discharging" && sample.batteryPower !== null ? Math.max(0, sample.batteryPower) : 0;
   const safeMaximumDischargePowerW = Number.isFinite(maximumDischargePowerW) && maximumDischargePowerW > 0 ? maximumDischargePowerW : 0;
   const highLoadThresholdW = safeMaximumDischargePowerW * HIGH_LOAD_POWER_FACTOR;
@@ -214,7 +213,7 @@ function observeBatteryDischargeLoad(previous, sample, usableCapacityKwh, maximu
       observedSamples: bin2.observedSamples + 1,
       maxObservedDischargePowerW: Math.max(bin2.maxObservedDischargePowerW, actualDischargePowerW)
     };
-    if (capabilityTestable && !limitationEvidence) {
+    if (capabilityTestable && !limitationEvidence && activeCapabilityEpisode === null) {
       updated.samples.push(round(actualDischargePowerW, 0));
       if (updated.samples.length > MAX_CAPABILITY_SAMPLES_PER_BIN) updated.samples.splice(0, updated.samples.length - MAX_CAPABILITY_SAMPLES_PER_BIN);
     }
