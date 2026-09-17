@@ -74,7 +74,9 @@ async function readPreviousDecisionReason(adapter: StrategyIoBrokerAutomaticChar
 async function applyChargePowerTarget(adapter: StrategyIoBrokerAutomaticChargingAdapter, configuration: StrategyConfiguration, contract: StrategyIntegrationContract, publication: StrategyChargingPublication, currentSocPercent: number | null = null): Promise<StrategyIoBrokerAutomaticChargingCycle> {
 	const runtime = createStrategyIoBrokerRuntime(adapter);
 	const command = contract.modbus.chargePowerCommand;
-	const targetChargePowerW = Math.max(0, Math.min(configuration.maximumChargePowerW, Math.round(publication.targetChargePowerW)));
+	const targetChargePowerW = currentSocPercent !== null && currentSocPercent >= 100
+		? 0
+		: Math.max(0, Math.min(configuration.maximumChargePowerW, Math.round(publication.targetChargePowerW)));
 	await runtime.writer.setForeignState(command.stateId, targetChargePowerW, false);
 	await publishStrategyCharging(adapter, { ...publication, targetChargePowerW, lastCommandAt: publication.lastUpdate });
 	return Object.freeze({
@@ -100,11 +102,11 @@ export async function executeStrategyIoBrokerAutomaticChargingCycle(adapter: Str
 	try { resolution = await resolveStrategyStates(runtime.reader, contract, { ...resolverOptions, now: createdAt }); }
 	catch { return applyChargePowerTarget(adapter, configuration, contract, fallbackPublication(configuration, createdAt, "inputs-not-ready")); }
 	if (!resolution.modbus.chargePowerCommand.available) return null;
+	const stateOfChargePercent = resolution.modbus.stateOfCharge.value;
 	let daylightWindow: Awaited<ReturnType<ReturnType<typeof createStrategyIoBrokerDaylightWindowProvider>["getDaylightWindow"]>>;
 	try { daylightWindow = await createStrategyIoBrokerDaylightWindowProvider(adapter).getDaylightWindow(createdAt); }
-	catch { return applyChargePowerTarget(adapter, configuration, contract, fallbackPublication(configuration, createdAt, "daylight-unavailable")); }
+	catch { return applyChargePowerTarget(adapter, configuration, contract, fallbackPublication(configuration, createdAt, "daylight-unavailable"), stateOfChargePercent); }
 	await publishStrategyDaylightDiagnostics(adapter, createdAt, daylightWindow ?? null);
-	const stateOfChargePercent = resolution.modbus.stateOfCharge.value;
 	if (stateOfChargePercent !== null && stateOfChargePercent < configuration.minimumStateOfChargePercent) return applyChargePowerTarget(adapter, configuration, contract, fallbackPublication(configuration, createdAt, "below-minimum-soc"), stateOfChargePercent);
 	if (!resolution.strategyInputsReady) {
 		const graceTarget = selectStrategyChargingInputGraceTarget(
