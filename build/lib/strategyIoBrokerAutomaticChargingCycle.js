@@ -75,7 +75,7 @@ async function readPreviousDecisionReason(adapter) {
 async function applyChargePowerTarget(adapter, configuration, contract, publication, currentSocPercent = null) {
   const runtime = (0, import_strategyIoBrokerRuntime.createStrategyIoBrokerRuntime)(adapter);
   const command = contract.modbus.chargePowerCommand;
-  const targetChargePowerW = Math.max(0, Math.min(configuration.maximumChargePowerW, Math.round(publication.targetChargePowerW)));
+  const targetChargePowerW = currentSocPercent !== null && currentSocPercent >= 100 ? 0 : Math.max(0, Math.min(configuration.maximumChargePowerW, Math.round(publication.targetChargePowerW)));
   await runtime.writer.setForeignState(command.stateId, targetChargePowerW, false);
   await (0, import_strategyChargingStates.publishStrategyCharging)(adapter, { ...publication, targetChargePowerW, lastCommandAt: publication.lastUpdate });
   return Object.freeze({
@@ -104,14 +104,14 @@ async function executeStrategyIoBrokerAutomaticChargingCycle(adapter, configurat
     return applyChargePowerTarget(adapter, configuration, contract, fallbackPublication(configuration, createdAt, "inputs-not-ready"));
   }
   if (!resolution.modbus.chargePowerCommand.available) return null;
+  const stateOfChargePercent = resolution.modbus.stateOfCharge.value;
   let daylightWindow;
   try {
     daylightWindow = await (0, import_strategyIoBrokerDaylightWindow.createStrategyIoBrokerDaylightWindowProvider)(adapter).getDaylightWindow(createdAt);
   } catch {
-    return applyChargePowerTarget(adapter, configuration, contract, fallbackPublication(configuration, createdAt, "daylight-unavailable"));
+    return applyChargePowerTarget(adapter, configuration, contract, fallbackPublication(configuration, createdAt, "daylight-unavailable"), stateOfChargePercent);
   }
   await (0, import_strategyDaylightDiagnosticStates.publishStrategyDaylightDiagnostics)(adapter, createdAt, daylightWindow != null ? daylightWindow : null);
-  const stateOfChargePercent = resolution.modbus.stateOfCharge.value;
   if (stateOfChargePercent !== null && stateOfChargePercent < configuration.minimumStateOfChargePercent) return applyChargePowerTarget(adapter, configuration, contract, fallbackPublication(configuration, createdAt, "below-minimum-soc"), stateOfChargePercent);
   if (!resolution.strategyInputsReady) {
     const graceTarget = (0, import_strategyChargingInputGrace.selectStrategyChargingInputGraceTarget)(
