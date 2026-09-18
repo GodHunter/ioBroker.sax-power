@@ -22,6 +22,7 @@ import {
 import type {
 	PvForecastInstanceOption,
 } from "./types";
+import { LocalizedSection } from "./localization";
 
 interface PvForecastSocket {
 	getObjectViewSystem(
@@ -151,7 +152,7 @@ export function PvForecastSelector(
 	}, [props.socket, props.value]);
 
 	return (
-		<Stack spacing={1.5} sx={{ marginTop: 2 }}>
+		<LocalizedSection><Stack spacing={1.5} sx={{ marginTop: 2 }}>
 			<TextField
 				select
 				fullWidth
@@ -213,6 +214,6 @@ export function PvForecastSelector(
 					</Typography>
 				</Alert>
 			) : null}
-		</Stack>
+		</Stack></LocalizedSection>
 	);
 }
