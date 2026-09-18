@@ -2899,16 +2899,6 @@ return (
         </CardContent>
         </Card>
 
-        <Card
-        elevation={0}
-        sx={{
-        border: 1,
-        borderColor:
-        "divider",
-        borderRadius: 3,
-        }}
-        >
-        
         </Stack>
         </Grid>
     </Grid>
