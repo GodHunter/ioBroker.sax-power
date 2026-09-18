@@ -97,7 +97,7 @@ resolveStrategyBatteryTechnicalLimits,
 } from "../../src/lib/strategyBatteryChargeCapability";
 
 import { LocalizedContent, translate } from "./localization";
-import { StrategyLearningSettings } from "./StrategyLearningSettings";
+import { AdaptiveLearningSettings, PvIntegrationSettings } from "./StrategyLearningSettings";
 
 import de from "../../admin/i18n/de.json";
 import en from "../../admin/i18n/en.json";
@@ -2091,16 +2091,24 @@ label={`R${register.register}: ${register.stateId ? `${register.readable ? "read
 </CardContent>
 </Card>
 
-<Card elevation={0} sx={{ border: 1, borderColor: "divider", borderRadius: 3, opacity: 0.75 }}>
+<Card elevation={0} sx={{ border: 1, borderColor: "divider", borderRadius: 3 }}>
 <CardContent>
-<Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
-<SolarPower color="primary" />
+<Stack direction="row" spacing={1} sx={{ alignItems: "flex-start", marginBottom: 2 }}>
+<SolarPower color="primary" sx={{ marginTop: 0.5 }} />
 <Box sx={{ flex: 1 }}>
-<Typography variant="h6" sx={{ fontWeight: 700 }}>PV forecast</Typography>
-<Typography variant="body2" color="text.secondary">The strategy currently uses the existing PV forecast contract. A dedicated adapter selection will be added here when multiple forecast integrations are supported.</Typography>
+<Typography variant="h6" sx={{ fontWeight: 700 }}>PV integration</Typography>
+<Typography variant="body2" color="text.secondary">Forecast and live PV measurements used by the storage strategy and adaptive learning.</Typography>
 </Box>
-<Chip label="Existing contract" variant="outlined" />
 </Stack>
+<PvIntegrationSettings
+socket={this.socket}
+native={native}
+hasIssue={(field) => {
+const validation = validateStrategyRuntimeConfiguration(strategyRuntimeConfigurationFromNative(native));
+return validation.valid ? false : validation.issues.some(issue => issue.field === field);
+}}
+onChange={(key,value)=>this.updateNativeField(key,value)}
+/>
 </CardContent>
 </Card>
 </Stack>
@@ -2199,7 +2207,7 @@ slotProps={{input:{endAdornment:<InputAdornment position="end">{String(unit)}</I
 </Card>
 
 <Card elevation={0} sx={{ border: 1, borderColor: "divider", borderRadius: 3 }}>
-<CardContent><StrategyLearningSettings socket={this.socket} native={native} hasIssue={hasStrategyIssue} onChange={(key,value)=>this.updateNativeField(key,value)} /></CardContent>
+<CardContent><AdaptiveLearningSettings socket={this.socket} native={native} hasIssue={hasStrategyIssue} onChange={(key,value)=>this.updateNativeField(key,value)} /></CardContent>
 </Card>
 
 <Accordion disableGutters elevation={0} sx={{border:1,borderColor:"divider",borderRadius:"12px !important","&:before":{display:"none"}}}>
