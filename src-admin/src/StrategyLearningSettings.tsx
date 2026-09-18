@@ -14,6 +14,7 @@ import {
 } from "@mui/material";
 
 import { PvForecastSelector } from "./PvForecastSelector";
+import { LocalizedSection } from "./localization";
 import type { SaxPowerNativeConfig } from "./types";
 
 interface StrategyLearningSocket {
@@ -40,7 +41,7 @@ export function PvIntegrationSettings(props: SettingsProps): React.JSX.Element {
 	const sourceMode = props.native.strategyPvPowerSourceMode ?? "none";
 
 	return (
-		<Stack spacing={2}>
+		<LocalizedSection><Stack spacing={2}>
 			<Box>
 				<Typography variant="h6" sx={{ fontWeight: 700 }}>PV forecast & live PV data</Typography>
 				<Typography variant="body2" color="text.secondary">
@@ -118,7 +119,7 @@ export function PvIntegrationSettings(props: SettingsProps): React.JSX.Element {
 					/>
 				</Grid>
 			</Grid>
-		</Stack>
+		</Stack></LocalizedSection>
 	);
 }
 
@@ -128,7 +129,7 @@ export function AdaptiveLearningSettings(props: SettingsProps): React.JSX.Elemen
 		&& Boolean(props.native.strategyPvPowerStateId);
 
 	return (
-		<Stack spacing={2}>
+		<LocalizedSection><Stack spacing={2}>
 			<Box>
 				<Typography variant="h6" sx={{ fontWeight: 700 }}>Adaptive learning</Typography>
 				<Typography variant="body2" color="text.secondary">
@@ -164,7 +165,7 @@ export function AdaptiveLearningSettings(props: SettingsProps): React.JSX.Elemen
 					Learning is disabled. The charging strategy continues to use its normal forecast and strategy inputs.
 				</Typography>
 			)}
-		</Stack>
+		</Stack></LocalizedSection>
 	);
 }
 
