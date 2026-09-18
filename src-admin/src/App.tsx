@@ -2908,57 +2908,7 @@ return (
         borderRadius: 3,
         }}
         >
-        <CardContent>
-        <Typography
-        variant="h6"
-        sx={{
-            fontWeight: 700
-        }}
-        >
-        Planned features
-        </Typography>
-
-        <Stack
-        spacing={1}
-        sx={{
-        marginTop: 1.5,
-        }}
-        >
-        {
-        [
-        "Additional integration providers",
-        "Custom strategy time periods",
-        ].map(
-        (item) => (
-        <Stack
-        key={
-        item
-        }
-        direction="row"
-        spacing={1}
-        sx={{
-            alignItems: "center"
-        }}
-        >
-        <EnergySavingsLeaf
-        fontSize="small"
-        color="primary"
-        />
-
-        <Typography
-        variant="body2"
-        >
-        {
-        item
-        }
-        </Typography>
-        </Stack>
-        ),
-        )
-        }
-        </Stack>
-        </CardContent>
-        </Card>
+        
         </Stack>
         </Grid>
     </Grid>
