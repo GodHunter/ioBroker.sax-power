@@ -64,7 +64,7 @@ function translateText(text: string): string {
 	return `${leadingWhitespace}${translateDynamicText(content)}${trailingWhitespace}`;
 }
 
-function localizeNode(node: React.ReactNode): React.ReactNode {
+export function localizeNode(node: React.ReactNode): React.ReactNode {
 	if (typeof node === "string") return translateText(node);
 	if (Array.isArray(node)) return node.map(localizeNode);
 	if (!React.isValidElement<Record<string, unknown>>(node)) return node;
@@ -83,5 +83,9 @@ function localizeNode(node: React.ReactNode): React.ReactNode {
 }
 
 export function LocalizedContent(props: { children: React.ReactNode }): React.JSX.Element {
+	return <>{localizeNode(props.children)}</>;
+}
+
+export function LocalizedSection(props: { children: React.ReactNode }): React.JSX.Element {
 	return <>{localizeNode(props.children)}</>;
 }
