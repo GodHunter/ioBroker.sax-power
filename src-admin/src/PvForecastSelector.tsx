@@ -1,5 +1,6 @@
 import React, {
 	useEffect,
+	useRef,
 	useState,
 } from "react";
 
@@ -49,6 +50,11 @@ export function PvForecastSelector(
 	const [instancesError, setInstancesError] = useState("");
 	const [capabilities, setCapabilities] = useState<PvForecastCapabilities | null>(null);
 	const [capabilitiesLoading, setCapabilitiesLoading] = useState(false);
+	const latestValue = useRef(props.value);
+	const onChangeRef = useRef(props.onChange);
+
+	latestValue.current = props.value;
+	onChangeRef.current = props.onChange;
 
 	useEffect(() => {
 		let active = true;
@@ -72,8 +78,8 @@ export function PvForecastSelector(
 
 				const enabledOptions = options.filter(option => option.enabled);
 
-				if (props.value === "" && enabledOptions.length === 1) {
-					props.onChange(enabledOptions[0].value);
+				if (latestValue.current === "" && enabledOptions.length === 1) {
+					onChangeRef.current(enabledOptions[0].value);
 				}
 			} catch (error) {
 				if (!active) return;
@@ -89,7 +95,7 @@ export function PvForecastSelector(
 		return () => {
 			active = false;
 		};
-	}, [props.socket, props.value, props.onChange]);
+	}, [props.socket]);
 
 	useEffect(() => {
 		let active = true;
