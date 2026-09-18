@@ -122,5 +122,7 @@ rejectedRuns: number;
 export type AdminTab =
 | "login"
 | "settings"
+| "integration"
+| "strategy"
 | "status"
 | "support";
