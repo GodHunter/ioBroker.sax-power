@@ -2160,26 +2160,38 @@ return (
 <CardContent>
 <Typography variant="h6" sx={{ fontWeight: 700 }}>Strategy profiles</Typography>
 <Typography variant="body2" color="text.secondary" sx={{ marginBottom: 2 }}>Enable the functions you want. Availability is derived live from the selected Modbus integration.</Typography>
-<Stack spacing={1.5}>
-{(["chargingControl","dayAvailability","nightDischarge"] as StrategyCapabilityModeId[]).map(id => {
+<Grid container spacing={2}>
+{(["chargingControl","dayAvailability"] as StrategyCapabilityModeId[]).map(id => {
 const mode=capabilities?.modes.find(item => item.id===id);
 const configKey=modeConfigKey[id];
 const checked=native[configKey]===undefined ? id==="chargingControl" : native[configKey]===true;
 const available=mode?.selectable===true;
-return <Card key={id} variant="outlined" sx={{ borderRadius: 2.5, backgroundColor: checked && available ? "action.selected" : "transparent" }}>
-<CardContent sx={{ paddingBottom: "16px !important" }}>
-<Stack direction={{ xs:"column",md:"row" }} spacing={2} sx={{ justifyContent:"space-between",alignItems:{xs:"stretch",md:"center"} }}>
-<Box sx={{flex:1}}><Typography variant="subtitle1" sx={{fontWeight:700}}>{this.strategyModeLabel(id)}</Typography><Typography variant="body2" color="text.secondary">{modeDescription[id]}</Typography>
-<Typography variant="caption" color={available ? "success.main" : "text.secondary"}>{!native.strategyModbusInstance ? "Configure Modbus under Integrations first." : mode?.reason==="missing-registers" ? `Unavailable: register ${mode.missingRegisters.join(", ")} is missing or has insufficient access.` : mode?.reason==="not-implemented" ? "Detected, but not implemented yet." : available ? "Available" : "Checking integration…"}</Typography></Box>
+return <Grid key={id} size={{xs:12,lg:6}}><Card variant="outlined" sx={{ borderRadius: 2.5, height:"100%", backgroundColor: checked && available ? "action.selected" : "transparent" }}>
+<CardContent sx={{ paddingBottom: "16px !important", height:"100%" }}>
+<Stack spacing={2} sx={{height:"100%",justifyContent:"space-between"}}>
+<Box><Typography variant="subtitle1" sx={{fontWeight:700}}>{this.strategyModeLabel(id)}</Typography><Typography variant="body2" color="text.secondary">{modeDescription[id]}</Typography>
+<Typography variant="caption" color={available ? "success.main" : "text.secondary"}>{!native.strategyModbusInstance ? "Configure Modbus under Integrations first." : mode?.reason==="missing-registers" ? `Unavailable: register ${mode.missingRegisters.join(", ")} is missing or has insufficient access.` : available ? "Available" : "Checking integration…"}</Typography></Box>
 <FormControlLabel control={<Switch checked={checked && available} disabled={!available} onChange={(event)=>this.updateNativeField(configKey,event.target.checked as never)} />} label={checked && available ? "Enabled" : available ? "Disabled" : "Unavailable"} />
-</Stack>
-{id==="dayAvailability" && checked && available ? <Box sx={{marginTop:2,maxWidth:520}}><TextField fullWidth required type="number" label="Maximum daytime allowance"
+{id==="dayAvailability" && checked && available ? <TextField fullWidth required type="number" label="Maximum daytime allowance"
 value={strategyNumber(native.strategyRequestedDischargePowerW)} onChange={(event)=>this.updateOptionalNumberField("strategyRequestedDischargePowerW",event.target.value)}
 error={hasStrategyIssue("requestedDischargePowerW")} helperText="Maximum power published as available to external consumers."
-slotProps={{input:{endAdornment:<InputAdornment position="end">W</InputAdornment>},htmlInput:{min:0,step:50}}}/></Box> : null}
-</CardContent></Card>;
-})}
+slotProps={{input:{endAdornment:<InputAdornment position="end">W</InputAdornment>},htmlInput:{min:0,step:50}}}/> : null}
 </Stack>
+</CardContent></Card></Grid>;
+})}
+
+{[
+{title:"Price-controlled night discharge",description:"Planned active discharge during suitable low-demand periods, guarded by price, time window and minimum SOC."},
+{title:"Dynamic electricity-price optimization",description:"Planned optimization of charging and storage use based on dynamic electricity tariffs."},
+{title:"Peak shaving",description:"Planned reduction of short grid-consumption peaks by coordinating the available battery power."},
+{title:"Backup reserve management",description:"Planned dynamic SOC reserve for installations that want to keep energy available for outages or special operating periods."},
+].map(planned => <Grid key={planned.title} size={{xs:12,lg:6}}><Card variant="outlined" sx={{borderRadius:2.5,height:"100%",opacity:0.58,backgroundColor:"action.disabledBackground"}}>
+<CardContent sx={{height:"100%"}}><Stack spacing={1.5} sx={{height:"100%",justifyContent:"space-between"}}>
+<Box><Stack direction="row" spacing={1} sx={{alignItems:"center",marginBottom:0.5}}><Typography variant="subtitle1" sx={{fontWeight:700}}>{planned.title}</Typography><Chip size="small" label="Planned" variant="outlined" /></Stack>
+<Typography variant="body2" color="text.secondary">{planned.description}</Typography></Box>
+<Typography variant="caption" color="text.secondary">Not available yet · We are looking for testers: godhunter@posteo.de</Typography>
+</Stack></CardContent></Card></Grid>)}
+</Grid>
 </CardContent>
 </Card>
 
