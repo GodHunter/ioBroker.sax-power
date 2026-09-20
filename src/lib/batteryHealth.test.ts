@@ -105,12 +105,26 @@ describe("battery health tracker", () => {
 		expect(result.progress.estimates).to.deep.equal([95, 97, 96, 80, 98]);
 
 		completeRun(110, 5);
-		expect(result.progress.validRuns).to.equal(5);
-		expect(result.progress.estimates).to.deep.equal([97, 96, 80, 98, 110]);
-		expect(result.value).to.equal(97);
+		expect(result.progress.validRuns).to.equal(1);
+		expect(result.progress.estimates).to.deep.equal([110]);
+		expect(result.value).to.equal(96);
 
 		completeRun(102, 6);
-		expect(result.progress.estimates).to.deep.equal([96, 80, 98, 110, 102]);
-		expect(result.value).to.equal(98);
+		expect(result.progress.validRuns).to.equal(2);
+		expect(result.progress.estimates).to.deep.equal([110, 102]);
+		expect(result.value).to.equal(96);
+	});
+
+	it("caps the public health value at 100 percent while preserving the raw estimate", () => {
+		const progress = createBatteryHealthProgress("2026-08-10T00:00:00.000Z");
+		progress.publishedValue = 102.2;
+		progress.estimates = [102.23, 101.17, 103.77, 103.51, 101.89];
+		progress.validRuns = 5;
+		const capped = observeBatteryHealth(progress, {
+			timestamp: "2026-08-11T00:00:00.000Z", soc: null, batteryPower: null, direction: "idle",
+		}, 7);
+		expect(capped.value).to.equal(100);
+		expect(capped.progress.publishedValue).to.equal(102.2);
+		expect(capped.progress.estimates).to.deep.equal([102.23, 101.17, 103.77, 103.51, 101.89]);
 	});
 });
