@@ -100,6 +100,9 @@ export function createStrategyDayDischargeAvailability(preparation: StrategyDayl
 		availablePowerW <= 0
 		&& reason === "insufficient-charge-time"
 		&& chargingContext !== null
+		&& chargingContext.forecastMarginWh !== null
+		&& Number.isFinite(chargingContext.forecastMarginWh)
+		&& chargingContext.forecastMarginWh > 0
 		&& Number.isFinite(chargingContext.requestedDischargePowerW)
 		&& chargingContext.requestedDischargePowerW > 0
 	) {
@@ -115,9 +118,15 @@ export function createStrategyDayDischargeAvailability(preparation: StrategyDayl
 			|| chargingContext.reason === "invalid-input"
 			|| chargingContext.reason === "daylight-unavailable"
 			|| chargingContext.reason === "outside-daylight";
+		const energyBudgetExhausted = chargingContext.forecastMarginWh === null
+			|| !Number.isFinite(chargingContext.forecastMarginWh)
+			|| chargingContext.forecastMarginWh <= 0;
 		if (hardBlock) {
 			availablePowerW = 0;
 			reason = `charging-${chargingContext.reason}`;
+		} else if (energyBudgetExhausted) {
+			availablePowerW = 0;
+			reason = "energy-budget-exhausted";
 		} else if (corridor === null || corridor.factor === null) {
 			availablePowerW = 0;
 			reason = "trajectory-unavailable";
