@@ -28,7 +28,7 @@ __export(batteryHealth_exports, {
 module.exports = __toCommonJS(batteryHealth_exports);
 const REQUIRED_HEALTH_RUNS = 5;
 const MIN_HEALTH_SOC_SPAN = 40;
-const BATTERY_HEALTH_SCHEMA_VERSION = 4;
+const BATTERY_HEALTH_SCHEMA_VERSION = 5;
 const MIN_REJECTED_RUN_SOC_SPAN = 5;
 const MIN_POWER_W = 100;
 const MAX_GAP_MS = 15 * 60 * 1e3;
@@ -73,7 +73,7 @@ function median(values) {
   return sorted.length % 2 === 0 ? (sorted[middle - 1] + sorted[middle]) / 2 : sorted[middle];
 }
 function healthValue(progress) {
-  return progress.publishedValue === null ? null : round(Math.max(0, Math.min(110, progress.publishedValue)), 1);
+  return progress.publishedValue === null ? null : round(Math.max(0, Math.min(100, progress.publishedValue)), 1);
 }
 function result(progress) {
   const value = healthValue(progress);
@@ -92,12 +92,14 @@ function finishRun(progress, usableCapacityKwh, timestamp) {
     const expectedEnergy = usableCapacityKwh * socSpan / 100;
     const estimate = run.energyKwh / expectedEnergy * 100;
     if (Number.isFinite(estimate) && estimate >= 50 && estimate <= 120) {
+      if (progress.estimates.length >= progress.requiredRuns) {
+        progress.estimates = [];
+      }
       progress.estimates.push(round(estimate, 2));
-      progress.estimates = progress.estimates.slice(-progress.requiredRuns);
       progress.validRuns = progress.estimates.length;
       if (progress.estimates.length >= progress.requiredRuns) {
-        const rollingMedian = median(progress.estimates);
-        if (rollingMedian !== null) progress.publishedValue = round(rollingMedian, 1);
+        const batchMedian = median(progress.estimates);
+        if (batchMedian !== null) progress.publishedValue = round(batchMedian, 1);
       }
     } else {
       progress.rejectedRuns += 1;
