@@ -70,7 +70,7 @@ describe("battery health tracker", () => {
 		expect(normalizeBatteryHealthProgress(migrated)).to.equal(migrated);
 	});
 
-	it("publishes the rolling median of the last five valid discharges", () => {
+	it("publishes one median per batch of five valid discharges", () => {
 		let progress = createBatteryHealthProgress("2026-08-10T00:00:00.000Z");
 		let result = observeBatteryHealth(progress, {
 			timestamp: "2026-08-10T00:00:00.000Z", soc: null, batteryPower: null, direction: "idle",
