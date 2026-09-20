@@ -2,7 +2,7 @@ import type { BatteryDirection } from "./saxPowerDevice";
 
 export const REQUIRED_HEALTH_RUNS = 5;
 export const MIN_HEALTH_SOC_SPAN = 40;
-export const BATTERY_HEALTH_SCHEMA_VERSION = 4;
+export const BATTERY_HEALTH_SCHEMA_VERSION = 5;
 const MIN_REJECTED_RUN_SOC_SPAN = 5;
 const MIN_POWER_W = 100;
 const MAX_GAP_MS = 15 * 60 * 1000;
