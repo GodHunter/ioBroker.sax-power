@@ -76,6 +76,42 @@ describe("strategy day discharge availability states", () => {
 		expect(result.reason).to.equal("trajectory-above-plan-throttled");
 	});
 
+	it("blocks day discharge when the household-aware net energy budget is exhausted", () => {
+		const result = createStrategyDayDischargeAvailability(preparation(), chargingContext({
+			currentSocPercent: 80,
+			plannedSocPercent: 70,
+			plannedSocLowerPercent: 67,
+			plannedSocUpperPercent: 73,
+			forecastMarginWh: 0,
+		}));
+		expect(result.allowed).to.equal(false);
+		expect(result.availablePowerW).to.equal(0);
+		expect(result.reason).to.equal("energy-budget-exhausted");
+	});
+
+	it("keeps corridor discharge available while a positive net energy budget remains", () => {
+		const result = createStrategyDayDischargeAvailability(preparation(), chargingContext({
+			currentSocPercent: 80,
+			plannedSocPercent: 70,
+			plannedSocLowerPercent: 67,
+			plannedSocUpperPercent: 73,
+			forecastMarginWh: 1,
+		}));
+		expect(result.allowed).to.equal(true);
+		expect(result.availablePowerW).to.equal(1_300);
+		expect(result.reason).to.equal("trajectory-above-corridor");
+	});
+
+	it("does not reconsider insufficient charge time after the net energy budget is exhausted", () => {
+		const result = createStrategyDayDischargeAvailability(
+			preparation(0, "insufficient-charge-time"),
+			chargingContext({ currentSocPercent: 80, forecastMarginWh: 0 }),
+		);
+		expect(result.allowed).to.equal(false);
+		expect(result.availablePowerW).to.equal(0);
+		expect(result.reason).to.equal("insufficient-charge-time");
+	});
+
 	it("does not use forecast-insufficient as a binary day-discharge block when corridor data is valid", () => {
 		const result = createStrategyDayDischargeAvailability(preparation(), chargingContext({ reason: "forecast-insufficient", currentSocPercent: 73 }));
 		expect(result.allowed).to.equal(true);
