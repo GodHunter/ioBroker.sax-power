@@ -68,15 +68,19 @@ function createStrategyDayDischargeAvailability(preparation, chargingContext = n
   let corridorRecoveryLatched = (chargingContext == null ? void 0 : chargingContext.recoveryLatchActive) === true;
   const corridor = chargingContext === null ? null : corridorAvailability(chargingContext);
   if (corridor !== null) corridorRecoveryLatched = corridor.recoveryLatched;
-  if (availablePowerW <= 0 && reason === "insufficient-charge-time" && chargingContext !== null && Number.isFinite(chargingContext.requestedDischargePowerW) && chargingContext.requestedDischargePowerW > 0) {
+  if (availablePowerW <= 0 && reason === "insufficient-charge-time" && chargingContext !== null && chargingContext.forecastMarginWh !== null && Number.isFinite(chargingContext.forecastMarginWh) && chargingContext.forecastMarginWh > 0 && Number.isFinite(chargingContext.requestedDischargePowerW) && chargingContext.requestedDischargePowerW > 0) {
     availablePowerW = Math.round(chargingContext.requestedDischargePowerW);
     reason = "trajectory-budget-reconsidered";
   }
   if (availablePowerW > 0 && chargingContext !== null) {
     const hardBlock = chargingContext.reason === "target-soc-reached" || chargingContext.reason === "target-soc-maintenance" || chargingContext.reason === "below-minimum-soc" || chargingContext.reason === "inputs-not-ready" || chargingContext.reason === "invalid-input" || chargingContext.reason === "daylight-unavailable" || chargingContext.reason === "outside-daylight";
+    const energyBudgetExhausted = chargingContext.forecastMarginWh === null || !Number.isFinite(chargingContext.forecastMarginWh) || chargingContext.forecastMarginWh <= 0;
     if (hardBlock) {
       availablePowerW = 0;
       reason = `charging-${chargingContext.reason}`;
+    } else if (energyBudgetExhausted) {
+      availablePowerW = 0;
+      reason = "energy-budget-exhausted";
     } else if (corridor === null || corridor.factor === null) {
       availablePowerW = 0;
       reason = "trajectory-unavailable";
