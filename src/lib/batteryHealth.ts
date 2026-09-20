@@ -91,7 +91,7 @@ function median(values: readonly number[]): number | null {
 function healthValue(progress: BatteryHealthProgress): number | null {
 	return progress.publishedValue === null
 		? null
-		: round(Math.max(0, Math.min(110, progress.publishedValue)), 1);
+		: round(Math.max(0, Math.min(100, progress.publishedValue)), 1);
 }
 
 function result(progress: BatteryHealthProgress): BatteryHealthResult {
@@ -116,12 +116,15 @@ function finishRun(progress: BatteryHealthProgress, usableCapacityKwh: number, t
 		const expectedEnergy = usableCapacityKwh * socSpan / 100;
 		const estimate = run.energyKwh / expectedEnergy * 100;
 		if (Number.isFinite(estimate) && estimate >= 50 && estimate <= 120) {
+			// Keep a completed batch visible until the first valid run of the next batch.
+			if (progress.estimates.length >= progress.requiredRuns) {
+				progress.estimates = [];
+			}
 			progress.estimates.push(round(estimate, 2));
-			progress.estimates = progress.estimates.slice(-progress.requiredRuns);
 			progress.validRuns = progress.estimates.length;
 			if (progress.estimates.length >= progress.requiredRuns) {
-				const rollingMedian = median(progress.estimates);
-				if (rollingMedian !== null) progress.publishedValue = round(rollingMedian, 1);
+				const batchMedian = median(progress.estimates);
+				if (batchMedian !== null) progress.publishedValue = round(batchMedian, 1);
 			}
 		} else {
 			progress.rejectedRuns += 1;
