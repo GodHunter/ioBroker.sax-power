@@ -1,4 +1,5 @@
 import type { StrategyConfiguration } from "./strategyConfiguration";
+import { createStrategyChargeReserve } from "./strategyChargeReserve";
 import type { StrategyChargingDecisionReason } from "./strategyChargingDecision";
 import { createStrategyChargingDecision } from "./strategyChargingDecision";
 import { selectStrategyChargingInputGraceTarget, type StrategyChargingInputGraceSnapshot } from "./strategyChargingInputGrace";
@@ -12,7 +13,6 @@ import { resolveStrategyStates, type StrategyStateResolution, type StrategyState
 
 const MAXIMUM_HOUSEHOLD_LEARNING_AGE_MS = 120_000;
 const MAXIMUM_ACCEPTANCE_LEARNING_AGE_MS = 120_000;
-const ACCEPTANCE_RESERVE_HEADROOM_FACTOR = 1.10;
 const POWER_ACCEPTANCE_ROOT = "summary.battery.powerAcceptance";
 const recentStableTargetsByAdapter = new WeakMap<object, Map<string, StrategyChargingInputGraceSnapshot>>();
 
@@ -99,33 +99,24 @@ async function readPreviousDecisionReason(adapter: StrategyIoBrokerAutomaticChar
 async function applyChargePowerTarget(adapter: StrategyIoBrokerAutomaticChargingAdapter, configuration: StrategyConfiguration, contract: StrategyIntegrationContract, publication: StrategyChargingPublication, currentSocPercent: number | null = null): Promise<StrategyIoBrokerAutomaticChargingCycle> {
 	const runtime = createStrategyIoBrokerRuntime(adapter);
 	const command = contract.modbus.chargePowerCommand;
-	const strategyRequestedChargePowerW = Math.max(0, Math.min(configuration.maximumChargePowerW, Math.round(publication.targetChargePowerW)));
 	const learnedAcceptancePowerW = currentSocPercent !== null && currentSocPercent < 100
 		? await readEstablishedChargeAcceptancePowerW(adapter, publication.lastUpdate)
 		: null;
-	const learnedReserveLimitW = learnedAcceptancePowerW === null
-		? null
-		: Math.min(configuration.maximumChargePowerW, Math.round(learnedAcceptancePowerW * ACCEPTANCE_RESERVE_HEADROOM_FACTOR));
-	const targetChargePowerW = currentSocPercent !== null && currentSocPercent >= 100
-		? 0
-		: learnedReserveLimitW === null
-			? strategyRequestedChargePowerW
-			: Math.min(strategyRequestedChargePowerW, learnedReserveLimitW);
-	const chargeReserveReason = currentSocPercent !== null && currentSocPercent >= 100
-		? "full-soc"
-		: learnedReserveLimitW !== null && learnedReserveLimitW < strategyRequestedChargePowerW
-			? "learned-acceptance"
-			: learnedReserveLimitW !== null
-				? "strategy-target-with-learned-headroom"
-				: "strategy-target-fallback";
+	const reserve = createStrategyChargeReserve(
+		publication.targetChargePowerW,
+		configuration.maximumChargePowerW,
+		currentSocPercent,
+		learnedAcceptancePowerW,
+	);
+	const targetChargePowerW = reserve.effectiveChargeReserveW;
 	await runtime.writer.setForeignState(command.stateId, targetChargePowerW, false);
 	await publishStrategyCharging(adapter, {
 		...publication,
 		targetChargePowerW,
-		strategyRequestedChargePowerW,
-		effectiveChargeReserveW: targetChargePowerW,
-		learnedAcceptancePowerW,
-		chargeReserveReason,
+		strategyRequestedChargePowerW: reserve.strategyRequestedChargePowerW,
+		effectiveChargeReserveW: reserve.effectiveChargeReserveW,
+		learnedAcceptancePowerW: reserve.learnedAcceptancePowerW,
+		chargeReserveReason: reserve.reason,
 		lastCommandAt: publication.lastUpdate,
 	});
 	return Object.freeze({
