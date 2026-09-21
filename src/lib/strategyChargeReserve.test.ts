@@ -21,6 +21,14 @@ describe("strategy charge reserve", () => {
 		expect(result.reason).to.equal("strategy-target-fallback");
 	});
 
+	it("releases external reserve outside daylight without changing the strategy request", () => {
+		const result = createStrategyChargeReserve(3_500, 3_500, 92, 3_449, false);
+		expect(result.strategyRequestedChargePowerW).to.equal(3_500);
+		expect(result.effectiveChargeReserveW).to.equal(0);
+		expect(result.learnedAcceptancePowerW).to.equal(null);
+		expect(result.reason).to.equal("outside-daylight");
+	});
+
 	it("keeps the explicit full-SOC release at zero", () => {
 		const result = createStrategyChargeReserve(3_500, 3_500, 100, 150);
 		expect(result.effectiveChargeReserveW).to.equal(0);
