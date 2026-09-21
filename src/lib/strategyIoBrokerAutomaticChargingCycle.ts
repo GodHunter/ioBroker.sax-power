@@ -29,6 +29,7 @@ export interface StrategyIoBrokerAutomaticChargingCycle {
 	readonly plannedSocLowerPercent: number | null;
 	readonly plannedSocUpperPercent: number | null;
 	readonly forecastMarginWh: number | null;
+	readonly energyRequiredWh: number | null;
 	readonly requiredAverageChargePowerW: number | null;
 	readonly maximumChargePowerW: number;
 	readonly register44Written: true;
@@ -136,6 +137,7 @@ async function applyChargePowerTarget(adapter: StrategyIoBrokerAutomaticCharging
 		plannedSocLowerPercent: publication.plannedSocLowerPercent,
 		plannedSocUpperPercent: publication.plannedSocUpperPercent,
 		forecastMarginWh: publication.forecastMarginWh,
+		energyRequiredWh: publication.energyRequiredWh,
 		requiredAverageChargePowerW: publication.requiredAverageChargePowerW,
 		maximumChargePowerW: configuration.maximumChargePowerW,
 		register44Written: true as const,
