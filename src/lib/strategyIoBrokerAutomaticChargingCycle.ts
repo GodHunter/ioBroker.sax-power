@@ -99,7 +99,8 @@ async function readPreviousDecisionReason(adapter: StrategyIoBrokerAutomaticChar
 async function applyChargePowerTarget(adapter: StrategyIoBrokerAutomaticChargingAdapter, configuration: StrategyConfiguration, contract: StrategyIntegrationContract, publication: StrategyChargingPublication, currentSocPercent: number | null = null): Promise<StrategyIoBrokerAutomaticChargingCycle> {
 	const runtime = createStrategyIoBrokerRuntime(adapter);
 	const command = contract.modbus.chargePowerCommand;
-	const learnedAcceptancePowerW = currentSocPercent !== null && currentSocPercent < 100
+	const reserveEnabled = publication.decisionReason !== "outside-daylight";
+	const learnedAcceptancePowerW = reserveEnabled && currentSocPercent !== null && currentSocPercent < 100
 		? await readEstablishedChargeAcceptancePowerW(adapter, publication.lastUpdate)
 		: null;
 	const reserve = createStrategyChargeReserve(
@@ -107,8 +108,11 @@ async function applyChargePowerTarget(adapter: StrategyIoBrokerAutomaticCharging
 		configuration.maximumChargePowerW,
 		currentSocPercent,
 		learnedAcceptancePowerW,
+		reserveEnabled,
 	);
-	const targetChargePowerW = reserve.effectiveChargeReserveW;
+	const targetChargePowerW = currentSocPercent !== null && currentSocPercent >= 100
+		? 0
+		: reserve.strategyRequestedChargePowerW;
 	await runtime.writer.setForeignState(command.stateId, targetChargePowerW, false);
 	await publishStrategyCharging(adapter, {
 		...publication,
