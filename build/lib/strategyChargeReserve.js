@@ -23,10 +23,13 @@ __export(strategyChargeReserve_exports, {
 });
 module.exports = __toCommonJS(strategyChargeReserve_exports);
 const CHARGE_RESERVE_HEADROOM_FACTOR = 1.1;
-function createStrategyChargeReserve(strategyRequestedChargePowerW, maximumChargePowerW, currentSocPercent, learnedAcceptancePowerW) {
+function createStrategyChargeReserve(strategyRequestedChargePowerW, maximumChargePowerW, currentSocPercent, learnedAcceptancePowerW, reserveEnabled = true) {
   const requested = Number.isFinite(strategyRequestedChargePowerW) ? Math.max(0, Math.min(maximumChargePowerW, Math.round(strategyRequestedChargePowerW))) : maximumChargePowerW;
   if (currentSocPercent !== null && Number.isFinite(currentSocPercent) && currentSocPercent >= 100) {
     return Object.freeze({ strategyRequestedChargePowerW: requested, effectiveChargeReserveW: 0, learnedAcceptancePowerW, reason: "full-soc" });
+  }
+  if (!reserveEnabled) {
+    return Object.freeze({ strategyRequestedChargePowerW: requested, effectiveChargeReserveW: 0, learnedAcceptancePowerW: null, reason: "outside-daylight" });
   }
   const learned = learnedAcceptancePowerW !== null && Number.isFinite(learnedAcceptancePowerW) && learnedAcceptancePowerW > 0 ? learnedAcceptancePowerW : null;
   if (learned === null) {
