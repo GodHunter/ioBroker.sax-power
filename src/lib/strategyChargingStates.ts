@@ -4,6 +4,10 @@ import { STRATEGY_MANUAL_CHARGE_STATE_IDS } from "./strategyManualChargeStates";
 export const STRATEGY_CHARGING_STATE_IDS = Object.freeze({
 	active: "strategy.charging.active",
 	targetChargePowerW: "strategy.charging.targetChargePowerW",
+	strategyRequestedChargePowerW: "strategy.charging.strategyRequestedChargePowerW",
+	effectiveChargeReserveW: "strategy.charging.effectiveChargeReserveW",
+	learnedAcceptancePowerW: "strategy.charging.learnedAcceptancePowerW",
+	chargeReserveReason: "strategy.charging.chargeReserveReason",
 	requiredAverageChargePowerW: "strategy.charging.requiredAverageChargePowerW",
 	energyRequiredWh: "strategy.charging.energyRequiredWh",
 	forecastEnergyRemainingWh: "strategy.charging.forecastEnergyRemainingWh",
@@ -36,6 +40,10 @@ export type StrategyChargingReason =
 export interface StrategyChargingPublication {
 	readonly active: boolean;
 	readonly targetChargePowerW: number;
+	readonly strategyRequestedChargePowerW?: number;
+	readonly effectiveChargeReserveW?: number;
+	readonly learnedAcceptancePowerW?: number | null;
+	readonly chargeReserveReason?: string;
 	readonly requiredAverageChargePowerW: number | null;
 	readonly energyRequiredWh: number | null;
 	readonly forecastEnergyRemainingWh: number | null;
@@ -86,6 +94,10 @@ export async function ensureStrategyChargingStates(
 	}>[] = [
 		{ id: STRATEGY_CHARGING_STATE_IDS.active, name: "Automatic charging active", desc: "Whether the automatic charging controller is active.", type: "boolean", role: "indicator" },
 		{ id: STRATEGY_CHARGING_STATE_IDS.targetChargePowerW, name: "Automatic charge power target", desc: "Charge power limit currently applied to SAX Power register 44.", type: "number", role: "value.power", unit: "W" },
+		{ id: STRATEGY_CHARGING_STATE_IDS.strategyRequestedChargePowerW, name: "Strategy requested charge power", desc: "Unconstrained charge power requested by the strategy before learned battery acceptance is applied.", type: "number", role: "value.power", unit: "W" },
+		{ id: STRATEGY_CHARGING_STATE_IDS.effectiveChargeReserveW, name: "Effective charge reserve", desc: "Physically realistic charge reserve for external consumers after applying established learned battery acceptance with safety headroom.", type: "number", role: "value.power", unit: "W" },
+		{ id: STRATEGY_CHARGING_STATE_IDS.learnedAcceptancePowerW, name: "Learned charge acceptance", desc: "Established SOC-specific learned battery charge acceptance used for reserve limiting, or null when unavailable.", type: "number", role: "value.power", unit: "W" },
+		{ id: STRATEGY_CHARGING_STATE_IDS.chargeReserveReason, name: "Charge reserve reason", desc: "Reason why the effective charge reserve equals or differs from the strategy request.", type: "string", role: "text" },
 		{ id: STRATEGY_CHARGING_STATE_IDS.requiredAverageChargePowerW, name: "Required average charging power", desc: "Average charging power required to reach the configured target SOC before the target completion deadline.", type: "number", role: "value.power", unit: "W" },
 		{ id: STRATEGY_CHARGING_STATE_IDS.energyRequiredWh, name: "Energy required to target SOC", desc: "Usable battery energy still required to reach the configured target SOC.", type: "number", role: "value.energy", unit: "Wh" },
 		{ id: STRATEGY_CHARGING_STATE_IDS.forecastEnergyRemainingWh, name: "Remaining PV forecast energy", desc: "PVForecast energy remaining until the end of the day.", type: "number", role: "value.energy", unit: "Wh" },
@@ -153,6 +165,10 @@ export async function publishStrategyCharging(
 	await Promise.all([
 		adapter.setStateAsync(STRATEGY_CHARGING_STATE_IDS.active, { val: publication.active, ack: true }),
 		adapter.setStateAsync(STRATEGY_CHARGING_STATE_IDS.targetChargePowerW, { val: publication.targetChargePowerW, ack: true }),
+		adapter.setStateAsync(STRATEGY_CHARGING_STATE_IDS.strategyRequestedChargePowerW, { val: publication.strategyRequestedChargePowerW ?? publication.targetChargePowerW, ack: true }),
+		adapter.setStateAsync(STRATEGY_CHARGING_STATE_IDS.effectiveChargeReserveW, { val: publication.effectiveChargeReserveW ?? publication.targetChargePowerW, ack: true }),
+		adapter.setStateAsync(STRATEGY_CHARGING_STATE_IDS.learnedAcceptancePowerW, { val: publication.learnedAcceptancePowerW ?? null, ack: true }),
+		adapter.setStateAsync(STRATEGY_CHARGING_STATE_IDS.chargeReserveReason, { val: publication.chargeReserveReason ?? "strategy-target", ack: true }),
 		adapter.setStateAsync(STRATEGY_CHARGING_STATE_IDS.requiredAverageChargePowerW, { val: publication.requiredAverageChargePowerW, ack: true }),
 		adapter.setStateAsync(STRATEGY_CHARGING_STATE_IDS.energyRequiredWh, { val: publication.energyRequiredWh, ack: true }),
 		adapter.setStateAsync(STRATEGY_CHARGING_STATE_IDS.forecastEnergyRemainingWh, { val: publication.forecastEnergyRemainingWh, ack: true }),
