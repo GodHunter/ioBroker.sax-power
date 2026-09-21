@@ -1,5 +1,7 @@
 import type { StrategyDaylightWindowCyclePreparation } from "./strategyDaylightWindowCyclePreparation";
 
+const DAY_DISCHARGE_TARGET_ENERGY_HEADROOM_FACTOR = 1.25;
+
 export const STRATEGY_DAY_DISCHARGE_AVAILABILITY_STATE_IDS = Object.freeze({
 	allowed: "strategy.dayDischarge.allowed",
 	availablePowerW: "strategy.dayDischarge.availablePowerW",
@@ -20,6 +22,7 @@ export interface StrategyDayDischargeChargingContext {
 	readonly plannedSocLowerPercent: number | null;
 	readonly plannedSocUpperPercent: number | null;
 	readonly forecastMarginWh: number | null;
+	readonly energyRequiredWh: number | null;
 	readonly requiredAverageChargePowerW: number | null;
 	readonly targetChargePowerW: number;
 	readonly maximumChargePowerW: number;
@@ -121,12 +124,26 @@ export function createStrategyDayDischargeAvailability(preparation: StrategyDayl
 		const energyBudgetExhausted = chargingContext.forecastMarginWh === null
 			|| !Number.isFinite(chargingContext.forecastMarginWh)
 			|| chargingContext.forecastMarginWh <= 0;
+		const targetEnergyHeadroomRequired = chargingContext.currentSocPercent !== null
+			&& chargingContext.plannedSocPercent !== null
+			&& Number.isFinite(chargingContext.currentSocPercent)
+			&& Number.isFinite(chargingContext.plannedSocPercent)
+			&& chargingContext.currentSocPercent >= chargingContext.plannedSocPercent
+			&& chargingContext.energyRequiredWh !== null
+			&& Number.isFinite(chargingContext.energyRequiredWh)
+			&& chargingContext.energyRequiredWh > 0
+			&& chargingContext.forecastMarginWh !== null
+			&& Number.isFinite(chargingContext.forecastMarginWh)
+			&& chargingContext.forecastMarginWh <= chargingContext.energyRequiredWh * DAY_DISCHARGE_TARGET_ENERGY_HEADROOM_FACTOR;
 		if (hardBlock) {
 			availablePowerW = 0;
 			reason = `charging-${chargingContext.reason}`;
 		} else if (energyBudgetExhausted) {
 			availablePowerW = 0;
 			reason = "energy-budget-exhausted";
+		} else if (targetEnergyHeadroomRequired) {
+			availablePowerW = 0;
+			reason = "target-energy-headroom";
 		} else if (corridor === null || corridor.factor === null) {
 			availablePowerW = 0;
 			reason = "trajectory-unavailable";
