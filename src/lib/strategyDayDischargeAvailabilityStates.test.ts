@@ -14,6 +14,7 @@ function chargingContext(overrides: Partial<StrategyDayDischargeChargingContext>
 		plannedSocLowerPercent: 67,
 		plannedSocUpperPercent: 73,
 		forecastMarginWh: 2_000,
+		energyRequiredWh: 1_000,
 		requiredAverageChargePowerW: 1_000,
 		targetChargePowerW: 1_000,
 		maximumChargePowerW: 3_500,
@@ -96,10 +97,38 @@ describe("strategy day discharge availability states", () => {
 			plannedSocLowerPercent: 67,
 			plannedSocUpperPercent: 73,
 			forecastMarginWh: 1,
+			energyRequiredWh: 0,
 		}));
 		expect(result.allowed).to.equal(true);
 		expect(result.availablePowerW).to.equal(1_300);
 		expect(result.reason).to.equal("trajectory-above-corridor");
+	});
+
+	it("keeps a target-energy headroom instead of reopening late discharge churn", () => {
+		const result = createStrategyDayDischargeAvailability(preparation(), chargingContext({
+			currentSocPercent: 92,
+			plannedSocPercent: 90.2,
+			plannedSocLowerPercent: 87.2,
+			plannedSocUpperPercent: 93.2,
+			forecastMarginWh: 680,
+			energyRequiredWh: 560,
+		}));
+		expect(result.allowed).to.equal(false);
+		expect(result.availablePowerW).to.equal(0);
+		expect(result.reason).to.equal("target-energy-headroom");
+	});
+
+	it("still permits corridor discharge when forecast margin clearly exceeds target headroom", () => {
+		const result = createStrategyDayDischargeAvailability(preparation(), chargingContext({
+			currentSocPercent: 92,
+			plannedSocPercent: 90.2,
+			plannedSocLowerPercent: 87.2,
+			plannedSocUpperPercent: 93.2,
+			forecastMarginWh: 900,
+			energyRequiredWh: 560,
+		}));
+		expect(result.allowed).to.equal(true);
+		expect(result.availablePowerW).to.be.greaterThan(0);
 	});
 
 	it("does not reconsider insufficient charge time after the net energy budget is exhausted", () => {
