@@ -21,6 +21,7 @@ __export(strategyIoBrokerAutomaticChargingCycle_exports, {
   executeStrategyIoBrokerAutomaticChargingCycle: () => executeStrategyIoBrokerAutomaticChargingCycle
 });
 module.exports = __toCommonJS(strategyIoBrokerAutomaticChargingCycle_exports);
+var import_strategyChargeReserve = require("./strategyChargeReserve");
 var import_strategyChargingDecision = require("./strategyChargingDecision");
 var import_strategyChargingInputGrace = require("./strategyChargingInputGrace");
 var import_strategyChargingStates = require("./strategyChargingStates");
@@ -31,6 +32,8 @@ var import_strategyIoBrokerDaylightWindow = require("./strategyIoBrokerDaylightW
 var import_strategyIoBrokerRuntime = require("./strategyIoBrokerRuntime");
 var import_strategyStateResolver = require("./strategyStateResolver");
 const MAXIMUM_HOUSEHOLD_LEARNING_AGE_MS = 12e4;
+const MAXIMUM_ACCEPTANCE_LEARNING_AGE_MS = 12e4;
+const POWER_ACCEPTANCE_ROOT = "summary.battery.powerAcceptance";
 const recentStableTargetsByAdapter = /* @__PURE__ */ new WeakMap();
 function recentStableTargets(adapter) {
   let targets = recentStableTargetsByAdapter.get(adapter);
@@ -63,6 +66,28 @@ async function readLearnedHouseholdEnergyRemainingWh(adapter, createdAt) {
     return 0;
   }
 }
+async function readEstablishedChargeAcceptancePowerW(adapter, createdAt) {
+  try {
+    const [expectedState, confidenceState, lastUpdateState] = await Promise.all([
+      adapter.getStateAsync(`${POWER_ACCEPTANCE_ROOT}.expectedAcceptancePowerW`),
+      adapter.getStateAsync(`${POWER_ACCEPTANCE_ROOT}.confidence`),
+      adapter.getStateAsync(`${POWER_ACCEPTANCE_ROOT}.lastUpdate`)
+    ]);
+    const expected = expectedState == null ? void 0 : expectedState.val;
+    const confidence = confidenceState == null ? void 0 : confidenceState.val;
+    const lastUpdate = lastUpdateState == null ? void 0 : lastUpdateState.val;
+    if (confidence !== "established") return null;
+    if (typeof expected !== "number" || !Number.isFinite(expected) || expected <= 0) return null;
+    if (typeof lastUpdate !== "string" || !lastUpdate) return null;
+    const updatedAt = Date.parse(lastUpdate);
+    if (!Number.isFinite(updatedAt)) return null;
+    const ageMs = createdAt - updatedAt;
+    if (ageMs < 0 || ageMs > MAXIMUM_ACCEPTANCE_LEARNING_AGE_MS) return null;
+    return expected;
+  } catch {
+    return null;
+  }
+}
 async function readPreviousDecisionReason(adapter) {
   var _a;
   try {
@@ -75,9 +100,24 @@ async function readPreviousDecisionReason(adapter) {
 async function applyChargePowerTarget(adapter, configuration, contract, publication, currentSocPercent = null) {
   const runtime = (0, import_strategyIoBrokerRuntime.createStrategyIoBrokerRuntime)(adapter);
   const command = contract.modbus.chargePowerCommand;
-  const targetChargePowerW = currentSocPercent !== null && currentSocPercent >= 100 ? 0 : Math.max(0, Math.min(configuration.maximumChargePowerW, Math.round(publication.targetChargePowerW)));
+  const learnedAcceptancePowerW = currentSocPercent !== null && currentSocPercent < 100 ? await readEstablishedChargeAcceptancePowerW(adapter, publication.lastUpdate) : null;
+  const reserve = (0, import_strategyChargeReserve.createStrategyChargeReserve)(
+    publication.targetChargePowerW,
+    configuration.maximumChargePowerW,
+    currentSocPercent,
+    learnedAcceptancePowerW
+  );
+  const targetChargePowerW = reserve.effectiveChargeReserveW;
   await runtime.writer.setForeignState(command.stateId, targetChargePowerW, false);
-  await (0, import_strategyChargingStates.publishStrategyCharging)(adapter, { ...publication, targetChargePowerW, lastCommandAt: publication.lastUpdate });
+  await (0, import_strategyChargingStates.publishStrategyCharging)(adapter, {
+    ...publication,
+    targetChargePowerW,
+    strategyRequestedChargePowerW: reserve.strategyRequestedChargePowerW,
+    effectiveChargeReserveW: reserve.effectiveChargeReserveW,
+    learnedAcceptancePowerW: reserve.learnedAcceptancePowerW,
+    chargeReserveReason: reserve.reason,
+    lastCommandAt: publication.lastUpdate
+  });
   return Object.freeze({
     createdAt: publication.lastUpdate,
     targetChargePowerW,
@@ -87,6 +127,7 @@ async function applyChargePowerTarget(adapter, configuration, contract, publicat
     plannedSocLowerPercent: publication.plannedSocLowerPercent,
     plannedSocUpperPercent: publication.plannedSocUpperPercent,
     forecastMarginWh: publication.forecastMarginWh,
+    energyRequiredWh: publication.energyRequiredWh,
     requiredAverageChargePowerW: publication.requiredAverageChargePowerW,
     maximumChargePowerW: configuration.maximumChargePowerW,
     register44Written: true

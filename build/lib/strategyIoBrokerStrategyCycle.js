@@ -68,6 +68,7 @@ async function executeStrategyIoBrokerStrategyCycle(adapter, configuration, maxi
       plannedSocLowerPercent: chargingControl.plannedSocLowerPercent,
       plannedSocUpperPercent: chargingControl.plannedSocUpperPercent,
       forecastMarginWh: chargingControl.forecastMarginWh,
+      energyRequiredWh: chargingControl.energyRequiredWh,
       requiredAverageChargePowerW: chargingControl.requiredAverageChargePowerW,
       targetChargePowerW: chargingControl.targetChargePowerW,
       maximumChargePowerW: chargingControl.maximumChargePowerW,
