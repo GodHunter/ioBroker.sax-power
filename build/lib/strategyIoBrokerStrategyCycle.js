@@ -28,12 +28,17 @@ var import_strategyIoBrokerAutomaticChargingCycle = require("./strategyIoBrokerA
 var import_strategyManualChargeStates = require("./strategyManualChargeStates");
 var import_strategyIntegrationContract = require("./strategyIntegrationContract");
 var import_strategyModes = require("./strategyModes");
-async function readDayDischargeRecoveryLatch(adapter) {
-  var _a;
+async function readDayDischargeReleaseState(adapter) {
   try {
-    return ((_a = await adapter.getStateAsync(import_strategyDayDischargeAvailabilityStates.STRATEGY_DAY_DISCHARGE_AVAILABILITY_STATE_IDS.corridorRecoveryLatched)) == null ? void 0 : _a.val) === true;
+    const [latch, allowed, candidate] = await Promise.all([
+      adapter.getStateAsync(import_strategyDayDischargeAvailabilityStates.STRATEGY_DAY_DISCHARGE_AVAILABILITY_STATE_IDS.corridorRecoveryLatched),
+      adapter.getStateAsync(import_strategyDayDischargeAvailabilityStates.STRATEGY_DAY_DISCHARGE_AVAILABILITY_STATE_IDS.allowed),
+      adapter.getStateAsync(import_strategyDayDischargeAvailabilityStates.STRATEGY_DAY_DISCHARGE_AVAILABILITY_STATE_IDS.releaseCandidateSince)
+    ]);
+    const candidateValue = typeof (candidate == null ? void 0 : candidate.val) === "number" && Number.isFinite(candidate.val) && candidate.val > 0 ? candidate.val : null;
+    return Object.freeze({ recoveryLatchActive: (latch == null ? void 0 : latch.val) === true, previousAllowed: (allowed == null ? void 0 : allowed.val) === true, releaseCandidateSince: candidateValue });
   } catch {
-    return false;
+    return Object.freeze({ recoveryLatchActive: false, previousAllowed: false, releaseCandidateSince: null });
   }
 }
 async function executeStrategyIoBrokerStrategyCycle(adapter, configuration, maximumForecastAgeMs, requestedDischargePowerW, contract = import_strategyIntegrationContract.STRATEGY_INTEGRATION_CONTRACT, resolverOptions = {}, modes = import_strategyModes.DEFAULT_STRATEGY_MODES) {
@@ -53,7 +58,7 @@ async function executeStrategyIoBrokerStrategyCycle(adapter, configuration, maxi
   }
   const chargingControl = modes.chargingControlEnabled ? await (0, import_strategyIoBrokerAutomaticChargingCycle.executeStrategyIoBrokerAutomaticChargingCycle)(adapter, configuration, contract, resolverOptions) : null;
   if (!modes.dayAvailabilityEnabled) return Object.freeze({ createdAt: (_b = (_a = manualCharge == null ? void 0 : manualCharge.createdAt) != null ? _a : resolverOptions.now) != null ? _b : Date.now(), manualCharge, chargingShadow: chargingControl, automatic: null });
-  const recoveryLatchActive = await readDayDischargeRecoveryLatch(adapter);
+  const releaseState = await readDayDischargeReleaseState(adapter);
   const automatic = await (0, import_strategyIoBrokerDaylightCycle.executeStrategyIoBrokerDaylightCycle)(
     adapter,
     configuration,
@@ -73,7 +78,9 @@ async function executeStrategyIoBrokerStrategyCycle(adapter, configuration, maxi
       targetChargePowerW: chargingControl.targetChargePowerW,
       maximumChargePowerW: chargingControl.maximumChargePowerW,
       requestedDischargePowerW,
-      recoveryLatchActive
+      recoveryLatchActive: releaseState.recoveryLatchActive,
+      previousAllowed: releaseState.previousAllowed,
+      releaseCandidateSince: releaseState.releaseCandidateSince
     }
   );
   if (automatic === null || manualCharge !== null && automatic.createdAt !== manualCharge.createdAt) return null;
