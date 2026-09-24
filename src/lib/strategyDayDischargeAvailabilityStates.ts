@@ -1,6 +1,10 @@
 import type { StrategyDaylightWindowCyclePreparation } from "./strategyDaylightWindowCyclePreparation";
 
 const DAY_DISCHARGE_TARGET_ENERGY_HEADROOM_FACTOR = 1.25;
+const DAY_DISCHARGE_RELEASE_MIN_SOC_SURPLUS_PERCENT = 1;
+const DAY_DISCHARGE_RELEASE_MIN_MARGIN_WH = 500;
+const DAY_DISCHARGE_RELEASE_ENERGY_HEADROOM_FACTOR = 1.5;
+const DAY_DISCHARGE_RELEASE_STABILITY_MS = 5 * 60_000;
 
 export const STRATEGY_DAY_DISCHARGE_AVAILABILITY_STATE_IDS = Object.freeze({
 	allowed: "strategy.dayDischarge.allowed",
@@ -8,6 +12,7 @@ export const STRATEGY_DAY_DISCHARGE_AVAILABILITY_STATE_IDS = Object.freeze({
 	reason: "strategy.dayDischarge.reason",
 	validUntil: "strategy.dayDischarge.validUntil",
 	corridorRecoveryLatched: "strategy.dayDischarge.corridorRecoveryLatched",
+	releaseCandidateSince: "strategy.dayDischarge.releaseCandidateSince",
 });
 
 export interface StrategyDayDischargeAvailabilityAdapter {
@@ -28,6 +33,8 @@ export interface StrategyDayDischargeChargingContext {
 	readonly maximumChargePowerW: number;
 	readonly requestedDischargePowerW: number;
 	readonly recoveryLatchActive?: boolean;
+	readonly previousAllowed?: boolean;
+	readonly releaseCandidateSince?: number | null;
 }
 
 export interface StrategyDayDischargeAvailability {
@@ -37,6 +44,7 @@ export interface StrategyDayDischargeAvailability {
 	readonly reason: string;
 	readonly validUntil: number;
 	readonly corridorRecoveryLatched: boolean;
+	readonly releaseCandidateSince: number | null;
 }
 
 interface StrategyDayDischargeAvailabilityStateDefinition {
@@ -77,6 +85,21 @@ function corridorAvailability(context: StrategyDayDischargeChargingContext): Cor
 	return { factor, recoveryLatched: false, zone: "above-plan" };
 }
 
+function releaseQualification(context: StrategyDayDischargeChargingContext, corridor: CorridorAvailability, createdAt: number): { readonly qualified: boolean; readonly candidateSince: number | null; readonly reason: string | null } {
+	if (context.previousAllowed === true) return { qualified: true, candidateSince: null, reason: null };
+	if (corridor.zone === "above-corridor") return { qualified: true, candidateSince: null, reason: null };
+	const current = context.currentSocPercent;
+	const planned = context.plannedSocPercent;
+	const margin = context.forecastMarginWh;
+	const required = context.energyRequiredWh;
+	if (current === null || planned === null || margin === null || !Number.isFinite(current) || !Number.isFinite(planned) || !Number.isFinite(margin)) return { qualified: false, candidateSince: null, reason: "release-surplus-insufficient" };
+	const requiredMargin = Math.max(DAY_DISCHARGE_RELEASE_MIN_MARGIN_WH, required !== null && Number.isFinite(required) && required > 0 ? required * DAY_DISCHARGE_RELEASE_ENERGY_HEADROOM_FACTOR : 0);
+	if (current - planned < DAY_DISCHARGE_RELEASE_MIN_SOC_SURPLUS_PERCENT || margin < requiredMargin) return { qualified: false, candidateSince: null, reason: "release-surplus-insufficient" };
+	const candidateSince = context.releaseCandidateSince !== null && context.releaseCandidateSince !== undefined && Number.isFinite(context.releaseCandidateSince) && context.releaseCandidateSince <= createdAt ? context.releaseCandidateSince : createdAt;
+	if (createdAt - candidateSince < DAY_DISCHARGE_RELEASE_STABILITY_MS) return { qualified: false, candidateSince, reason: "release-stability-pending" };
+	return { qualified: true, candidateSince: null, reason: null };
+}
+
 export async function ensureStrategyDayDischargeAvailabilityStates(adapter: StrategyDayDischargeAvailabilityAdapter): Promise<void> {
 	await adapter.extendObjectAsync("strategy.dayDischarge", { type: "channel", common: { name: "Day discharge availability" }, native: {} });
 	const definitions: readonly StrategyDayDischargeAvailabilityStateDefinition[] = [
@@ -85,10 +108,9 @@ export async function ensureStrategyDayDischargeAvailabilityStates(adapter: Stra
 		{ id: STRATEGY_DAY_DISCHARGE_AVAILABILITY_STATE_IDS.reason, type: "string", role: "text", name: "Day discharge decision reason", desc: "Machine-readable reason for the current availability decision." },
 		{ id: STRATEGY_DAY_DISCHARGE_AVAILABILITY_STATE_IDS.validUntil, type: "number", role: "value.time", unit: "ms", name: "Day discharge availability valid until", desc: "Timestamp at which the current daylight availability expires." },
 		{ id: STRATEGY_DAY_DISCHARGE_AVAILABILITY_STATE_IDS.corridorRecoveryLatched, type: "boolean", role: "indicator", name: "SOC corridor recovery latched", desc: "True after SOC reached or crossed the lower corridor boundary; day discharge remains blocked until planned SOC is reached again." },
+		{ id: STRATEGY_DAY_DISCHARGE_AVAILABILITY_STATE_IDS.releaseCandidateSince, type: "number", role: "value.time", unit: "ms", name: "Day discharge release candidate since", desc: "Timestamp since which a marginal release has continuously met the qualified surplus conditions; zero when no candidate is pending." },
 	];
-	for (const definition of definitions) {
-		await adapter.extendObjectAsync(definition.id, { type: "state", common: { name: definition.name, desc: definition.desc, type: definition.type, role: definition.role, read: true, write: false, ...(definition.unit === undefined ? {} : { unit: definition.unit }) }, native: {} });
-	}
+	for (const definition of definitions) await adapter.extendObjectAsync(definition.id, { type: "state", common: { name: definition.name, desc: definition.desc, type: definition.type, role: definition.role, read: true, write: false, ...(definition.unit === undefined ? {} : { unit: definition.unit }) }, native: {} });
 }
 
 export function createStrategyDayDischargeAvailability(preparation: StrategyDaylightWindowCyclePreparation, chargingContext: StrategyDayDischargeChargingContext | null = null): StrategyDayDischargeAvailability {
@@ -96,45 +118,19 @@ export function createStrategyDayDischargeAvailability(preparation: StrategyDayl
 	let availablePowerW = gate.targetDischargePowerW;
 	let reason: string = gate.reason === "daylight-window-active" ? gate.decision.permission.reason : gate.reason;
 	let corridorRecoveryLatched = chargingContext?.recoveryLatchActive === true;
+	let releaseCandidateSince: number | null = null;
 	const corridor = chargingContext === null ? null : corridorAvailability(chargingContext);
 	if (corridor !== null) corridorRecoveryLatched = corridor.recoveryLatched;
 
-	if (
-		availablePowerW <= 0
-		&& reason === "insufficient-charge-time"
-		&& chargingContext !== null
-		&& chargingContext.forecastMarginWh !== null
-		&& Number.isFinite(chargingContext.forecastMarginWh)
-		&& chargingContext.forecastMarginWh > 0
-		&& Number.isFinite(chargingContext.requestedDischargePowerW)
-		&& chargingContext.requestedDischargePowerW > 0
-	) {
+	if (availablePowerW <= 0 && reason === "insufficient-charge-time" && chargingContext !== null && chargingContext.forecastMarginWh !== null && Number.isFinite(chargingContext.forecastMarginWh) && chargingContext.forecastMarginWh > 0 && Number.isFinite(chargingContext.requestedDischargePowerW) && chargingContext.requestedDischargePowerW > 0) {
 		availablePowerW = Math.round(chargingContext.requestedDischargePowerW);
 		reason = "trajectory-budget-reconsidered";
 	}
 
 	if (availablePowerW > 0 && chargingContext !== null) {
-		const hardBlock = chargingContext.reason === "target-soc-reached"
-			|| chargingContext.reason === "target-soc-maintenance"
-			|| chargingContext.reason === "below-minimum-soc"
-			|| chargingContext.reason === "inputs-not-ready"
-			|| chargingContext.reason === "invalid-input"
-			|| chargingContext.reason === "daylight-unavailable"
-			|| chargingContext.reason === "outside-daylight";
-		const energyBudgetExhausted = chargingContext.forecastMarginWh === null
-			|| !Number.isFinite(chargingContext.forecastMarginWh)
-			|| chargingContext.forecastMarginWh <= 0;
-		const targetEnergyHeadroomRequired = chargingContext.currentSocPercent !== null
-			&& chargingContext.plannedSocPercent !== null
-			&& Number.isFinite(chargingContext.currentSocPercent)
-			&& Number.isFinite(chargingContext.plannedSocPercent)
-			&& chargingContext.currentSocPercent >= chargingContext.plannedSocPercent
-			&& chargingContext.energyRequiredWh !== null
-			&& Number.isFinite(chargingContext.energyRequiredWh)
-			&& chargingContext.energyRequiredWh > 0
-			&& chargingContext.forecastMarginWh !== null
-			&& Number.isFinite(chargingContext.forecastMarginWh)
-			&& chargingContext.forecastMarginWh <= chargingContext.energyRequiredWh * DAY_DISCHARGE_TARGET_ENERGY_HEADROOM_FACTOR;
+		const hardBlock = chargingContext.reason === "target-soc-reached" || chargingContext.reason === "target-soc-maintenance" || chargingContext.reason === "below-minimum-soc" || chargingContext.reason === "inputs-not-ready" || chargingContext.reason === "invalid-input" || chargingContext.reason === "daylight-unavailable" || chargingContext.reason === "outside-daylight";
+		const energyBudgetExhausted = chargingContext.forecastMarginWh === null || !Number.isFinite(chargingContext.forecastMarginWh) || chargingContext.forecastMarginWh <= 0;
+		const targetEnergyHeadroomRequired = chargingContext.currentSocPercent !== null && chargingContext.plannedSocPercent !== null && Number.isFinite(chargingContext.currentSocPercent) && Number.isFinite(chargingContext.plannedSocPercent) && chargingContext.currentSocPercent >= chargingContext.plannedSocPercent && chargingContext.energyRequiredWh !== null && Number.isFinite(chargingContext.energyRequiredWh) && chargingContext.energyRequiredWh > 0 && chargingContext.forecastMarginWh !== null && Number.isFinite(chargingContext.forecastMarginWh) && chargingContext.forecastMarginWh <= chargingContext.energyRequiredWh * DAY_DISCHARGE_TARGET_ENERGY_HEADROOM_FACTOR;
 		if (hardBlock) {
 			availablePowerW = 0;
 			reason = `charging-${chargingContext.reason}`;
@@ -151,15 +147,22 @@ export function createStrategyDayDischargeAvailability(preparation: StrategyDayl
 			availablePowerW = 0;
 			reason = corridor.zone === "latched" ? "trajectory-recovery-latched" : "trajectory-below-corridor";
 		} else {
-			availablePowerW = Math.round(availablePowerW * corridor.factor);
-			if (corridor.zone === "above-corridor") reason = "trajectory-above-corridor";
-			else if (corridor.zone === "below-plan") reason = "trajectory-below-plan-throttled";
-			else if (corridor.zone === "plan") reason = "trajectory-plan-balanced";
-			else reason = "trajectory-above-plan-throttled";
+			const release = releaseQualification(chargingContext, corridor, preparation.createdAt);
+			releaseCandidateSince = release.candidateSince;
+			if (!release.qualified) {
+				availablePowerW = 0;
+				reason = release.reason ?? "release-surplus-insufficient";
+			} else {
+				availablePowerW = Math.round(availablePowerW * corridor.factor);
+				if (corridor.zone === "above-corridor") reason = "trajectory-above-corridor";
+				else if (corridor.zone === "below-plan") reason = "trajectory-below-plan-throttled";
+				else if (corridor.zone === "plan") reason = "trajectory-plan-balanced";
+				else reason = "trajectory-above-plan-throttled";
+			}
 		}
 	}
 
-	return Object.freeze({ createdAt: preparation.createdAt, allowed: availablePowerW > 0, availablePowerW, reason, validUntil: preparation.daylightWindow.endsAt, corridorRecoveryLatched });
+	return Object.freeze({ createdAt: preparation.createdAt, allowed: availablePowerW > 0, availablePowerW, reason, validUntil: preparation.daylightWindow.endsAt, corridorRecoveryLatched, releaseCandidateSince });
 }
 
 export async function publishStrategyDayDischargeAvailability(adapter: StrategyDayDischargeAvailabilityAdapter, availability: StrategyDayDischargeAvailability): Promise<void> {
@@ -169,5 +172,6 @@ export async function publishStrategyDayDischargeAvailability(adapter: StrategyD
 		adapter.setStateAsync(STRATEGY_DAY_DISCHARGE_AVAILABILITY_STATE_IDS.reason, { val: availability.reason, ack: true }),
 		adapter.setStateAsync(STRATEGY_DAY_DISCHARGE_AVAILABILITY_STATE_IDS.validUntil, { val: availability.validUntil, ack: true }),
 		adapter.setStateAsync(STRATEGY_DAY_DISCHARGE_AVAILABILITY_STATE_IDS.corridorRecoveryLatched, { val: availability.corridorRecoveryLatched, ack: true }),
+		adapter.setStateAsync(STRATEGY_DAY_DISCHARGE_AVAILABILITY_STATE_IDS.releaseCandidateSince, { val: availability.releaseCandidateSince ?? 0, ack: true }),
 	]);
 }
