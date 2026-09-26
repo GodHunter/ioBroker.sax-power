@@ -35,7 +35,7 @@ jobs:
 
     strategy:
       matrix:
-        node-version:
+        node-version: [22.x, 24.x]
           - "22.x"
           - "24.x"
         os:
