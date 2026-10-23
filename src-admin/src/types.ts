@@ -69,6 +69,7 @@ firstMeasurement: string;
 statisticsLastUpdate: string;
 strategyState: StrategyRuntimeState;
 strategyDetail: string;
+pvOpportunityDiagnostics: string;
 
 pvPower: number | null;
 houseConsumptionPower: number | null;

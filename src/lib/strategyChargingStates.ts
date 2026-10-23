@@ -21,6 +21,7 @@ export const STRATEGY_CHARGING_STATE_IDS = Object.freeze({
 	decisionReason: "strategy.charging.decisionReason",
 	lastUpdate: "strategy.charging.lastUpdate",
 	lastCommandAt: "strategy.charging.lastCommandAt",
+	pvOpportunityDiagnostics: "strategy.charging.pvOpportunityDiagnostics",
 });
 
 export type StrategyChargingReason =
@@ -57,6 +58,7 @@ export interface StrategyChargingPublication {
 	readonly decisionReason: StrategyChargingReason;
 	readonly lastUpdate: number;
 	readonly lastCommandAt: number;
+	readonly pvOpportunityDiagnostics?: string;
 }
 
 export interface StrategyChargingIoBrokerAdapter {
@@ -111,6 +113,7 @@ export async function ensureStrategyChargingStates(
 		{ id: STRATEGY_CHARGING_STATE_IDS.decisionReason, name: "Automatic charging decision reason", desc: "Machine-readable reason for the current automatic charging target.", type: "string", role: "text" },
 		{ id: STRATEGY_CHARGING_STATE_IDS.lastUpdate, name: "Automatic charging last update", desc: "Timestamp of the latest automatic charging decision.", type: "number", role: "value.time", unit: "ms" },
 		{ id: STRATEGY_CHARGING_STATE_IDS.lastCommandAt, name: "Register 44 last command", desc: "Timestamp of the latest successful register 44 write.", type: "number", role: "value.time", unit: "ms" },
+		{ id: STRATEGY_CHARGING_STATE_IDS.pvOpportunityDiagnostics, name: "PV opportunity diagnostics", desc: "Read-only JSON snapshot of sustained export qualification and household learning. Diagnostic only; does not control charging.", type: "string", role: "json" },
 	];
 
 	for (const definition of definitions) {
@@ -164,6 +167,7 @@ export async function publishStrategyCharging(
 ): Promise<void> {
 	await Promise.all([
 		adapter.setStateAsync(STRATEGY_CHARGING_STATE_IDS.active, { val: publication.active, ack: true }),
+		...(publication.pvOpportunityDiagnostics === undefined ? [] : [adapter.setStateAsync(STRATEGY_CHARGING_STATE_IDS.pvOpportunityDiagnostics, { val: publication.pvOpportunityDiagnostics, ack: true })]),
 		adapter.setStateAsync(STRATEGY_CHARGING_STATE_IDS.targetChargePowerW, { val: publication.targetChargePowerW, ack: true }),
 		adapter.setStateAsync(STRATEGY_CHARGING_STATE_IDS.strategyRequestedChargePowerW, { val: publication.strategyRequestedChargePowerW ?? publication.targetChargePowerW, ack: true }),
 		adapter.setStateAsync(STRATEGY_CHARGING_STATE_IDS.effectiveChargeReserveW, { val: publication.effectiveChargeReserveW ?? publication.targetChargePowerW, ack: true }),

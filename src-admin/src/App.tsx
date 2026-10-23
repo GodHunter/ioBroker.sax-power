@@ -182,6 +182,7 @@ firstMeasurement: "",
 statisticsLastUpdate: "",
 strategyState: "unknown",
 strategyDetail: "",
+pvOpportunityDiagnostics: "",
 pvPower: null,
 houseConsumptionPower: null,
 gridPower: null,
@@ -352,6 +353,7 @@ firstMeasurementState,
 statisticsLastUpdateState,
 strategyState,
 strategyDetailState,
+pvOpportunityState,
 pvPowerState,
 houseConsumptionPowerState,
 gridPowerState,
@@ -395,6 +397,7 @@ this.socket.getState(
 this.socket.getState(
 `${namespace}.info.strategyDetail`,
 ),
+this.socket.getState(`${namespace}.strategy.charging.pvOpportunityDiagnostics`),
 this.socket.getState(
 `${namespace}.live.pvPower`,
 ),
@@ -560,6 +563,7 @@ this.readStateValue(
 strategyDetailState,
 ) ?? "",
 ),
+pvOpportunityDiagnostics: String(this.readStateValue(pvOpportunityState) ?? ""),
 
 pvPower:
 this.readNumberState(
@@ -2153,6 +2157,41 @@ return (
 </Alert>
 </CardContent>
 </Card>
+
+{native.strategyEnabled === true && native.strategyChargingControlEnabled === true ? (() => {
+type Diagnostics = {
+export?: { reason?: string; sampleCount?: number; durationMinutes?: number; averageExportW?: number; qualified?: boolean };
+householdLearning?: { confidence?: string; ageMs?: number | null; establishedAndFresh?: boolean };
+opportunity?: { available?: boolean; reason?: string; socLiftPercent?: number };
+chargingDecisionReason?: string;
+};
+const parseDiagnostics = (raw: string): Diagnostics | null => {
+try {
+const parsed: unknown = JSON.parse(raw);
+return parsed !== null && typeof parsed === "object" && !Array.isArray(parsed) ? parsed as Diagnostics : null;
+} catch { return null; }
+};
+const data = parseDiagnostics(this.state.runtimeStatus.pvOpportunityDiagnostics);
+if (!data) return <Alert severity="info" sx={{ mt: 2 }}>{translate("PV opportunity diagnostics unavailable")}</Alert>;
+const reasonLabels: Record<string, string> = {
+"qualified": "Export window qualified", "insufficient-samples": "Not enough export samples",
+"insufficient-duration": "Export window too short", "sample-gap": "Export samples interrupted",
+"invalid-grid-reading": "Invalid grid reading", "household-learning-unavailable": "Household learning unavailable",
+"export-window-unavailable": "Export window unavailable", "export-below-threshold": "Export below 250 W",
+"no-soc-lift-needed": "No SOC lift needed", "available": "PV opportunity available",
+"target-deadline-recovery": "Target deadline recovery",
+};
+const label = (value?: string): string => translate(value ? (reasonLabels[value] ?? value) : "Unknown");
+return <Card elevation={0} sx={{ mt: 2, border: 1, borderColor: "divider", borderRadius: 3 }}><CardContent>
+<Typography variant="h6" sx={{ fontWeight: 700 }}>{translate("PV opportunity diagnostics")}</Typography>
+<Typography variant="body2">{translate("Opportunity status")}: {label(data.opportunity?.reason)}</Typography>
+<Typography variant="body2">{translate("Average grid export")}: {data.export?.averageExportW?.toFixed(0) ?? "–"} W · {data.export?.sampleCount ?? 0} {translate("samples")} · {(data.export?.durationMinutes ?? 0).toFixed(1)} {translate("minutes")}</Typography>
+<Typography variant="body2">{translate("Export measurement window")}: {label(data.export?.reason)}</Typography>
+<Typography variant="body2">{translate("Household learning")}: {label(data.householdLearning?.confidence)} · {translate(data.householdLearning?.establishedAndFresh ? "Fresh" : "Unavailable or stale")}</Typography>
+<Typography variant="body2">{translate("SOC opportunity lift")}: {(data.opportunity?.socLiftPercent ?? 0).toFixed(2)} {translate("percentage points")}</Typography>
+<Typography variant="body2">{translate("Charging decision")}: {label(data.chargingDecisionReason)}</Typography>
+</CardContent></Card>;
+})() : null}
 
 {native.strategyEnabled === true ? (
 <>

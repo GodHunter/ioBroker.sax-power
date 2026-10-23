@@ -8,7 +8,8 @@ describe("strategy household load model", () => {
 		const status = model.status(new Date(2026, 8, 4, 18, 5), new Date(2026, 8, 4, 18, 14));
 		assert.equal(status.current.samples, 4);
 		assert.equal(status.current.expectedWh, 200);
-		assert.equal(status.expectedRemainingEnergyWh, 200);
+		// Only nine of the remaining fifteen minutes contribute (18:05–18:14).
+		assert.equal(status.expectedRemainingEnergyWh, 120);
 		assert.equal(status.totalSamples, 4);
 		assert.equal(status.confidence, "established");
 	});
@@ -18,9 +19,9 @@ describe("strategy household load model", () => {
 		model.addObservation(new Date(2026, 8, 5, 10, 5).getTime(), 800); // weekend, 200 Wh
 		model.addObservation(new Date(2026, 8, 5, 10, 20).getTime(), 1_200); // weekend, 300 Wh
 		const status = model.status(new Date(2026, 8, 5, 10, 20), new Date(2026, 8, 5, 11, 14));
-		// Current learned slot contributes 300 Wh. Three unknown future slots use
-		// the conservative p75 fallback of the learned weekend slots = 300 Wh each.
-		assert.equal(status.expectedRemainingEnergyWh, 1_200);
+		// Current slot contributes only its remaining ten minutes (200 Wh).
+		// Two full slots and the final 14 minutes use the 300 Wh weekend fallback.
+		assert.equal(status.expectedRemainingEnergyWh, 1_080);
 	});
 
 	it("keeps weekday and weekend observations separate", () => {

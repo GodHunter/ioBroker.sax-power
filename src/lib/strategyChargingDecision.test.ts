@@ -15,6 +15,96 @@ const configuration: StrategyConfiguration = Object.freeze({
 const HOUR = 60 * 60 * 1000;
 
 describe("strategy charging decision", () => {
+	it("releases ahead limiting when export opportunity and forecast pressure are both present", () => {
+		const input = {
+			stateOfChargePercent: 65,
+			forecastEnergyRemainingWh: 4000,
+			remainingDaylightMs: 5 * HOUR,
+			elapsedDaylightMs: 5 * HOUR,
+			totalDaylightMs: 10 * HOUR,
+			previousDecisionReason: "trajectory-ahead-limited" as const,
+		};
+		const baseline = createStrategyChargingDecision(configuration, input);
+		const adaptive = createStrategyChargingDecision(configuration, {
+			...input,
+			sustainedExportPowerW: 1200,
+			householdLearningEstablished: true,
+		});
+		expect(baseline.reason).to.equal("trajectory-ahead-limited");
+		expect(adaptive.plannedSocPercent).to.be.greaterThan(baseline.plannedSocPercent);
+		expect(adaptive.chargePowerLimitW).to.be.greaterThan(baseline.chargePowerLimitW);
+	});
+
+	it("preserves the original charging decision without a sustained export opportunity", () => {
+		const input = {
+			stateOfChargePercent: 60,
+			forecastEnergyRemainingWh: 4000,
+			remainingDaylightMs: 5 * HOUR,
+			elapsedDaylightMs: 5 * HOUR,
+			totalDaylightMs: 10 * HOUR,
+			previousDecisionReason: "trajectory-ahead-limited" as const,
+		};
+		const baseline = createStrategyChargingDecision(configuration, input);
+		const noExport = createStrategyChargingDecision(configuration, {
+			...input,
+			sustainedExportPowerW: 0,
+			householdLearningEstablished: true,
+		});
+		expect(noExport).to.deep.equal(baseline);
+	});
+
+	it("does not exceed the maximum SOC when applying the opportunity lift", () => {
+		const decision = createStrategyChargingDecision(configuration, {
+			stateOfChargePercent: 95,
+			forecastEnergyRemainingWh: 100,
+			remainingDaylightMs: 90 * 60_000,
+			elapsedDaylightMs: 8 * HOUR,
+			totalDaylightMs: 10 * HOUR,
+			sustainedExportPowerW: 1500,
+			householdLearningEstablished: true,
+		});
+		expect(decision.plannedSocPercent).to.be.at.most(100);
+		expect(decision.plannedSocUpperPercent).to.be.at.most(100);
+	});
+
+	it("does not accelerate without established household learning", () => {
+		const input = {
+			stateOfChargePercent: 65,
+			forecastEnergyRemainingWh: 4000,
+			remainingDaylightMs: 5 * HOUR,
+			elapsedDaylightMs: 5 * HOUR,
+			totalDaylightMs: 10 * HOUR,
+		};
+		const baseline = createStrategyChargingDecision(configuration, input);
+		const untrusted = createStrategyChargingDecision(configuration, {
+			...input,
+			sustainedExportPowerW: 1200,
+			householdLearningEstablished: false,
+		});
+		expect(untrusted).to.deep.equal(baseline);
+	});
+
+	it("caps opportunistic charging to observed export and configured power", () => {
+		const input = {
+			stateOfChargePercent: 65,
+			forecastEnergyRemainingWh: 4000,
+			remainingDaylightMs: 5 * HOUR,
+			elapsedDaylightMs: 5 * HOUR,
+			totalDaylightMs: 10 * HOUR,
+			householdLearningEstablished: true,
+		};
+		const moderate = createStrategyChargingDecision(configuration, {
+			...input,
+			sustainedExportPowerW: 1200,
+		});
+		const strong = createStrategyChargingDecision(configuration, {
+			...input,
+			sustainedExportPowerW: 9000,
+		});
+		expect(moderate.chargePowerLimitW).to.be.at.most(1200);
+		expect(strong.chargePowerLimitW).to.be.at.most(configuration.maximumChargePowerW);
+	});
+
 	it("calculates the remaining battery energy from usable capacity", () => {
 		const decision = createStrategyChargingDecision(configuration, {
 			stateOfChargePercent: 50,

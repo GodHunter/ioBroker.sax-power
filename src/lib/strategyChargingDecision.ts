@@ -1,4 +1,5 @@
 import { getBatteryModel } from "./batteryAnalysis";
+import { calculateStrategyOpportunitySocLift } from "./strategyChargeOpportunity";
 import type { StrategyConfiguration } from "./strategyConfiguration";
 
 export type StrategyChargingDecisionReason =
@@ -19,6 +20,8 @@ export interface StrategyChargingDecisionInput {
 	readonly totalDaylightMs?: number;
 	readonly householdEnergyRemainingWh?: number;
 	readonly previousDecisionReason?: StrategyChargingDecisionReason | null;
+	readonly sustainedExportPowerW?: number;
+	readonly householdLearningEstablished?: boolean;
 }
 
 export interface StrategyChargingDecision {
@@ -206,7 +209,22 @@ export function createStrategyChargingDecision(
 
 	const usableCapacityWh = model.usableCapacityKwh * 1_000;
 	const deadlineRemainingMs = targetDeadlineRemainingMs(input.remainingDaylightMs);
-	const trajectoryState = trajectory(configuration, input, usableCapacityWh, deadlineRemainingMs);
+	const baselineTrajectory = trajectory(configuration, input, usableCapacityWh, deadlineRemainingMs);
+	const opportunityRequiredWh = usableCapacityWh * Math.max(0, configuration.maximumStateOfChargePercent - input.stateOfChargePercent) / 100;
+	const opportunityForecastWh = Math.max(0, input.forecastEnergyRemainingWh - householdEnergyRemainingWh - configuration.pvForecastReserveWh);
+	const lift = calculateStrategyOpportunitySocLift({
+		forecastMarginWh: opportunityForecastWh - opportunityRequiredWh,
+		requiredEnergyWh: opportunityRequiredWh,
+		sustainedExportPowerW: input.sustainedExportPowerW ?? 0,
+		householdLearningEstablished: input.householdLearningEstablished === true,
+	});
+	const adjustedSoc = Math.min(configuration.maximumStateOfChargePercent, baselineTrajectory.plannedSocPercent + lift);
+	const trajectoryState = Object.freeze({
+		plannedSocPercent: adjustedSoc,
+		plannedSocLowerPercent: Math.max(configuration.minimumStateOfChargePercent, adjustedSoc - TRAJECTORY_CORRIDOR_PERCENT),
+		plannedSocUpperPercent: Math.min(configuration.maximumStateOfChargePercent, adjustedSoc + TRAJECTORY_CORRIDOR_PERCENT),
+		socDeviationPercent: input.stateOfChargePercent - adjustedSoc,
+	});
 	const targetSocPercent = configuration.maximumStateOfChargePercent;
 	const socGapPercent = Math.max(0, targetSocPercent - input.stateOfChargePercent);
 	const energyRequiredWh = usableCapacityWh * socGapPercent / 100;
@@ -326,6 +344,18 @@ export function createStrategyChargingDecision(
 		const aheadPowerLimitW = configuration.maximumChargePowerW * aheadPowerFactor;
 		desiredPowerW = Math.min(desiredPowerW, aheadPowerLimitW);
 		reason = "trajectory-ahead-limited";
+	}
+
+	// A qualified real export opportunity must affect the actual R44 request,
+	// not just the SOC trajectory. Never request more than the measured export,
+	// the configured charge limit, or the energy still needed to reach target.
+	// The final 15-minute cap prevents excessive power close to target SOC.
+	if (lift > 0 && !deadlineUnderPressure) {
+		const opportunityPowerW = Math.min(
+			input.sustainedExportPowerW ?? 0,
+			energyRequiredWh / (TARGET_SOC_MAINTENANCE_REFILL_WINDOW_MS / 3_600_000),
+		);
+		desiredPowerW = Math.max(desiredPowerW, opportunityPowerW);
 	}
 
 	const chargePowerLimitW = roundPower(Math.min(
