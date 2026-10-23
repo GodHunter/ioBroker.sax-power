@@ -112,8 +112,8 @@ export async function ensureStrategyChargingStates(
 		{ id: STRATEGY_CHARGING_STATE_IDS.socDeviationPercent, name: "SOC trajectory deviation", desc: "Actual SOC minus the current dynamic planned SOC.", type: "number", role: "value", unit: "%" },
 		{ id: STRATEGY_CHARGING_STATE_IDS.decisionReason, name: "Automatic charging decision reason", desc: "Machine-readable reason for the current automatic charging target.", type: "string", role: "text" },
 		{ id: STRATEGY_CHARGING_STATE_IDS.lastUpdate, name: "Automatic charging last update", desc: "Timestamp of the latest automatic charging decision.", type: "number", role: "value.time", unit: "ms" },
-		{ id: STRATEGY_CHARGING_STATE_IDS.pvOpportunityDiagnostics, name: "PV opportunity diagnostics", desc: "Read-only JSON snapshot of sustained export qualification and household learning. Diagnostic only; does not control charging.", type: "string", role: "json" },
 		{ id: STRATEGY_CHARGING_STATE_IDS.lastCommandAt, name: "Register 44 last command", desc: "Timestamp of the latest successful register 44 write.", type: "number", role: "value.time", unit: "ms" },
+		{ id: STRATEGY_CHARGING_STATE_IDS.pvOpportunityDiagnostics, name: "PV opportunity diagnostics", desc: "Read-only JSON snapshot of sustained export qualification and household learning. Diagnostic only; does not control charging.", type: "string", role: "json" },
 	];
 
 	for (const definition of definitions) {
