@@ -15,6 +15,20 @@ const MAXIMUM_HOUSEHOLD_LEARNING_AGE_MS = 120_000;
 const MAXIMUM_ACCEPTANCE_LEARNING_AGE_MS = 120_000;
 const POWER_ACCEPTANCE_ROOT = "summary.battery.powerAcceptance";
 const recentStableTargetsByAdapter = new WeakMap<object, Map<string, StrategyChargingInputGraceSnapshot>>();
+const recentExportsByAdapter = new WeakMap<object, readonly { at: number; exportW: number }[]>();
+/** Returns zero until 20 minutes of continuous, valid grid measurements are available. */
+function sustainedExportPowerW(adapter: object, now: number, gridPowerW: number | null): number {
+ if (gridPowerW === null || !Number.isFinite(gridPowerW)) {
+  recentExportsByAdapter.delete(adapter);
+  return 0;
+ }
+ const previous = recentExportsByAdapter.get(adapter) ?? [];
+ const samples = [...previous.filter(s => now - s.at >= 0 && now - s.at <= 20 * 60_000), { at: now, exportW: Math.max(0, -gridPowerW) }].slice(-1200);
+ recentExportsByAdapter.set(adapter, samples);
+ if (samples.length < 10 || now - samples[0]!.at < 19 * 60_000) return 0;
+ if (samples.some((s, i) => i > 0 && s.at - samples[i - 1]!.at > 120_000)) return 0;
+ return samples.reduce((sum, s) => sum + s.exportW, 0) / samples.length;
+}
 
 export interface StrategyIoBrokerAutomaticChargingAdapter extends StrategyIoBrokerRuntimeAdapter, StrategyIoBrokerDaylightAdapter, StrategyChargingIoBrokerAdapter, StrategyDaylightDiagnosticAdapter {
 	getStateAsync(stateId: string): Promise<ioBroker.State | null | undefined>;
@@ -178,7 +192,13 @@ export async function executeStrategyIoBrokerAutomaticChargingCycle(adapter: Str
 	if (createdAt < daylightWindow.startsAt || createdAt >= daylightWindow.endsAt) return applyChargePowerTarget(adapter, configuration, contract, fallbackPublication(configuration, createdAt, "outside-daylight", remainingDaylightMinutes), stateOfChargePercent);
 	const forecastEnergyRemainingWh = resolution.pvForecast.energyNowUntilEndOfDay.value;
 	if (stateOfChargePercent === null || forecastEnergyRemainingWh === null) return applyChargePowerTarget(adapter, configuration, contract, fallbackPublication(configuration, createdAt, "inputs-not-ready", remainingDaylightMinutes), stateOfChargePercent);
-	const [householdEnergyRemainingWh, previousDecisionReason] = await Promise.all([readLearnedHouseholdEnergyRemainingWh(adapter, createdAt), readPreviousDecisionReason(adapter)]);
+	const [householdEnergyRemainingWh, previousDecisionReason, confidenceState, learningUpdateState] = await Promise.all([
+  readLearnedHouseholdEnergyRemainingWh(adapter, createdAt),
+  readPreviousDecisionReason(adapter),
+  adapter.getStateAsync(STRATEGY_HOUSEHOLD_LEARNING_STATE_IDS.confidence).catch(() => null),
+  adapter.getStateAsync(STRATEGY_HOUSEHOLD_LEARNING_STATE_IDS.lastUpdate).catch(() => null),
+ ]);
+ const sustainedExport = sustainedExportPowerW(adapter, createdAt, resolution.modbus.smartMeterPower.value);
 	const totalDaylightMs = daylightWindow.endsAt - daylightWindow.startsAt;
 	const decision = createStrategyChargingDecision(configuration, {
 		stateOfChargePercent,
@@ -188,6 +208,11 @@ export async function executeStrategyIoBrokerAutomaticChargingCycle(adapter: Str
 		elapsedDaylightMs: createdAt - daylightWindow.startsAt,
 		totalDaylightMs,
 		previousDecisionReason,
+  sustainedExportPowerW: sustainedExport,
+  householdLearningEstablished: confidenceState?.val === "established"
+   && typeof learningUpdateState?.val === "number"
+   && createdAt >= learningUpdateState.val
+   && createdAt - learningUpdateState.val <= MAXIMUM_HOUSEHOLD_LEARNING_AGE_MS,
 	});
 	if (!decision.valid) return applyChargePowerTarget(adapter, configuration, contract, fallbackPublication(configuration, createdAt, "invalid-input", remainingDaylightMinutes), stateOfChargePercent);
 	const publication = strategyChargingPublicationFromDecision(decision, createdAt);
