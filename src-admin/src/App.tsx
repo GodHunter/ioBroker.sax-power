@@ -182,6 +182,7 @@ firstMeasurement: "",
 statisticsLastUpdate: "",
 strategyState: "unknown",
 strategyDetail: "",
+pvOpportunityDiagnostics: "",
 pvPower: null,
 houseConsumptionPower: null,
 gridPower: null,
@@ -352,6 +353,7 @@ firstMeasurementState,
 statisticsLastUpdateState,
 strategyState,
 strategyDetailState,
+pvOpportunityState,
 pvPowerState,
 houseConsumptionPowerState,
 gridPowerState,
@@ -395,6 +397,7 @@ this.socket.getState(
 this.socket.getState(
 `${namespace}.info.strategyDetail`,
 ),
+this.socket.getState(`${namespace}.strategy.charging.pvOpportunityDiagnostics`),
 this.socket.getState(
 `${namespace}.live.pvPower`,
 ),
@@ -560,6 +563,7 @@ this.readStateValue(
 strategyDetailState,
 ) ?? "",
 ),
+pvOpportunityDiagnostics: String(this.readStateValue(pvOpportunityState) ?? ""),
 
 pvPower:
 this.readNumberState(
@@ -2154,6 +2158,34 @@ return (
 </CardContent>
 </Card>
 
+{native.strategyEnabled === true && native.strategyChargingControlEnabled === true ? (() => {
+let data: {
+export?: { reason?: string; sampleCount?: number; durationMinutes?: number; averageExportW?: number; qualified?: boolean };
+householdLearning?: { confidence?: string; ageMs?: number | null; establishedAndFresh?: boolean };
+opportunity?: { available?: boolean; reason?: string; socLiftPercent?: number };
+chargingDecisionReason?: string;
+} | null = null;
+try { data = JSON.parse(this.state.runtimeStatus.pvOpportunityDiagnostics) as typeof data; } catch { /* Not published yet. */ }
+if (!data || typeof data !== "object") return <Alert severity="info" sx={{ mt: 2 }}>PV-Ladechance: Noch keine Diagnosedaten verfügbar.</Alert>;
+const reasonLabels: Record<string, string> = {
+"qualified": "Messfenster gültig", "insufficient-samples": "Zu wenige Messwerte",
+"insufficient-duration": "Messdauer noch zu kurz", "sample-gap": "Messreihe unterbrochen",
+"invalid-grid-reading": "Netzleistung ungültig", "household-learning-unavailable": "Haushaltslernmodell nicht bereit",
+"export-window-unavailable": "Überschussmessung nicht verfügbar", "export-below-threshold": "Überschuss unter 250 W",
+"no-soc-lift-needed": "Kein SOC-Aufschlag erforderlich", "available": "PV-Ladechance erkannt",
+"target-deadline-recovery": "Laden zur Einhaltung des Zielzeitpunkts",
+};
+const label = (value?: string): string => value ? (reasonLabels[value] ?? value) : "Unbekannt";
+return <Card elevation={0} sx={{ mt: 2, border: 1, borderColor: "divider", borderRadius: 3 }}><CardContent>
+<Typography variant="h6" sx={{ fontWeight: 700 }}>PV-Ladechance – Diagnose</Typography>
+<Typography variant="body2">Status: {label(data.opportunity?.reason)}</Typography>
+<Typography variant="body2">Netzüberschuss: {data.export?.averageExportW?.toFixed(0) ?? "–"} W · {data.export?.sampleCount ?? 0} Messwerte · {(data.export?.durationMinutes ?? 0).toFixed(1)} Minuten</Typography>
+<Typography variant="body2">Messfenster: {label(data.export?.reason)}</Typography>
+<Typography variant="body2">Haushaltslernmodell: {data.householdLearning?.confidence ?? "unbekannt"} · {data.householdLearning?.establishedAndFresh ? "aktuell" : "nicht bereit oder veraltet"}</Typography>
+<Typography variant="body2">SOC-Aufschlag: {(data.opportunity?.socLiftPercent ?? 0).toFixed(2)} Prozentpunkte</Typography>
+<Typography variant="body2">Ladeentscheidung: {label(data.chargingDecisionReason)}</Typography>
+</CardContent></Card>;
+})() : null}
 {native.strategyEnabled === true ? (
 <>
 <Card elevation={0} sx={{ border: 1, borderColor: "divider", borderRadius: 3 }}>
