@@ -17,7 +17,7 @@ const HOUR = 60 * 60 * 1000;
 describe("strategy charging decision", () => {
 	it("releases ahead limiting when export opportunity and forecast pressure are both present", () => {
 		const input = {
-			stateOfChargePercent: 60,
+			stateOfChargePercent: 65,
 			forecastEnergyRemainingWh: 4000,
 			remainingDaylightMs: 5 * HOUR,
 			elapsedDaylightMs: 5 * HOUR,
