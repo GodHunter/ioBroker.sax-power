@@ -346,6 +346,18 @@ export function createStrategyChargingDecision(
 		reason = "trajectory-ahead-limited";
 	}
 
+	// A qualified real export opportunity must affect the actual R44 request,
+	// not just the SOC trajectory. Never request more than the measured export,
+	// the configured charge limit, or the energy still needed to reach target.
+	// The final 15-minute cap prevents excessive power close to target SOC.
+	if (lift > 0 && !deadlineUnderPressure) {
+		const opportunityPowerW = Math.min(
+			input.sustainedExportPowerW ?? 0,
+			energyRequiredWh / (TARGET_SOC_MAINTENANCE_REFILL_WINDOW_MS / 3_600_000),
+		);
+		desiredPowerW = Math.max(desiredPowerW, opportunityPowerW);
+	}
+
 	const chargePowerLimitW = roundPower(Math.min(
 		configuration.maximumChargePowerW,
 		desiredPowerW,
