@@ -1,4 +1,5 @@
 import type { StrategyConfiguration } from "./strategyConfiguration";
+import { diagnoseStrategyExportWindow, type StrategyExportQualification } from "./strategyExportDiagnostics";
 import { createStrategyChargeReserve } from "./strategyChargeReserve";
 import type { StrategyChargingDecisionReason } from "./strategyChargingDecision";
 import { createStrategyChargingDecision } from "./strategyChargingDecision";
@@ -16,18 +17,24 @@ const MAXIMUM_ACCEPTANCE_LEARNING_AGE_MS = 120_000;
 const POWER_ACCEPTANCE_ROOT = "summary.battery.powerAcceptance";
 const recentStableTargetsByAdapter = new WeakMap<object, Map<string, StrategyChargingInputGraceSnapshot>>();
 const recentExportsByAdapter = new WeakMap<object, readonly { at: number; exportW: number }[]>();
+const exportDiagnosticsByAdapter = new WeakMap<object, StrategyExportQualification>();
+/** Latest read-only export qualification snapshot for an adapter instance. */
+export function getStrategyExportDiagnostics(adapter: object): StrategyExportQualification | null {
+	return exportDiagnosticsByAdapter.get(adapter) ?? null;
+}
 /** Returns zero until 20 minutes of continuous, valid grid measurements are available. */
 function sustainedExportPowerW(adapter: object, now: number, gridPowerW: number | null): number {
 	if (gridPowerW === null || !Number.isFinite(gridPowerW)) {
 		recentExportsByAdapter.delete(adapter);
+		exportDiagnosticsByAdapter.set(adapter, diagnoseStrategyExportWindow([{ at: now, exportW: -1 }], now));
 		return 0;
 	}
 	const previous = recentExportsByAdapter.get(adapter) ?? [];
 	const samples = [...previous.filter(s => now - s.at >= 0 && now - s.at <= 20 * 60_000), { at: now, exportW: Math.max(0, -gridPowerW) }].slice(-1200);
 	recentExportsByAdapter.set(adapter, samples);
-	if (samples.length < 10 || now - samples[0]!.at < 19 * 60_000) return 0;
-	if (samples.some((s, i) => i > 0 && s.at - samples[i - 1]!.at > 120_000)) return 0;
-	return samples.reduce((sum, s) => sum + s.exportW, 0) / samples.length;
+	const diagnostics = diagnoseStrategyExportWindow(samples, now);
+	exportDiagnosticsByAdapter.set(adapter, diagnostics);
+	return diagnostics.sustainedExportPowerW;
 }
 
 export interface StrategyIoBrokerAutomaticChargingAdapter extends StrategyIoBrokerRuntimeAdapter, StrategyIoBrokerDaylightAdapter, StrategyChargingIoBrokerAdapter, StrategyDaylightDiagnosticAdapter {
