@@ -84,24 +84,24 @@ export function estimateStrategyHouseholdLoad(slot: StrategyHouseholdLoadSlot): 
 }
 
 export function estimateRemainingStrategyHouseholdEnergyWh(slots: readonly StrategyHouseholdLoadSlot[], from: Date, until: Date): number {
- if (!Number.isFinite(from.getTime()) || !Number.isFinite(until.getTime()) || until.getTime() <= from.getTime()) return 0;
- // Integrate elapsed time, including partial slots, midnight and DST boundaries.
- let cursor = from.getTime();
- const end = until.getTime();
- let totalWh = 0;
- while (cursor < end) {
-  const date = new Date(cursor);
-  const dayClass = resolveStrategyHouseholdDayClass(date);
-  const slotIndex = resolveStrategyHouseholdLoadSlotIndex(date);
-  const fallbackWh = conservativeFallbackWh(slots, dayClass);
-  const slot = slots.find(s => s.dayClass === dayClass && s.slotIndex === slotIndex);
-  const estimate = slot === undefined ? null : estimateStrategyHouseholdLoad(slot);
-  const expectedWh = estimate?.available ? estimate.expectedWh : fallbackWh;
-  const localMinutes = date.getMinutes() % HOUSEHOLD_LOAD_SLOT_MINUTES;
-  const next = Math.min(end, cursor + (HOUSEHOLD_LOAD_SLOT_MINUTES - localMinutes) * 60_000 - date.getSeconds() * 1000 - date.getMilliseconds());
-  if (next <= cursor) break;
-  totalWh += expectedWh * (next - cursor) / (HOUSEHOLD_LOAD_SLOT_MINUTES * 60_000);
-  cursor = next;
- }
- return roundEnergy(totalWh);
+	if (!Number.isFinite(from.getTime()) || !Number.isFinite(until.getTime()) || until.getTime() <= from.getTime()) return 0;
+	// Integrate elapsed time, including partial slots, midnight and DST boundaries.
+	let cursor = from.getTime();
+	const end = until.getTime();
+	let totalWh = 0;
+	while (cursor < end) {
+		const date = new Date(cursor);
+		const dayClass = resolveStrategyHouseholdDayClass(date);
+		const slotIndex = resolveStrategyHouseholdLoadSlotIndex(date);
+		const fallbackWh = conservativeFallbackWh(slots, dayClass);
+		const slot = slots.find(s => s.dayClass === dayClass && s.slotIndex === slotIndex);
+		const estimate = slot === undefined ? null : estimateStrategyHouseholdLoad(slot);
+		const expectedWh = estimate?.available ? estimate.expectedWh : fallbackWh;
+		const localMinutes = date.getMinutes() % HOUSEHOLD_LOAD_SLOT_MINUTES;
+		const next = Math.min(end, cursor + (HOUSEHOLD_LOAD_SLOT_MINUTES - localMinutes) * 60_000 - date.getSeconds() * 1000 - date.getMilliseconds());
+		if (next <= cursor) break;
+		totalWh += expectedWh * (next - cursor) / (HOUSEHOLD_LOAD_SLOT_MINUTES * 60_000);
+		cursor = next;
+	}
+	return roundEnergy(totalWh);
 }
