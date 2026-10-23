@@ -67,6 +67,44 @@ describe("strategy charging decision", () => {
 		expect(decision.plannedSocUpperPercent).to.be.at.most(100);
 	});
 
+	it("does not accelerate without established household learning", () => {
+		const input = {
+			stateOfChargePercent: 65,
+			forecastEnergyRemainingWh: 4000,
+			remainingDaylightMs: 5 * HOUR,
+			elapsedDaylightMs: 5 * HOUR,
+			totalDaylightMs: 10 * HOUR,
+		};
+		const baseline = createStrategyChargingDecision(configuration, input);
+		const untrusted = createStrategyChargingDecision(configuration, {
+			...input,
+			sustainedExportPowerW: 1200,
+			householdLearningEstablished: false,
+		});
+		expect(untrusted).to.deep.equal(baseline);
+	});
+
+	it("caps opportunistic charging to observed export and configured power", () => {
+		const input = {
+			stateOfChargePercent: 65,
+			forecastEnergyRemainingWh: 4000,
+			remainingDaylightMs: 5 * HOUR,
+			elapsedDaylightMs: 5 * HOUR,
+			totalDaylightMs: 10 * HOUR,
+			householdLearningEstablished: true,
+		};
+		const moderate = createStrategyChargingDecision(configuration, {
+			...input,
+			sustainedExportPowerW: 1200,
+		});
+		const strong = createStrategyChargingDecision(configuration, {
+			...input,
+			sustainedExportPowerW: 9000,
+		});
+		expect(moderate.chargePowerLimitW).to.be.at.most(1200);
+		expect(strong.chargePowerLimitW).to.be.at.most(configuration.maximumChargePowerW);
+	});
+
 	it("calculates the remaining battery energy from usable capacity", () => {
 		const decision = createStrategyChargingDecision(configuration, {
 			stateOfChargePercent: 50,
