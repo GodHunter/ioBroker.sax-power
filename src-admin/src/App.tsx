@@ -2159,33 +2159,40 @@ return (
 </Card>
 
 {native.strategyEnabled === true && native.strategyChargingControlEnabled === true ? (() => {
-let data: {
+type Diagnostics = {
 export?: { reason?: string; sampleCount?: number; durationMinutes?: number; averageExportW?: number; qualified?: boolean };
 householdLearning?: { confidence?: string; ageMs?: number | null; establishedAndFresh?: boolean };
 opportunity?: { available?: boolean; reason?: string; socLiftPercent?: number };
 chargingDecisionReason?: string;
-} | null = null;
-try { data = JSON.parse(this.state.runtimeStatus.pvOpportunityDiagnostics) as typeof data; } catch { /* Not published yet. */ }
-if (!data || typeof data !== "object") return <Alert severity="info" sx={{ mt: 2 }}>PV-Ladechance: Noch keine Diagnosedaten verfügbar.</Alert>;
-const reasonLabels: Record<string, string> = {
-"qualified": "Messfenster gültig", "insufficient-samples": "Zu wenige Messwerte",
-"insufficient-duration": "Messdauer noch zu kurz", "sample-gap": "Messreihe unterbrochen",
-"invalid-grid-reading": "Netzleistung ungültig", "household-learning-unavailable": "Haushaltslernmodell nicht bereit",
-"export-window-unavailable": "Überschussmessung nicht verfügbar", "export-below-threshold": "Überschuss unter 250 W",
-"no-soc-lift-needed": "Kein SOC-Aufschlag erforderlich", "available": "PV-Ladechance erkannt",
-"target-deadline-recovery": "Laden zur Einhaltung des Zielzeitpunkts",
 };
-const label = (value?: string): string => value ? (reasonLabels[value] ?? value) : "Unbekannt";
+const parseDiagnostics = (raw: string): Diagnostics | null => {
+try {
+const parsed: unknown = JSON.parse(raw);
+return parsed !== null && typeof parsed === "object" && !Array.isArray(parsed) ? parsed as Diagnostics : null;
+} catch { return null; }
+};
+const data = parseDiagnostics(this.state.runtimeStatus.pvOpportunityDiagnostics);
+if (!data) return <Alert severity="info" sx={{ mt: 2 }}>{translate("PV opportunity diagnostics unavailable")}</Alert>;
+const reasonLabels: Record<string, string> = {
+"qualified": "Export window qualified", "insufficient-samples": "Not enough export samples",
+"insufficient-duration": "Export window too short", "sample-gap": "Export samples interrupted",
+"invalid-grid-reading": "Invalid grid reading", "household-learning-unavailable": "Household learning unavailable",
+"export-window-unavailable": "Export window unavailable", "export-below-threshold": "Export below 250 W",
+"no-soc-lift-needed": "No SOC lift needed", "available": "PV opportunity available",
+"target-deadline-recovery": "Target deadline recovery",
+};
+const label = (value?: string): string => translate(value ? (reasonLabels[value] ?? value) : "Unknown");
 return <Card elevation={0} sx={{ mt: 2, border: 1, borderColor: "divider", borderRadius: 3 }}><CardContent>
-<Typography variant="h6" sx={{ fontWeight: 700 }}>PV-Ladechance – Diagnose</Typography>
-<Typography variant="body2">Status: {label(data.opportunity?.reason)}</Typography>
-<Typography variant="body2">Netzüberschuss: {data.export?.averageExportW?.toFixed(0) ?? "–"} W · {data.export?.sampleCount ?? 0} Messwerte · {(data.export?.durationMinutes ?? 0).toFixed(1)} Minuten</Typography>
-<Typography variant="body2">Messfenster: {label(data.export?.reason)}</Typography>
-<Typography variant="body2">Haushaltslernmodell: {data.householdLearning?.confidence ?? "unbekannt"} · {data.householdLearning?.establishedAndFresh ? "aktuell" : "nicht bereit oder veraltet"}</Typography>
-<Typography variant="body2">SOC-Aufschlag: {(data.opportunity?.socLiftPercent ?? 0).toFixed(2)} Prozentpunkte</Typography>
-<Typography variant="body2">Ladeentscheidung: {label(data.chargingDecisionReason)}</Typography>
+<Typography variant="h6" sx={{ fontWeight: 700 }}>{translate("PV opportunity diagnostics")}</Typography>
+<Typography variant="body2">{translate("Opportunity status")}: {label(data.opportunity?.reason)}</Typography>
+<Typography variant="body2">{translate("Average grid export")}: {data.export?.averageExportW?.toFixed(0) ?? "–"} W · {data.export?.sampleCount ?? 0} {translate("samples")} · {(data.export?.durationMinutes ?? 0).toFixed(1)} {translate("minutes")}</Typography>
+<Typography variant="body2">{translate("Export measurement window")}: {label(data.export?.reason)}</Typography>
+<Typography variant="body2">{translate("Household learning")}: {label(data.householdLearning?.confidence)} · {translate(data.householdLearning?.establishedAndFresh ? "Fresh" : "Unavailable or stale")}</Typography>
+<Typography variant="body2">{translate("SOC opportunity lift")}: {(data.opportunity?.socLiftPercent ?? 0).toFixed(2)} {translate("percentage points")}</Typography>
+<Typography variant="body2">{translate("Charging decision")}: {label(data.chargingDecisionReason)}</Typography>
 </CardContent></Card>;
 })() : null}
+
 {native.strategyEnabled === true ? (
 <>
 <Card elevation={0} sx={{ border: 1, borderColor: "divider", borderRadius: 3 }}>
