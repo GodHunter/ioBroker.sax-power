@@ -210,21 +210,21 @@ export function createStrategyChargingDecision(
 	const usableCapacityWh = model.usableCapacityKwh * 1_000;
 	const deadlineRemainingMs = targetDeadlineRemainingMs(input.remainingDaylightMs);
 	const baselineTrajectory = trajectory(configuration, input, usableCapacityWh, deadlineRemainingMs);
- const opportunityRequiredWh = usableCapacityWh * Math.max(0, configuration.maximumStateOfChargePercent - input.stateOfChargePercent) / 100;
- const opportunityForecastWh = Math.max(0, input.forecastEnergyRemainingWh - householdEnergyRemainingWh - configuration.pvForecastReserveWh);
- const lift = calculateStrategyOpportunitySocLift({
-  forecastMarginWh: opportunityForecastWh - opportunityRequiredWh,
-  requiredEnergyWh: opportunityRequiredWh,
-  sustainedExportPowerW: input.sustainedExportPowerW ?? 0,
-  householdLearningEstablished: input.householdLearningEstablished === true,
- });
- const adjustedSoc = Math.min(configuration.maximumStateOfChargePercent, baselineTrajectory.plannedSocPercent + lift);
- const trajectoryState = Object.freeze({
-  plannedSocPercent: adjustedSoc,
-  plannedSocLowerPercent: Math.max(configuration.minimumStateOfChargePercent, adjustedSoc - TRAJECTORY_CORRIDOR_PERCENT),
-  plannedSocUpperPercent: Math.min(configuration.maximumStateOfChargePercent, adjustedSoc + TRAJECTORY_CORRIDOR_PERCENT),
-  socDeviationPercent: input.stateOfChargePercent - adjustedSoc,
- });
+	const opportunityRequiredWh = usableCapacityWh * Math.max(0, configuration.maximumStateOfChargePercent - input.stateOfChargePercent) / 100;
+	const opportunityForecastWh = Math.max(0, input.forecastEnergyRemainingWh - householdEnergyRemainingWh - configuration.pvForecastReserveWh);
+	const lift = calculateStrategyOpportunitySocLift({
+		forecastMarginWh: opportunityForecastWh - opportunityRequiredWh,
+		requiredEnergyWh: opportunityRequiredWh,
+		sustainedExportPowerW: input.sustainedExportPowerW ?? 0,
+		householdLearningEstablished: input.householdLearningEstablished === true,
+	});
+	const adjustedSoc = Math.min(configuration.maximumStateOfChargePercent, baselineTrajectory.plannedSocPercent + lift);
+	const trajectoryState = Object.freeze({
+		plannedSocPercent: adjustedSoc,
+		plannedSocLowerPercent: Math.max(configuration.minimumStateOfChargePercent, adjustedSoc - TRAJECTORY_CORRIDOR_PERCENT),
+		plannedSocUpperPercent: Math.min(configuration.maximumStateOfChargePercent, adjustedSoc + TRAJECTORY_CORRIDOR_PERCENT),
+		socDeviationPercent: input.stateOfChargePercent - adjustedSoc,
+	});
 	const targetSocPercent = configuration.maximumStateOfChargePercent;
 	const socGapPercent = Math.max(0, targetSocPercent - input.stateOfChargePercent);
 	const energyRequiredWh = usableCapacityWh * socGapPercent / 100;
