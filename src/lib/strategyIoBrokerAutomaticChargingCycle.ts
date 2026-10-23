@@ -1,5 +1,6 @@
 import type { StrategyConfiguration } from "./strategyConfiguration";
 import { diagnoseStrategyExportWindow, type StrategyExportQualification } from "./strategyExportDiagnostics";
+import { calculateStrategyOpportunitySocLift } from "./strategyChargeOpportunity";
 import { createStrategyChargeReserve } from "./strategyChargeReserve";
 import type { StrategyChargingDecisionReason } from "./strategyChargingDecision";
 import { createStrategyChargingDecision } from "./strategyChargingDecision";
@@ -207,6 +208,12 @@ export async function executeStrategyIoBrokerAutomaticChargingCycle(adapter: Str
 	]);
 	const sustainedExport = sustainedExportPowerW(adapter, createdAt, resolution.modbus.smartMeterPower.value);
 	const totalDaylightMs = daylightWindow.endsAt - daylightWindow.startsAt;
+	const learningUpdatedAt = typeof learningUpdateState?.val === "number" && Number.isFinite(learningUpdateState.val)
+		? learningUpdateState.val : null;
+	const learningAgeMs = learningUpdatedAt === null ? null : createdAt - learningUpdatedAt;
+	const householdLearningEstablished = confidenceState?.val === "established"
+		&& learningAgeMs !== null && learningAgeMs >= 0
+		&& learningAgeMs <= MAXIMUM_HOUSEHOLD_LEARNING_AGE_MS;
 	const decision = createStrategyChargingDecision(configuration, {
 		stateOfChargePercent,
 		forecastEnergyRemainingWh,
@@ -216,13 +223,43 @@ export async function executeStrategyIoBrokerAutomaticChargingCycle(adapter: Str
 		totalDaylightMs,
 		previousDecisionReason,
 		sustainedExportPowerW: sustainedExport,
-		householdLearningEstablished: confidenceState?.val === "established"
-			&& typeof learningUpdateState?.val === "number"
-			&& createdAt >= learningUpdateState.val
-			&& createdAt - learningUpdateState.val <= MAXIMUM_HOUSEHOLD_LEARNING_AGE_MS,
+		householdLearningEstablished,
 	});
 	if (!decision.valid) return applyChargePowerTarget(adapter, configuration, contract, fallbackPublication(configuration, createdAt, "invalid-input", remainingDaylightMinutes), stateOfChargePercent);
-	const publication = strategyChargingPublicationFromDecision(decision, createdAt);
+	const exportDiagnostics = getStrategyExportDiagnostics(adapter);
+	const socLiftPercent = calculateStrategyOpportunitySocLift({
+		forecastMarginWh: decision.forecastMarginWh,
+		requiredEnergyWh: decision.energyRequiredWh,
+		sustainedExportPowerW: sustainedExport,
+		householdLearningEstablished,
+	});
+	const opportunityReason = !householdLearningEstablished
+		? "household-learning-unavailable"
+		: !exportDiagnostics?.qualified
+			? (exportDiagnostics?.reason ?? "export-window-unavailable")
+			: sustainedExport <= 250
+				? "export-below-threshold"
+				: socLiftPercent <= 0
+					? "no-soc-lift-needed"
+					: "available";
+	const publication = {
+		...strategyChargingPublicationFromDecision(decision, createdAt),
+		pvOpportunityDiagnostics: JSON.stringify({
+			at: createdAt,
+			export: exportDiagnostics,
+			householdLearning: {
+				confidence: typeof confidenceState?.val === "string" ? confidenceState.val : "unknown",
+				ageMs: learningAgeMs,
+				establishedAndFresh: householdLearningEstablished,
+			},
+			opportunity: {
+				available: opportunityReason === "available",
+				reason: opportunityReason,
+				socLiftPercent,
+			},
+			chargingDecisionReason: decision.reason,
+		}),
+	} satisfies StrategyChargingPublication;
 	recentStableTargets(adapter).set(contract.modbus.chargePowerCommand.stateId, Object.freeze({
 		recordedAt: createdAt,
 		targetChargePowerW: publication.targetChargePowerW,
